@@ -1,0 +1,131 @@
+covariate,Label
+conus.grid.id,Conus grid id
+sp.grid.id,Species grid id
+tmin,Minimum temperature
+tmax,Maximum temperature
+prec,Annual precipitation
+spr.prec,Spring precipitation
+elevation,Elevation
+slope,Slope
+aspect,Aspect
+TRI,TRI
+flowdir,Flow direction
+aspect.mode.mean,Aspect (mode)
+aspect.mode.random,Aspect (mode)
+N,Area facing north
+NE,Area facing northeast
+E,Area facing east
+SE,Area facing southeast
+S,Area facing south
+SW,Area facing southwest
+W,Area facing west
+NW,Area facing northwest
+flat,Flat area
+streamLength.km,Total stream length (km)
+streamOrd.mean,Average stream order
+streamOrd3,Order 1 stream length (km)
+streamOrd2,Order 2 stream length (km)
+streamOrd1,Order 3 stream length (km)
+streamOrd4,Order 4 stream length (km)
+streamOrd5,Order 5 stream length (km)
+streamOrd6,Order 6 stream length (km)
+streamOrd7,Order 7 stream length (km)
+streamOrd8,Order 8 stream length (km)
+streamOrd9,Order 9 stream length (km)
+streamOrd10,Order 10 stream length (km)
+artificialLength.km,Length of articifial streams (km)
+footprint,Human footprint
+temperate/subpolar needleleaf forest,Temperate/subpolar needleleaf forest
+subpolar taiga needleleaf forest,Subpolar taiga needleleaf forest
+tropical/subtropical broadleaf evergreen forest,Tropical/subtropical broadleaf evergreen forest
+tropical/subtropical broadleaf deciduous forest,Tropical/subtropical broadleaf deciduous forest
+temperature/subpolar broadleave deciduous forest,Temperate/subpolar broadleaf deciduous forest
+mixed forest,Mixed forest
+tropical/subtropical shrubland,Tropical/subtropical shrubland
+temperate/subpolar shrubland,Temperate/subpolar shrubland
+tropical/subtropical grassland,Tropical/subtropical grassland
+temperature/subpolar grassland,Temperate/subpolar grassland
+subpolar/polar shrubland-lichen-moss,Subpolar/polar shrubland-lichen-moss
+subpolar/polar grassland-lichen-moss,Subpolar/polar grassland-lichen-moss
+subpolar/polar barren-lichen-moss,Subpolar/polar barren-lichen-moss
+wetland,Wetland
+cropland,Cropland
+barren,Barren
+urban/built,Urban/built
+water,Water
+snow/ice,Snow/ice
+forest,Forest
+shrub,Shrub
+grass,Grass
+density,Human density
+protected.FED,Federally protected land
+protected.LOC,Locally protected land
+protected.UNK,Protected land (unknown)
+protected.STAT,State protected land
+protected.NGO,NGO protected land
+protected.DIST,District protected land
+protected.PVT,Private protected land
+protected.JNT,Joint protected land
+protected.TRIB,Tribal protected land
+protected.TOT,Total protected land
+roadLength.km,Total road length (km)
+traveltime,Travel time to nearest city
+area_large,Total area of large water bodies
+area_medium,Total area of medium water bodies
+area_small,Total area of small water bodies
+n_large,Number of large water bodies
+n_medium,Number of medium water bodies
+n_small,Number of small water bodies
+n.inat,Number of iNaturalist records
+lon,Longitude
+lat,Latitude
+mean.spring.discharge,Mean spring discharge
+mean.summer.discharge,Mean summer discharge
+prop.flood.year.spring,Proportion of years with spring floods
+prop.flood.year.summer,Proportion of years with summer floods
+CWD_CNRM85,"CWD, projected CNRM RCP 8.5"
+CWD_hist,Climatic water deficit (CWD)
+CWD_IPSL45,"CWD, projected IPSL RCP 4.5"
+CWD_IPSL85,"CWD, projected IPSL RCP 8.5"
+CWD_CNRM45,"CWD, projected CNRM RCP 4.5"
+CWD_INMCM45,"CWD, projected INMCM RCP 4.5"
+CWD_INMCM85,"CWD, projected INMCM RCP 8.5"
+riparian,Riparian habitat
+res.area,Total reservoir area
+res.YN,Reservoir present
+sqrt.mean.spring.discharge,Sqrt(Mean spring discharge)
+curt.mean.spring.discharge,Cbrt(Mean spring discharge)
+rain_45_4069,"Rainfall, projected RCP 4.5 2040-2069"
+rain_85_4069,"Rainfall, projected RCP 8.5 2040-2069"
+rain_45_7099,"Rainfall, projected RCP 4.5 2070-2099"
+rain_85_7099,"Rainfall, projected RCP 8.5 2070-2099"
+rain_current,Rainfall
+sqrtarea_small,Sqrt(Area of small water bodies)
+sqrtarea_medium,Sqrt(Area of medium water bodies)
+cwd_45_4069,"CWD, projected RCP 4.5 2040-2069"
+cwd_85_4069,"CWD, projected RCP 8.5 2040-2069"
+cwd_45_7099,"CWD, projected RCP 4.5 2070-2099"
+cwd_85_7099,"CWD, projected RCP 8.5 2070-2099"
+cwd_current,Climatic water deficit (CWD)
+soilwater_45_4069,"Soilwater, projected RCP 4.5 2040-2069"
+soilwater_85_4069,"Soilwater, projected RCP 8.5 2040-2069"
+soilwater_45_7099,"Soilwater, projected RCP 4.5 2070-2099"
+soilwater_85_7099,"Soilwater, projected RCP 8.5 2070-2099"
+soilwater_current,Soilwater
+annual_climate_velocity,Annual climate velocity
+region,Region
+N_all,"Area facing northeast, north, or northwest"
+clade,Clade
+rain,Rain
+yday,Day of year
+intercept,Intercept
+effort,Effort
+distance,Distance surveyed
+duration,Duration of survey
+nonnative,Presence of nonnative species
+ann.waterperm,Permanent water
+totaldistancem,Distance surveyed
+elevation_x_region.east,Elevation x Region
+region.east,Region (east)
+time,Duration of survey
+numobservers,Number of observers
