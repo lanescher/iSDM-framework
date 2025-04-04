@@ -1,0 +1,693 @@
+## ---------------------------
+## Objective: 
+##    - Imports species and covariate data
+##    - Scales covariates
+##    - Sets up data for NIMBLE
+## 
+## Input:
+##    - functions/FXN-MVPv1.1.R
+##    - code/03-species-models/MVPv1.csv
+##
+## Output: 
+##    - setup_BLOCK.rdata (saves environment for import to fit model)
+##
+## ---------------------------
+
+start1 <- Sys.time() 
+print(paste0('Beginning 01-flexiSDM script at ', start1))
+
+
+# summarize datasets to get up-to-date available datasets
+# this script also prints messages from QC functions
+# source("DATA SWAMP/00-summarize-datasets.R")
+
+
+# EDIT THIS SECTION ----
+nums.do <- 1
+block <- c("none")
+# block <- c("none", 1, 2, 3)
+local <- 1
+a <- 1
+# ---
+
+
+# DO NOT EDIT BELOW HERE ----
+args = commandArgs(trailingOnly = TRUE)
+
+if (length(args) > 0) {
+  
+  # Number of model to run
+  nums.do = as.numeric(args[1])
+  
+  # Assign a block to run if running locally
+  block = as.numeric(args[2])
+  
+  if (block == 4) {
+    block <- 'none'
+  }  
+  
+  # Running locally? Yes = 1
+  local = as.numeric(args[3])
+  
+  if (local == 0) {
+    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/')
+  } 
+} 
+
+# load libraries ----
+library(blockCV)
+library(tidyverse)
+library(sf)
+library(nimble)
+remotes::install_github("rileymummah/SpFut.flexiSDM")
+library(SpFut.flexiSDM)
+
+
+
+# Set up model variables ----
+mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% nums.do)
+
+tmp <- expand.grid(block.out = block, number = unique(mods$number))
+mods <- full_join(mods, tmp, by = c("number"))
+
+
+
+# Get variables for model from MVPv1.csv
+number <- mods$number[a]
+sp.code <- mods$sp.code[a]
+model <- mods$model[a]
+
+sp.auto <- mods$sp.auto[a]
+coarse.grid <- mods$coarse.grid[a]
+year.start <- mods$year.start[a]
+year.end <- mods$year.end[a]
+buffer <- mods$buffer[a]
+filter.region <- mods$filter.region[a]
+spat.bal <- mods$spat.bal[a]
+coordunc <- mods$coordunc[a]
+coordunc_na.rm <- mods$coordunc_na.rm[a]
+block.folds <- mods$block.folds[a]
+block.rows <- mods$block.rows[a]
+block.cols <- mods$block.cols[a]
+block.out <- mods$block.out[a]
+
+if (block.out == "none") {
+  blockname <- "full"
+} else {blockname <- block.out}
+
+zero_mean <- 1
+
+iter <- mods$iter[a]
+thin <- mods$thin[a]
+burnin <- floor(iter*0.75)
+region.sub <- mods$region.sub[a]
+lat.hi <- mods$lat.hi[a]
+lat.lo <- mods$lat.lo[a]
+lon.hi <- mods$lon.hi[a]
+lon.lo <- mods$lon.lo[a]
+
+project <- mods$project[a]
+if (block.out != "none") {
+  project <- 0
+}
+
+# Get covariates from MVPv1.csv
+covs.PO <- unlist(str_split(mods$covs.PO[a], pattern = ", "))
+covs.inat <- unlist(str_split(mods$covs.inat[a], pattern = ", "))
+covs.lin <- unlist(str_split(mods$covs.lin[a], pattern = ", "))
+covs.quad <- unlist(str_split(mods$covs.quad[a], pattern = ", "))
+covs.int.factor <- unlist(str_split(mods$covs.int.factor[a], pattern = ", "))
+reference <- mods$reference[a]
+covs.int.cont <- unlist(str_split(mods$covs.int.cont[a], pattern = ", "))
+check.covs <- mods$check.covs[a]
+
+Bpriordist <- mods$Bpriordist[a]
+Bpriorvar1 <- mods$Bpriorvar1[a]
+Bpriorvar2 <- mods$Bpriorvar2[a]
+
+process.intercept <- F
+
+# LANE
+common <- read.csv("data/00-speciescodes.csv") %>%
+          filter(DS.code == sp.code) %>%
+          pull(DS.common)
+
+
+
+
+
+# Ready to start processing ----
+print(paste0("MODEL: ",number,"_",sp.code,"_",model))
+print(paste0("BLOCK: ", block.out))
+print(paste0("PROJECTIONS: ", project))
+print(paste0("COVARIATES: ", paste0(c(covs.lin, covs.quad), collapse = ", ")))
+
+
+# Make output folder ----
+out.dir <- paste0("outputs/", number, "_", sp.code, "_", model, "/")
+if (dir.exists(out.dir) == F) {
+  dir.create(out.dir)
+}
+
+
+# Make region ----
+# Load ranges
+gappath <- list.files(paste0("data/", sp.code, "/GAP/"))[1] 
+range.path <- c(paste0("data/", sp.code, "/GAP/", gappath, "/"),
+                paste0("data/", sp.code, "/IUCN/"))
+range.name <- c("GAP", "IUCN")
+rangelist <- get_range(range.path,
+                       range.name,
+                       crs = 4326)
+
+
+# USA boundary
+exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
+             "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
+usa <- st_read("data/USA/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
+        filter((NAME %in% exclude) == F) %>%
+        st_union()
+# CONUS grid
+load("data/USA/grid-covar.rdata")
+
+# Region
+region <- make_region(rangelist,
+                      buffer = buffer,
+                      crs = 3857,
+                      sub = region.sub,
+                      boundary = usa,
+                      grid = conus.grid)
+
+
+
+# Set up cross validation blocks ----
+sb <- cv_spatial(x = region$sp.grid, 
+                 rows_cols = c(block.rows, block.cols),
+                 k = block.folds, 
+                 hexagon = F, 
+                 selection = "systematic", 
+                 biomod2 = F, 
+                 plot = F, 
+                 report = F)
+
+
+
+# Set up training and test sets based on cross validation blocks
+if (block.out == "none") {
+  test.i <- c()
+  train.i <- region$sp.grid$conus.grid.id
+  
+} else {
+  block1 <- sb$blocks %>%
+    filter(folds == block.out)
+  
+  # find grid.ids for test block, everything else is train
+  test.i1 <- st_intersection(region$sp.grid, block1)
+  test.i <- st_intersection(region$sp.grid, block1) %>%
+    pull(conus.grid.id) %>%
+    unique()
+  train.i <- filter(region$sp.grid, conus.grid.id %in% test.i == F) %>%
+    pull(conus.grid.id)
+  
+}
+
+
+
+# Covariate data ----
+# covar <- load_covar(sp.code,
+#                     region)
+load("data/USA/grid-covar.rdata")
+covar <- conus.covar.grid %>%
+  filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
+
+# load iNat data for similar species if it exists
+if (file.exists(paste0("data/", sp.code, "/iNat-supp.csv"))) {
+  cat("loading and aggregating iNat records of supplemental species\n")
+  
+  inat <- read.csv(paste0("data/", sp.code, "/iNat-supp.csv"))
+  
+  inat <- inat %>%
+            st_as_sf(crs = 4326,
+                         coords = c("lon", "lat")) %>%
+            st_transform(st_crs(region$sp.grid)) %>%
+            st_join(region$sp.grid, join = st_within) %>%
+            filter(is.na(conus.grid.id) == F) %>%
+            group_by(conus.grid.id) %>%
+            summarize(n.inat = n(), .groups = 'drop') %>%
+            st_drop_geometry()
+  
+  
+  covar <- left_join(covar, inat, by = c("conus.grid.id"))
+  covar$n.inat[which(is.na(covar$n.inat))] <- 0
+} else {
+  cat("Warning: iNat records of supplemental species have not been downloaded yet\n")
+}
+
+# add centroid lat and lon of each grid cell to covar
+centroid <- st_centroid(region$sp.grid) %>%
+              st_coordinates() %>%
+              as.data.frame() %>%
+              mutate(conus.grid.id = region$sp.grid$conus.grid.id)
+
+colnames(centroid)[1:2] <- c("lon", "lat")
+covar <- left_join(covar, centroid, by = "conus.grid.id")
+
+
+
+### Read in process covariates ----
+covs.z <- c(covs.lin, covs.quad, covs.int.factor)
+if ("" %in% covs.z) {
+  covs.z <- covs.z[-which(covs.z == "")]  
+}
+if (NA %in% covs.z) {
+  covs.z <- covs.z[-which(is.na(covs.z))]
+}
+
+
+
+### Add additional/derived covariates -----
+# If you add a new covariate, add a row to data/covariate-labels.csv with a label
+if (sp.code == "RACA") {
+  
+  rain <- read_rds("data/RACA/rain-grid.rds")
+  
+  covar <- left_join(covar, select(rain, !sp.grid.id), by = c("conus.grid.id")) %>%
+    mutate(sqrtarea_small = sqrt(area_small),
+           sqrtarea_medium = sqrt(area_medium))
+  
+  rm <- which(complete.cases(covar[,covs.z]) == F)
+  if (length(rm) > 0) {
+    covar <- covar[-rm,]
+    region$sp.grid <- region$sp.grid[-rm,]
+  }
+  
+  
+} else if (sp.code == "PLSE") {
+  
+  if (buffer == 1) regs <- c("east", "west", "west", "west", "west")
+  if (buffer == 100000) regs <- c("east", "west", "west")
+  reg <- region$region %>%
+    st_cast("POLYGON") %>%
+    mutate(region = regs)
+  
+  grid <- region$sp.grid %>%
+    st_intersection(reg) %>%
+    st_drop_geometry()
+  
+  covar <- covar %>%
+    mutate(N_all = N + NW + NE) %>%
+    full_join(grid, by = c("conus.grid.id", "sp.grid.id"))
+  
+  rm <- which(complete.cases(covar[,covs.z]) == F)
+  if (length(rm) > 0) {
+    covar <- covar[-rm,]
+    region$sp.grid <- region$sp.grid[-rm,]
+  }
+  
+}
+
+
+### Scale covariates ----
+covar_unscaled <- covar
+
+# scale numeric cols
+numcols <- sapply(covar, is.numeric)
+numcols <- which(numcols)
+numcols <- numcols[-which(numcols == 2)] # exclude sp.grid, which is numeric but shouldn't be scaled
+covar[,numcols] <- sapply(covar[,numcols], scale_this)
+
+# remove covariates that are correlated > 0.4
+if (check.covs == T){
+  covs.rm <- select_covar(covs.z, threshold = 0.4)
+  covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
+  covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
+  
+  covs.z <- c(covs.lin, covs.quad)
+}
+
+if (length(covs.z) < 3) {
+  stop("There are fewer than 3 covariates remaining! This probably isn't a good model")
+}
+
+
+### Plot covariates ----
+if (block.out == "none") {
+  
+  
+  # Process covs
+  
+  # get covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+    filter(covariate %in% covs.z)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-a_process-map")
+  
+  cor_covar(covar, 
+            cov.names = covlabs$covariate,
+            cov.labels = covlabs$Label,
+            out.path = out.dir,
+            out.name = "1_covariates-a_process-correlations", 
+            color.threshold = 0.25)
+  
+  
+  
+  # iNat covs
+  
+  # get covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+    filter(covariate %in% covs.inat)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-b_iNat-map")
+  
+  if (length(covs.inat) > 1) {
+    cor_covar(covar, 
+              cov.names = covlabs$covariate,
+              cov.labels = covlabs$Label,
+              out.path = out.dir,
+              out.name = "1_covariates-b_iNat-correlations", 
+              color.threshold = 0.25)
+  }
+  
+  
+  
+  # PO covs
+  
+  # get covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+    filter(covariate %in% covs.PO)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-c_PO-map")
+  
+  if (length(covs.PO) > 1) {
+    cor_covar(covar, 
+              cov.names = covlabs$covariate,
+              cov.labels = covlabs$Label,
+              out.path = out.dir,
+              out.name = "1_covariates-c_PO-correlations", 
+              color.threshold = 0.25)
+  }
+  
+}
+
+
+
+### Add quadratic covariates and interactions ----
+if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
+  for (c in 1:length(covs.quad)) {
+    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
+    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
+  }
+}
+
+# and interactions
+if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) {
+  
+  # pivot factor wider to get dummy cols
+  covar[,covs.int.factor] <- paste0(covs.int.factor, ".", covar[,covs.int.factor])
+  covar <- covar %>%
+    mutate(fact = 1) %>%
+    pivot_wider(names_from = all_of(covs.int.factor), values_from = fact, values_fill = 0)
+  
+  covs.z <- c(covs.z, colnames(covar)[grep(paste0(covs.int.factor, "."), colnames(covar))])
+  
+  for (j in 1:length(covs.int.cont)) {
+    # add interaction
+    tmp <- add_int_cols(covar, int.factor = covs.int.factor, int.cont = covs.int.cont[j])
+    covar <- tmp$covar
+    covs.z <- c(covs.z, tmp$names)
+  }
+  
+  # remove reference level
+  rm <- grep(reference, covs.z)
+  covs.z <- covs.z[-rm]
+  
+  # remove original column name
+  rm <- grep(covs.int.factor, covs.z)[1]
+  covs.z <- covs.z[-rm]
+}
+
+
+
+
+# Make gridkey and spatkey ----
+gridkey <- select(region$sp.grid, conus.grid.id) %>%
+            st_drop_geometry() %>%
+            mutate(grid.id = 1:nrow(.),
+                   group = case_when(conus.grid.id %in% train.i ~ "train",
+                                     conus.grid.id %in% test.i ~ "test"))
+
+if (coarse.grid == T) {
+  spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
+  
+  # Print spatial grid
+  if (block.out == 'none') {
+    pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
+    ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
+  }
+} else {
+  spatRegion <- NULL
+}
+
+
+# LANE - CHECK DATASET SUMMARIES
+
+
+# Species data ----
+# get all files that have data for that species
+allfiles <- read.csv("data/dataset-summary-full.csv") %>%
+  filter(species == sp.code)
+
+# detection covariates for each of these datasets
+covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
+  filter(Data.Swamp.file.name %in% allfiles$file) %>%
+  select(Covar.mean, Covar.sum, Area)
+covariates <- list()
+for (i in 1:nrow(covs)) {
+  covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
+  covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
+  area <- unlist(strsplit(covs$Area[i], split = ","))
+  covs1 <- c(covs.mean, covs.sum, area)
+  covs1 <- covs1[which(is.na(covs1) == F)]
+  covariates[[i]] <- covs1
+}
+
+species.data <- load_species_data(sp.code,
+                                  file.name = allfiles$file,
+                                  file.label = allfiles$name,
+                                  file.path = "DATA SWAMP/data-ready/",
+                                  keep.subsp = T,   # This is a new argument, might want to add it as an input to the csv
+                                  keep.cols = covariates,
+                                  region, 
+                                  filter.region = T,
+                                  year.start = 1994,
+                                  year.end = 2025,
+                                  coordunc = 1000,
+                                  coordunc_na.rm = T,
+                                  spat.thin = F,
+                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+
+### Plot species data ----
+if (block == "none") {
+  title <- ", full model"
+} else {
+  title <- paste0(", excluding block ", block)
+}
+
+pl <- map_species_data(region = region,
+                       species.data = species.data,
+                       year.start = year.start,
+                       year.end = year.end,
+                       plot = "samples",
+                       plot.region = T,
+                       details = T,
+                       title = paste0(common, " (", sp.code, ")", title))
+ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
+
+pl <- map_species_data(region = region,
+                       species.data = species.data,
+                       year.start = year.start,
+                       year.end = year.end,
+                       plot = "samples",
+                       plot.region = T,
+                       details = F,
+                       title = paste0(common, " (", sp.code, ")", title))
+ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10)
+
+
+if (block.out != "none") {
+  
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks[which(sb$blocks$folds == block),],
+                         plot.region = T,
+                         details = T,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+  
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks[which(sb$blocks$folds == block),],
+                         plot.region = T,
+                         details = F,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+  
+  
+} else {
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks,
+                         plot.region = T,
+                         details = T,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+  
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks,
+                         plot.region = T,
+                         details = F,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+  
+}
+
+
+
+
+# NIMBLE ----
+
+summary <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>%
+  filter(Data.Swamp.file.name %in% allfiles$file,
+         Name %in% names(species.data$obs))
+summary <- summary[sort(match(summary$Name, names(species.data$obs))),]
+
+sp.data <- sppdata_for_nimble(species.data,
+                              region,
+                              data.type = summary$Type.true,
+                              PO.extent = summary$PO.extent,
+                              covar = covar,
+                              covs.inat = covs.inat,
+                              covs.PO = covs.PO,
+                              covs.mean = summary$Covar.mean,
+                              covs.sum = summary$Covar.sum,
+                              offset.area = summary$Area,
+                              DND.maybe = 1,
+                              keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) # get rid of PO cells that are in the wrong grid cells
+
+
+### Data/constants ----
+tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
+                       sp.auto = sp.auto, coarse.grid = coarse.grid, region = region,
+                       process.intercept = process.intercept,
+                       gridkey = gridkey, spatRegion= spatRegion)
+
+data <- tmp$data
+constants <- tmp$constants
+
+
+if (sp.code == "ANMI") {
+  
+  # Need to replace NMGFD datasets with Bernoulli instead of occupancy
+  for (s in 1:length(species.data$obs)) {
+    nm <- constants[[paste0("name", s)]]
+    nm <- gsub(" .*", "", nm)
+    
+    if (nm %in% c("NMGFD", "AZGFD")) {
+      constants[[paste0("nVisitsV", s)]] <- 1
+    }
+  }
+  
+}
+
+
+
+if (model == "proj08nostate") {
+  if (sp.code == "EBIS") {
+    data$Xw3$WV <- NULL
+    data$Xw3$VT <- NULL
+    data$S3 <- NULL
+    
+    constants$nCovW3 <- ncol(data$Xw3)
+  } else {
+    stop("Don't know which states to remove")
+  }
+  
+  rm.state <- T
+} else {
+  rm.state <- F
+}
+
+
+
+### Code ----
+code <- nimble_code(data,
+                    constants, 
+                    path = out.dir,
+                    sp.auto = sp.auto, 
+                    coarse.grid = coarse.grid,
+                    Bpriordist = Bpriordist, Bpriorvar1 = Bpriorvar1, Bpriorvar2 = Bpriorvar2,
+                    block.out = block.out,
+                    min.visits.incl = 3, 
+                    zero_mean = zero_mean,
+                    rm.state = rm.state)
+
+### Initial values ----
+inits <- function(x){nimble_inits(data,
+                                  constants,
+                                  sp.auto = sp.auto,
+                                  seed = x)}
+
+### Parameters ----
+params <- nimble_params(data,
+                        constants,
+                        lambda = T,
+                        XB = T,
+                        sp.auto = sp.auto)
+
+
+
+end1 <- Sys.time() - start1
+
+# Remove local and block in case the setup is run locally but the model is fit on the HPC.
+# Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
+rm(list=c('local','block','args','conus.covar.grid','conus.grid','usa','conus',
+          'pl','centroid'))
+
+
+# Save environment and full set up
+save.image(paste0(out.dir, "setup_",block.out,".Rdata"))
+
+
+# End script - proceed to 02-flexiSDM.R
