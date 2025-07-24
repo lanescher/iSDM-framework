@@ -127,11 +127,33 @@ Bpriorvar2 <- mods$Bpriorvar2[a]
 
 process.intercept <- F
 
-# LANE
-common <- read.csv("data/00-speciescodes.csv") %>%
-          filter(DS.code == sp.code) %>%
-          pull(DS.common)
 
+codeKey <- read.csv("data/model-specieslist.csv")
+common <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.common)
+sp.code.all <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(all.codes)
+sciname <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.scientific)
+
+gen <- stringr::word(sciname, 1)
+
+if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus", 
+               "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus",
+               "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius",
+               "Leptodactylus", "Lithobates", "Osteopilus",
+               "Pseudacris", "Rana", "Rhinella", "Rhinophrynus",
+               "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad"
+if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+               "Cryptobranchus", "Desmognathus", "Dicamptodon", 
+               "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+               "Hydromantes", "Necturus", "Notophthalmus",
+               "Phaeognathus", "Plethodon", "Pseudobranchus",
+               "Pseudotriton", "Rhyacotriton", "Siren", 
+               "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander"
 
 
 
@@ -164,11 +186,11 @@ rangelist <- get_range(range.path,
 # USA boundary
 exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
              "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
-usa <- st_read("data/USA/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
+usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
         filter((NAME %in% exclude) == F) %>%
         st_union()
 # CONUS grid
-load("data/USA/grid-covar.rdata")
+load("../species-futures/data/USA/grid-covar.rdata")
 
 # Region
 region <- make_region(rangelist,
@@ -214,35 +236,29 @@ if (block.out == "none") {
 
 
 # Covariate data ----
-# covar <- load_covar(sp.code,
-#                     region)
-load("data/USA/grid-covar.rdata")
+load("../species-futures/data/USA/grid-covar.rdata")
 covar <- conus.covar.grid %>%
   filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
 
-# load iNat data for similar species if it exists
-if (file.exists(paste0("data/", sp.code, "/iNat-supp.csv"))) {
-  cat("loading and aggregating iNat records of supplemental species\n")
+# load iNat data for similar species 
+if ('n.inat' %in% covs.inat) {
+  cat("loading iNat records of supplemental species\n")
   
-  inat <- read.csv(paste0("data/", sp.code, "/iNat-supp.csv"))
+  inat <- readRDS("data/USA/inateffortcov.rds") %>%
+    mutate(conus.grid.id = as.character(conus.grid.id))
   
-  inat <- inat %>%
-            st_as_sf(crs = 4326,
-                         coords = c("lon", "lat")) %>%
-            st_transform(st_crs(region$sp.grid)) %>%
-            st_join(region$sp.grid, join = st_within) %>%
-            filter(is.na(conus.grid.id) == F) %>%
-            group_by(conus.grid.id) %>%
-            summarize(n.inat = n(), .groups = 'drop') %>%
-            st_drop_geometry()
+  covar <- dplyr::left_join(covar, inat, by = c("conus.grid.id"))
   
+  # Assign Frog or Salamander iNat counts
+  if (spp.type == 'Frog/Toad') {
+    covar$n.inat <- covar$n.frog
+  } else {
+    covar$n.inat <- covar$n.sal
+  }
   
-  covar <- left_join(covar, inat, by = c("conus.grid.id"))
-  covar$n.inat[which(is.na(covar$n.inat))] <- 0
-} else {
-  cat("Warning: iNat records of supplemental species have not been downloaded yet\n")
+  covar <- select(covar, -n.frog, -n.sal)
+  
 }
-
 # add centroid lat and lon of each grid cell to covar
 centroid <- st_centroid(region$sp.grid) %>%
               st_coordinates() %>%
@@ -275,37 +291,29 @@ if (sp.code == "RACA") {
     mutate(sqrtarea_small = sqrt(area_small),
            sqrtarea_medium = sqrt(area_medium))
   
-  rm <- which(complete.cases(covar[,covs.z]) == F)
-  if (length(rm) > 0) {
-    covar <- covar[-rm,]
-    region$sp.grid <- region$sp.grid[-rm,]
-  }
-  
-  
 } else if (sp.code == "PLSE") {
   
-  if (buffer == 1) regs <- c("east", "west", "west", "west", "west")
-  if (buffer == 100000) regs <- c("east", "west", "west")
-  reg <- region$region %>%
-    st_cast("POLYGON") %>%
-    mutate(region = regs)
-  
-  grid <- region$sp.grid %>%
-    st_intersection(reg) %>%
-    st_drop_geometry()
+  # if (buffer == 1) regs <- c("east", "west", "west", "west", "west")
+  # if (buffer == 100000) regs <- c("east", "west", "west")
+  # reg <- region$region %>%
+  #   st_cast("POLYGON") %>%
+  #   mutate(region = regs)
+  # 
+  # grid <- region$sp.grid %>%
+  #   st_intersection(reg) %>%
+  #   st_drop_geometry()
   
   covar <- covar %>%
-    mutate(N_all = N + NW + NE) %>%
-    full_join(grid, by = c("conus.grid.id", "sp.grid.id"))
-  
-  rm <- which(complete.cases(covar[,covs.z]) == F)
-  if (length(rm) > 0) {
-    covar <- covar[-rm,]
-    region$sp.grid <- region$sp.grid[-rm,]
-  }
+    mutate(N_all = N + NW + NE) #%>%
+    #full_join(grid, by = c("conus.grid.id", "sp.grid.id"))
   
 }
 
+rm <- which(complete.cases(covar[,covs.z]) == F)
+if (length(rm) > 0) {
+  covar <- covar[-rm,]
+  region$sp.grid <- region$sp.grid[-rm,]
+}
 
 ### Scale covariates ----
 covar_unscaled <- covar
@@ -469,8 +477,12 @@ if (coarse.grid == T) {
 
 # Species data ----
 # get all files that have data for that species
-allfiles <- read.csv("data/dataset-summary-full.csv") %>%
-  filter(species == sp.code)
+allfiles <- read.csv("data/dataset-summary-full.csv")
+tmp1 <- gsub("[|]", "$|^", sp.code.all)
+tmp2 <- paste0("^", tmp1, "$")
+allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
+  select(-species, -percentdet) %>%
+  distinct()
 
 # detection covariates for each of these datasets
 covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
@@ -487,18 +499,18 @@ for (i in 1:nrow(covs)) {
 }
 
 species.data <- load_species_data(sp.code,
+                                  sp.code.all,
                                   file.name = allfiles$file,
                                   file.label = allfiles$name,
-                                  file.path = "DATA SWAMP/data-ready/",
-                                  keep.subsp = T,   # This is a new argument, might want to add it as an input to the csv
+                                  file.path = "data/data-ready/",
                                   keep.cols = covariates,
-                                  region, 
-                                  filter.region = T,
-                                  year.start = 1994,
-                                  year.end = 2025,
-                                  coordunc = 1000,
-                                  coordunc_na.rm = T,
-                                  spat.thin = F,
+                                  region = region, 
+                                  filter.region = filter.region,
+                                  year.start = year.start,
+                                  year.end = year.end,
+                                  coordunc = coordunc,
+                                  coordunc_na.rm = coordunc_na.rm,
+                                  spat.thin = spat.bal,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 ### Plot species data ----
@@ -588,7 +600,7 @@ if (block.out != "none") {
 
 # NIMBLE ----
 
-summary <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>%
+summary <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file,
          Name %in% names(species.data$obs))
 summary <- summary[sort(match(summary$Name, names(species.data$obs))),]
@@ -617,23 +629,7 @@ data <- tmp$data
 constants <- tmp$constants
 
 
-if (sp.code == "ANMI") {
-  
-  # Need to replace NMGFD datasets with Bernoulli instead of occupancy
-  for (s in 1:length(species.data$obs)) {
-    nm <- constants[[paste0("name", s)]]
-    nm <- gsub(" .*", "", nm)
-    
-    if (nm %in% c("NMGFD", "AZGFD")) {
-      constants[[paste0("nVisitsV", s)]] <- 1
-    }
-  }
-  
-}
-
-
-
-if (model == "proj08nostate") {
+if (model == "NEnostate") {
   if (sp.code == "EBIS") {
     data$Xw3$WV <- NULL
     data$Xw3$VT <- NULL
