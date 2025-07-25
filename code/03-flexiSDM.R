@@ -26,7 +26,7 @@ library(SpFut.flexiSDM)
 num <- 1
 block <- "none"
 sp.code <- "RACA"
-model <- "WIPtest"
+model <- "PNW"
 maxchain <- 3
 local <- 1
 # ---
@@ -55,7 +55,7 @@ if (block == 4) {
 }
 
 # load output directory, setup, and functions
-out.dir = paste0('outputs/03-species-models/MVPv1/',num,'_',sp.code,'_',model,'/')
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 load(paste0(out.dir,'setup_',block,'.Rdata'))
 
 
