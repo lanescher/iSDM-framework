@@ -13,7 +13,7 @@ Arizona Toad,ANMI,12,USGS,eDNA,DND,,,,ANMI_USGSSNVedna_DND_2024_2024,,1,1,1,,,vo
 Arizona Toad,ANMI,13,UT DWR,,Count,,,,ANMI_UTDWR_count_1999_2019,,1,1,,,,,NA,UT DWR,N,done,used new method,3/26/2025,,,
 Cascades Frog,RACA,1,USGS,CMR,Count,Y,,n,RACA_ARMI_CMR_2018_2022,RACA_CMRDisease_CLEAN_BJT07252024_passidBJT,1,0,,,,duration,NA,Disease CMR,N,done,used new method,12/23/2024,assigned,,"for simplicity on ages, converted to count; use = 0 because too few sites"
 Cascades Frog,RACA,2,USGS,VES,Count,Y,,n,RACA_USGS_RHCA_count_2022_2022,RACA_RHCAStudy_CLEAN_BJT07252024_passidBJT,1,1,1,,,distance,NA,USGS Count,N,done,used new method; removed 1 survey.pass with age = NR,12/23/2024,,1/3/2025,
-Cascades Frog,RACA,3,USGS,VES,Count,Y,,y,RACA_ARMIOSF_count_2010_2023,RACA_ARMIOSFMIDLEV_CLEAN_BJT07252024_passidBJT,1,1,,area_sqm,,duration,NA,ARMI VES,N,done,used new method; removed 1 survey.pass with age = NR,12/23/2024,,1/3/2025,
+Cascades Frog,RACA,3,USGS,VES,Count,Y,,y,RACA_ARMIOSF_count_2010_2023,RACA_ARMIOSFMIDLEV_CLEAN_BJT07252024_passidBJT,1,1,,,,"duration, area_sqm",NA,ARMI VES,N,done,used new method; removed 1 survey.pass with age = NR,12/23/2024,,1/3/2025,
 Cascades Frog,RACA,4,USGS,VES,DND,Y,,y,RACA_USGS_historic_DND_2001_2004,RACA_HISTORIC20012004_CLEAN_BJT07252024_passidBJT,1,1,,,yday,,NA,USGS RACA assessment - historic,N,done,used new method,12/23/2024,assigned,,
 Cascades Frog,RACA,5,USGS,VES,Count,N,,n,RACA_USGS_historic_count_2018_2019,RACA_Historic_2018-2019_CLEAN_BJT07252024_passidBJT,1,1,,,,effort,NA,USGS RACA assessment - current,N,done,used new method,4/4/2025,assigned,,
 Cascades Frog,RACA,6,BLM,VES,PO,Y,,n,RACA_BLM_PO_1992_2021,RACA_BLMCountdata_BJTCleanFormat07252024_passidBJT,1,1,,,,,CONUS,BLM Surveys,Y,done,simple PO,12/23/2024,,1/3/2025,
