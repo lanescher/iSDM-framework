@@ -1,5 +1,5 @@
 number,sp.code,model,mem.nim,mem.sum,year.start,year.end,buffer,sp.auto,coarse.grid,covs.PO,covs.inat,covs.lin,covs.quad,check.covs,covs.int.factor,reference,covs.int.cont,Bpriordist,Bpriorvar1,Bpriorvar2,filter.region,spat.bal,coordunc,coordunc_na.rm,block.rows,block.cols,block.folds,iter,thin,region.sub,lon.hi,lon.lo,lat.hi,lat.lo,project
-1,RACA,PNW,20000,15000,1994,2025,100000,T,T,traveltime,n.inat,"sqrtarea_small, sqrtarea_medium, footprint","TRI, tmin",F,NA,NA,NA,dnorm,0,1,T,T,1000,T,5,5,3,50000,5,F,NA,NA,NA,NA,0
+1,RACA,PNW,20000,15000,1994,2025,100000,T,T,traveltime,NA,"sqrtarea_small, sqrtarea_medium, footprint","TRI, tmin",F,NA,NA,NA,dnorm,0,1,T,T,1000,T,5,5,3,50000,5,F,NA,NA,NA,NA,0
 2,PLSE,SE,20000,40000,1994,2025,100000,T,T,traveltime,n.inat,"N_all, prec, forest",elevation,F,NA,NA,NA,dnorm,0,1,T,T,1000,T,5,5,3,65000,5,F,NA,NA,NA,NA,0
 3,EBIS,NE,20000,40000,1994,2025,100000,T,T,"traveltime, density",n.inat,"streamLength.km, prec, forest",elevation,F,NA,NA,NA,dnorm,0,1,T,T,1000,T,5,5,3,25000,5,F,NA,NA,NA,NA,0
 4,EBIS,NEnostate,20000,10000,1994,2025,100000,T,T,"traveltime, density",n.inat,"streamLength.km, prec, forest",elevation,F,NA,NA,NA,dnorm,0,1,T,T,1000,T,5,5,3,25000,5,F,NA,NA,NA,NA,0
