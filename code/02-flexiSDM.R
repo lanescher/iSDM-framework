@@ -18,7 +18,7 @@ print(paste0('Beginning 02-MVPv1.1 script at ', start2))
 num <- 1
 block <- "none"
 sp.code <- "RACA"
-model <- "WIPtest"
+model <- "PNW"
 chain <- 1
 local <- 1
 # ---
@@ -47,12 +47,12 @@ if (block == 4) {
 
 
 # Load functions and packages
-suppressMessages(source("functions/FXN-nimbleParallel.R"))
+suppressMessages(source("../species-futures/functions/FXN-nimbleParallel.R"))
 library(SpFut.flexiSDM)
 
 
 # Set output directory and load setup file
-out.dir = paste0('outputs/03-species-models/MVPv1/',num,'_',sp.code,'_',model,'/')
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 load(paste0(out.dir,'setup_',block,'.Rdata'))
 
 
@@ -64,8 +64,8 @@ if (local == 1) {
                             constants = constants,
                             inits = inits,
                             param = params,
-                            iter = iter,
-                            burnin = burnin,
+                            iter = 5000,
+                            burnin = 1000,
                             thin = thin)
   
   end.nim <- Sys.time() - start.nim
