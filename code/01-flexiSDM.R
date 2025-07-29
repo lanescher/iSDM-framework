@@ -235,15 +235,167 @@ if (block.out == "none") {
 
 
 
+# Make gridkey and spatkey ----
+gridkey <- select(region$sp.grid, conus.grid.id) %>%
+  st_drop_geometry() %>%
+  mutate(grid.id = 1:nrow(.),
+         group = case_when(conus.grid.id %in% train.i ~ "train",
+                           conus.grid.id %in% test.i ~ "test"))
+
+if (coarse.grid == T) {
+  spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
+  
+  # Print spatial grid
+  if (block.out == 'none') {
+    pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
+    ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
+  }
+} else {
+  spatRegion <- NULL
+}
+
+
+
+# Species data ----
+# get all files that have data for that species
+allfiles <- read.csv("data/dataset-summary-full.csv")
+tmp1 <- gsub("[|]", "$|^", sp.code.all)
+tmp2 <- paste0("^", tmp1, "$")
+allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
+  select(-species, -percentdet) %>%
+  distinct()
+
+# detection covariates for each of these datasets
+covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
+  filter(Data.Swamp.file.name %in% allfiles$file) %>%
+  select(Data.Swamp.file.name, Covar.mean, Covar.sum)
+covariates <- list()
+for (i in 1:nrow(covs)) {
+  covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
+  covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
+  #area <- unlist(strsplit(covs$Area[i], split = ","))
+  covs1 <- c(covs.mean, covs.sum)
+  covs1 <- covs1[which(is.na(covs1) == F)]
+  covariates[[covs$Data.Swamp.file.name[i]]] <- covs1
+}
+
+species.data <- load_species_data(sp.code,
+                                  sp.code.all,
+                                  file.name = allfiles$file,
+                                  file.label = allfiles$name,
+                                  file.path = "data/data-ready/",
+                                  keep.cols = covariates,
+                                  region = region, 
+                                  filter.region = filter.region,
+                                  year.start = year.start,
+                                  year.end = year.end,
+                                  coordunc = coordunc,
+                                  coordunc_na.rm = coordunc_na.rm,
+                                  spat.thin = spat.bal,
+                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+
+
+
+
+
+### Plot species data ----
+if (block == "none") {
+  title <- ", full model"
+} else {
+  title <- paste0(", excluding block ", block)
+}
+
+pl <- map_species_data(region = region,
+                       species.data = species.data,
+                       year.start = year.start,
+                       year.end = year.end,
+                       plot = "samples",
+                       plot.region = T,
+                       details = T,
+                       title = paste0(common, " (", sp.code, ")", title))
+ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
+
+pl <- map_species_data(region = region,
+                       species.data = species.data,
+                       year.start = year.start,
+                       year.end = year.end,
+                       plot = "samples",
+                       plot.region = T,
+                       details = F,
+                       title = paste0(common, " (", sp.code, ")", title))
+ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10)
+
+
+if (block.out != "none") {
+  
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks[which(sb$blocks$folds == block),],
+                         plot.region = T,
+                         details = T,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+  
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks[which(sb$blocks$folds == block),],
+                         plot.region = T,
+                         details = F,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+  
+  
+} else {
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks,
+                         plot.region = T,
+                         details = T,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+  
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = sb$blocks,
+                         plot.region = T,
+                         details = F,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+  
+}
+
+
+
+
+
 # Covariate data ----
 load("../species-futures/data/USA/grid-covar.rdata")
 covar <- conus.covar.grid %>%
   filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
 
-# load iNat data for similar species - will add to this later after species data are read in
+# load iNat data for similar species
 if ('n.inat' %in% covs.inat) {
   cat("loading iNat records of supplemental species\n")
   
+  
+  
+  # Get basic covariate layer
   inat <- readRDS("data/USA/inateffortcov.rds") %>%
     mutate(conus.grid.id = as.character(conus.grid.id))
   
@@ -255,10 +407,79 @@ if ('n.inat' %in% covs.inat) {
   } else {
     covar$n.inat <- covar$n.sal
   }
-  
   covar <- select(covar, -n.frog, -n.sal)
   
+  
+  
+  # Now check if records for this species need to be added
+  
+  # read in all inat data for this species
+  files <- list.files("../species-futures/DATA SWAMP/data-ready/", pattern = "_iNat_PO.csv")
+  fs <- files[grep(sp.code.all, files)]
+  if (length(fs) == 0) next
+  inat.dat1 <- c()
+  for (f in 1:length(fs)) {
+    
+    dat <- read.csv(paste0("../species-futures/DATA SWAMP/data-ready/", fs[f])) %>%
+      filter(year >= year.start, year <= year.end)
+    
+    # iNaturalist records for subspecies names might be duplicates, remove here
+    new <- paste0(dat$lat, dat$lon, dat$day, dat$month, dat$year)
+    old <- paste0(inat.dat1$lat, inat.dat1$lon, inat.dat1$day, inat.dat1$month, inat.dat1$year)
+    
+    if (length(old) > 0) {
+      rm <- which(new %in% old)
+      dat <- dat[-rm,]
+      
+      if (nrow(dat) == 0) {
+        #cat("All iNaturalist records are potential duplicates\n")
+        next
+      } else {
+        inat.dat1 <- bind_rows(inat.dat1, dat)
+      }
+    } else {
+      inat.dat1 <- bind_rows(inat.dat1, dat)
+    }
+  } # end loading inat files
+  
+  
+  # if all points in a state are obscured (coord.unc > 25000), species was not included
+  tmp <- inat.dat1 %>%
+    group_by(stateProvince) %>%
+    summarize(min.unc = min(coord.unc, na.rm = T)) %>%
+    mutate(min.unc = case_when(min.unc == Inf ~ NA,
+                               T ~ min.unc)) %>%
+    filter(min.unc > 25000)
+  obsc.state <- tmp$stateProvince
+  
+  # species was already included
+  if (nrow(tmp) == 0) {
+    
+    
+    # Need to add species
+  } else {
+    cat("Adding", sp.code, "to iNat effort covariate\n")
+    
+    inat.cells <- inat.dat1 %>%
+      st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+      st_transform(crs = 3857) %>%
+      st_intersection(region$sp.grid) %>%
+      st_drop_geometry() %>%
+      group_by(conus.grid.id) %>%
+      summarize(n.inat.sp = n()) %>%
+      full_join(region$sp.grid, ., by = "conus.grid.id") %>%
+      st_drop_geometry()
+    inat.cells$n.inat.sp[is.na(inat.cells$n.inat.sp)] <- 0
+    
+    covar <- full_join(covar, select(inat.cells, conus.grid.id, n.inat.sp), by = 'conus.grid.id') %>%
+      mutate(n.inat = n.inat + n.inat.sp)
+  }
 }
+
+
+
+
+
 # add centroid lat and lon of each grid cell to covar
 centroid <- st_centroid(region$sp.grid) %>%
               st_coordinates() %>%
@@ -438,221 +659,9 @@ if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) {
 
 
 
-# Make gridkey and spatkey ----
-gridkey <- select(region$sp.grid, conus.grid.id) %>%
-            st_drop_geometry() %>%
-            mutate(grid.id = 1:nrow(.),
-                   group = case_when(conus.grid.id %in% train.i ~ "train",
-                                     conus.grid.id %in% test.i ~ "test"))
-
-if (coarse.grid == T) {
-  spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
-  
-  # Print spatial grid
-  if (block.out == 'none') {
-    pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
-    ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
-  }
-} else {
-  spatRegion <- NULL
-}
-
-
-# LANE - CHECK DATASET SUMMARIES
-
-
-# Species data ----
-# get all files that have data for that species
-allfiles <- read.csv("data/dataset-summary-full.csv")
-tmp1 <- gsub("[|]", "$|^", sp.code.all)
-tmp2 <- paste0("^", tmp1, "$")
-allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
-  select(-species, -percentdet) %>%
-  distinct()
-
-# detection covariates for each of these datasets
-covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-  filter(Data.Swamp.file.name %in% allfiles$file) %>%
-  select(Data.Swamp.file.name, Covar.mean, Covar.sum)
-covariates <- list()
-for (i in 1:nrow(covs)) {
-  covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
-  covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
-  #area <- unlist(strsplit(covs$Area[i], split = ","))
-  covs1 <- c(covs.mean, covs.sum)
-  covs1 <- covs1[which(is.na(covs1) == F)]
-  covariates[[covs$Data.Swamp.file.name[i]]] <- covs1
-}
-
-species.data <- load_species_data(sp.code,
-                                  sp.code.all,
-                                  file.name = allfiles$file,
-                                  file.label = allfiles$name,
-                                  file.path = "data/data-ready/",
-                                  keep.cols = covariates,
-                                  region = region, 
-                                  filter.region = filter.region,
-                                  year.start = year.start,
-                                  year.end = year.end,
-                                  coordunc = coordunc,
-                                  coordunc_na.rm = coordunc_na.rm,
-                                  spat.thin = spat.bal,
-                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 
 
-# Fix inat effort covariate if there is inat data
-if ("iNaturalist" %in% names(species.data$obs)) {
-  
-  if ("n.inat" %in% covs.inat) {
-    # read in all inat data for this species
-    
-    files <- list.files("../species-futures/DATA SWAMP/data-ready/", pattern = "_iNat_PO.csv")
-    fs <- files[grep(sp.code.all, files)]
-    if (length(fs) == 0) next
-    inat.dat1 <- c()
-    for (f in 1:length(fs)) {
-      
-      dat <- read.csv(paste0("../species-futures/DATA SWAMP/data-ready/", fs[f])) %>%
-        filter(year >= year.start, year <= year.end)
-      
-      # iNaturalist records for subspecies names might be duplicates, remove here
-      new <- paste0(dat$lat, dat$lon, dat$day, dat$month, dat$year)
-      
-      old <- paste0(inat.dat1$lat, inat.dat1$lon, inat.dat1$day, inat.dat1$month, inat.dat1$year)
-      
-      if (length(old) > 0) {
-        rm <- which(new %in% old)
-        
-        dat <- dat[-rm,]
-        
-        if (nrow(dat) == 0) {
-          #cat("All iNaturalist records are potential duplicates\n")
-          next
-        } else {
-          inat.dat1 <- bind_rows(inat.dat1, dat)
-        }
-      } else {
-        inat.dat1 <- bind_rows(inat.dat1, dat)
-      }
-    } # end loading inat files
-    
-    # if all points in a state are obscured (coord.unc > 25000), species was not included
-    tmp <- inat.dat1 %>%
-      group_by(stateProvince) %>%
-      summarize(min.unc = min(coord.unc, na.rm = T)) %>%
-      mutate(min.unc = case_when(min.unc == Inf ~ NA,
-                                 T ~ min.unc)) %>%
-      filter(min.unc > 25000)
-    
-    # species was already included
-    if (nrow(tmp) == 0) {
-
-
-      # Need to add species
-    } else {
-      cat("Adding", sp.code, "to inat effort covariate\n")
-      inat.cells <- inat.dat1 %>%
-        st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
-        st_transform(crs = 3857) %>%
-        st_intersection(region$sp.grid) %>%
-        st_drop_geometry() %>%
-        group_by(conus.grid.id) %>%
-        summarize(n.inat = n()) %>%
-        full_join(region$sp.grid, ., by = "conus.grid.id") %>%
-        st_drop_geometry()
-      inat.cells$n.inat[is.na(inat.cells$n.inat)] <- 0
-      
-      covar$n.inat <- covar$n.inat + inat.cells$n.inat
-      }
-    
-  }# end if "n.inat" in covs.inat
-  
-}
-
-
-
-### Plot species data ----
-if (block == "none") {
-  title <- ", full model"
-} else {
-  title <- paste0(", excluding block ", block)
-}
-
-pl <- map_species_data(region = region,
-                       species.data = species.data,
-                       year.start = year.start,
-                       year.end = year.end,
-                       plot = "samples",
-                       plot.region = T,
-                       details = T,
-                       title = paste0(common, " (", sp.code, ")", title))
-ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
-
-pl <- map_species_data(region = region,
-                       species.data = species.data,
-                       year.start = year.start,
-                       year.end = year.end,
-                       plot = "samples",
-                       plot.region = T,
-                       details = F,
-                       title = paste0(common, " (", sp.code, ")", title))
-ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10)
-
-
-if (block.out != "none") {
-  
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         plot.blocks = T,
-                         blocks = sb$blocks[which(sb$blocks$folds == block),],
-                         plot.region = T,
-                         details = T,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
-  
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         plot.blocks = T,
-                         blocks = sb$blocks[which(sb$blocks$folds == block),],
-                         plot.region = T,
-                         details = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
-  
-  
-} else {
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         plot.blocks = T,
-                         blocks = sb$blocks,
-                         plot.region = T,
-                         details = T,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
-  
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         plot.blocks = T,
-                         blocks = sb$blocks,
-                         plot.region = T,
-                         details = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
-  
-}
 
 
 
@@ -689,6 +698,29 @@ data <- tmp$data
 constants <- tmp$constants
 
 
+# Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
+if ("iNaturalist" %in% names(species.data$obs) & "n.inat" %in% covs.inat) {
+  if (length(obsc.state) > 0) {
+    statecodes <- read.csv("data/statecodes.csv")
+    state.abbrev <- statecodes$abbrev[which(statecodes$state %in% obsc.state)]
+    
+    grid.states <- read_rds("data/grid-states.rds") %>%
+      filter(name %in% state.abbrev,
+             conus.grid.id %in% region$sp.grid$conus.grid.id)
+    
+    # iNat is always dataset1 if it exists
+    S1 <- data.frame(grid.id = constants$Wcells1) %>%
+      left_join(gridkey, by = "grid.id") %>%
+      mutate(S1 = case_when(conus.grid.id %in% grid.states$conus.grid.id ~ 0,
+                            T ~ 1)) %>%
+      pull(S1)
+  } else {
+    S1 <- rep(1, nrow(region$sp.grid))
+  }
+  
+  constants$S1 <- S1
+  
+}
 
 if (model == "NEnostate") {
   if (sp.code == "EBIS") {
