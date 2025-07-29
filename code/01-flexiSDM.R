@@ -198,9 +198,9 @@ region <- make_region(rangelist,
                       crs = 3857,
                       sub = region.sub,
                       boundary = usa,
-                      grid = conus.grid)
-
-
+                      grid = conus.grid,
+                      rm.clumps = T,
+                      clump.size = 50)
 
 # Set up cross validation blocks ----
 sb <- cv_spatial(x = region$sp.grid, 
@@ -240,7 +240,7 @@ load("../species-futures/data/USA/grid-covar.rdata")
 covar <- conus.covar.grid %>%
   filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
 
-# load iNat data for similar species 
+# load iNat data for similar species - will add to this later after species data are read in
 if ('n.inat' %in% covs.inat) {
   cat("loading iNat records of supplemental species\n")
   
@@ -321,7 +321,6 @@ covar_unscaled <- covar
 # scale numeric cols
 numcols <- sapply(covar, is.numeric)
 numcols <- which(numcols)
-numcols <- numcols[-which(numcols == 2)] # exclude sp.grid, which is numeric but shouldn't be scaled
 covar[,numcols] <- sapply(covar[,numcols], scale_this)
 
 # remove covariates that are correlated > 0.4
@@ -487,15 +486,15 @@ allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
 # detection covariates for each of these datasets
 covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file) %>%
-  select(Covar.mean, Covar.sum, Area)
+  select(Data.Swamp.file.name, Covar.mean, Covar.sum)
 covariates <- list()
 for (i in 1:nrow(covs)) {
   covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
   covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
-  area <- unlist(strsplit(covs$Area[i], split = ","))
-  covs1 <- c(covs.mean, covs.sum, area)
+  #area <- unlist(strsplit(covs$Area[i], split = ","))
+  covs1 <- c(covs.mean, covs.sum)
   covs1 <- covs1[which(is.na(covs1) == F)]
-  covariates[[i]] <- covs1
+  covariates[[covs$Data.Swamp.file.name[i]]] <- covs1
 }
 
 species.data <- load_species_data(sp.code,
@@ -512,6 +511,79 @@ species.data <- load_species_data(sp.code,
                                   coordunc_na.rm = coordunc_na.rm,
                                   spat.thin = spat.bal,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+
+
+
+# Fix inat effort covariate if there is inat data
+if ("iNaturalist" %in% names(species.data$obs)) {
+  
+  if ("n.inat" %in% covs.inat) {
+    # read in all inat data for this species
+    
+    files <- list.files("../species-futures/DATA SWAMP/data-ready/", pattern = "_iNat_PO.csv")
+    fs <- files[grep(sp.code.all, files)]
+    if (length(fs) == 0) next
+    inat.dat1 <- c()
+    for (f in 1:length(fs)) {
+      
+      dat <- read.csv(paste0("../species-futures/DATA SWAMP/data-ready/", fs[f])) %>%
+        filter(year >= year.start, year <= year.end)
+      
+      # iNaturalist records for subspecies names might be duplicates, remove here
+      new <- paste0(dat$lat, dat$lon, dat$day, dat$month, dat$year)
+      
+      old <- paste0(inat.dat1$lat, inat.dat1$lon, inat.dat1$day, inat.dat1$month, inat.dat1$year)
+      
+      if (length(old) > 0) {
+        rm <- which(new %in% old)
+        
+        dat <- dat[-rm,]
+        
+        if (nrow(dat) == 0) {
+          #cat("All iNaturalist records are potential duplicates\n")
+          next
+        } else {
+          inat.dat1 <- bind_rows(inat.dat1, dat)
+        }
+      } else {
+        inat.dat1 <- bind_rows(inat.dat1, dat)
+      }
+    } # end loading inat files
+    
+    # if all points in a state are obscured (coord.unc > 25000), species was not included
+    tmp <- inat.dat1 %>%
+      group_by(stateProvince) %>%
+      summarize(min.unc = min(coord.unc, na.rm = T)) %>%
+      mutate(min.unc = case_when(min.unc == Inf ~ NA,
+                                 T ~ min.unc)) %>%
+      filter(min.unc > 25000)
+    
+    # species was already included
+    if (nrow(tmp) == 0) {
+
+
+      # Need to add species
+    } else {
+      cat("Adding", sp.code, "to inat effort covariate\n")
+      inat.cells <- inat.dat1 %>%
+        st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+        st_transform(crs = 3857) %>%
+        st_intersection(region$sp.grid) %>%
+        st_drop_geometry() %>%
+        group_by(conus.grid.id) %>%
+        summarize(n.inat = n()) %>%
+        full_join(region$sp.grid, ., by = "conus.grid.id") %>%
+        st_drop_geometry()
+      inat.cells$n.inat[is.na(inat.cells$n.inat)] <- 0
+      
+      covar$n.inat <- covar$n.inat + inat.cells$n.inat
+      }
+    
+  }# end if "n.inat" in covs.inat
+  
+}
+
+
 
 ### Plot species data ----
 if (block == "none") {
@@ -596,6 +668,13 @@ if (block.out != "none") {
 }
 
 
+# # correct area 
+# if (sp.code == "RACA") {
+#   armivesarea <- species.data$obs$`ARMI VES`$area_sqm
+#   armivesarea <- as.numeric(armivesarea/st_area(region$sp.grid[1,]))
+#   armivesarea[which(armivesarea > 0.03)] <- median(armivesarea[which(armivesarea < 0.03)])
+#   species.data$obs$`ARMI VES`$area_sqm <- armivesarea
+# }
 
 
 # NIMBLE ----
@@ -604,6 +683,7 @@ summary <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file,
          Name %in% names(species.data$obs))
 summary <- summary[sort(match(summary$Name, names(species.data$obs))),]
+summary$Area <- "" # we're not using the area column anymore
 
 sp.data <- sppdata_for_nimble(species.data,
                               region,
@@ -627,6 +707,7 @@ tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
 
 data <- tmp$data
 constants <- tmp$constants
+
 
 
 if (model == "NEnostate") {
