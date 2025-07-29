@@ -23,7 +23,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 2
+nums.do <- 3
 block <- c("none")
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -572,26 +572,28 @@ if (block.out == "none") {
   
   
   # iNat covs
-  
-  # get covariate labels
-  covlabs <- read.csv("data/covariate-labels.csv") %>%
-    filter(covariate %in% covs.inat)
-  
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-b_iNat-map")
-  
-  if (length(covs.inat) > 1) {
-    cor_covar(covar, 
-              cov.names = covlabs$covariate,
-              cov.labels = covlabs$Label,
-              out.path = out.dir,
-              out.name = "1_covariates-b_iNat-correlations", 
-              color.threshold = 0.25)
+  if ("iNaturalist" %in% names(species.data$obs)) {
+    # get covariate labels
+    covlabs <- read.csv("data/covariate-labels.csv") %>%
+      filter(covariate %in% covs.inat)
+    
+    plot_covar(covar,
+               region,
+               cov.names = covlabs$covariate,
+               cov.labels = covlabs$Label,
+               out.path = out.dir,
+               out.name = "1_covariates-b_iNat-map")
+    
+    if (length(covs.inat) > 1) {
+      cor_covar(covar, 
+                cov.names = covlabs$covariate,
+                cov.labels = covlabs$Label,
+                out.path = out.dir,
+                out.name = "1_covariates-b_iNat-correlations", 
+                color.threshold = 0.25)
+    }
   }
+  
   
   
   
