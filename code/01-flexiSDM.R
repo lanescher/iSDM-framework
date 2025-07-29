@@ -23,7 +23,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 1
+nums.do <- 2
 block <- c("none")
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -293,19 +293,8 @@ if (sp.code == "RACA") {
   
 } else if (sp.code == "PLSE") {
   
-  # if (buffer == 1) regs <- c("east", "west", "west", "west", "west")
-  # if (buffer == 100000) regs <- c("east", "west", "west")
-  # reg <- region$region %>%
-  #   st_cast("POLYGON") %>%
-  #   mutate(region = regs)
-  # 
-  # grid <- region$sp.grid %>%
-  #   st_intersection(reg) %>%
-  #   st_drop_geometry()
-  
   covar <- covar %>%
-    mutate(N_all = N + NW + NE) #%>%
-    #full_join(grid, by = c("conus.grid.id", "sp.grid.id"))
+    mutate(N_all = N + NW + NE)
   
 }
 
@@ -668,13 +657,6 @@ if (block.out != "none") {
 }
 
 
-# # correct area 
-# if (sp.code == "RACA") {
-#   armivesarea <- species.data$obs$`ARMI VES`$area_sqm
-#   armivesarea <- as.numeric(armivesarea/st_area(region$sp.grid[1,]))
-#   armivesarea[which(armivesarea > 0.03)] <- median(armivesarea[which(armivesarea < 0.03)])
-#   species.data$obs$`ARMI VES`$area_sqm <- armivesarea
-# }
 
 
 # NIMBLE ----
