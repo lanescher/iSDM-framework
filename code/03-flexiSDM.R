@@ -127,15 +127,15 @@ if (block.out == "none") {
   
   ggsave(plot_pars(out, 
                    plot.type = "full", 
-                   plot.group = "observation", 
-                   title = "Observation parameter estimates",
-                   cov.labs = cov.labs),
+                   plot.group = "dataset", 
+                   title = "Dataset parameter estimates"),
          file = paste0(out.dir, "3_parameters-b3_alpha.jpg"), height = 6, width = 10)
   
   ggsave(plot_pars(out, 
                    plot.type = "full", 
-                   plot.group = "dataset", 
-                   title = "Dataset intercept estimates"),
+                   plot.group = "observation", 
+                   title = "Observation intercept estimates",
+                   cov.labs = cov.labs),
          file = paste0(out.dir, "3_parameters-c3_observation.jpg"), height = 6, width = 10)
   
   
