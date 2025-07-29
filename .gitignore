@@ -3,3 +3,8 @@
 .RData
 .Ruserdata
 *.Rproj
+
+outputs/*/samples_none.rds
+outputs/*/samples_1.rds
+outputs/*/samples_2.rds
+outputs/*/samples_3.rds
