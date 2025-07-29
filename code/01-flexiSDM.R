@@ -285,9 +285,7 @@ if (NA %in% covs.z) {
 # If you add a new covariate, add a row to data/covariate-labels.csv with a label
 if (sp.code == "RACA") {
   
-  rain <- read_rds("data/RACA/rain-grid.rds")
-  
-  covar <- left_join(covar, select(rain, !sp.grid.id), by = c("conus.grid.id")) %>%
+  covar <- covar %>%
     mutate(sqrtarea_small = sqrt(area_small),
            sqrtarea_medium = sqrt(area_medium))
   
