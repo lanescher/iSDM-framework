@@ -390,7 +390,7 @@ covar <- conus.covar.grid %>%
   filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
 
 # load iNat data for similar species
-if ('n.inat' %in% covs.inat) {
+if ("iNaturalist" %in% names(species.data$obs)) {
   cat("loading iNat records of supplemental species\n")
   
   
