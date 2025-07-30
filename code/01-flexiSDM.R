@@ -50,7 +50,7 @@ if (length(args) > 0) {
   local = as.numeric(args[3])
   
   if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/')
+    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework/')
   } 
 } 
 
@@ -59,7 +59,7 @@ library(blockCV)
 library(tidyverse)
 library(sf)
 library(nimble)
-remotes::install_github("rileymummah/SpFut.flexiSDM")
+# remotes::install_github("rileymummah/SpFut.flexiSDM")
 library(SpFut.flexiSDM)
 
 
@@ -127,11 +127,33 @@ Bpriorvar2 <- mods$Bpriorvar2[a]
 
 process.intercept <- F
 
-# LANE
-common <- read.csv("data/00-speciescodes.csv") %>%
-          filter(DS.code == sp.code) %>%
-          pull(DS.common)
 
+codeKey <- read.csv("data/model-specieslist.csv")
+common <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.common)
+sp.code.all <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(all.codes)
+sciname <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.scientific)
+
+gen <- stringr::word(sciname, 1)
+
+if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus", 
+               "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus",
+               "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius",
+               "Leptodactylus", "Lithobates", "Osteopilus",
+               "Pseudacris", "Rana", "Rhinella", "Rhinophrynus",
+               "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad"
+if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+               "Cryptobranchus", "Desmognathus", "Dicamptodon", 
+               "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+               "Hydromantes", "Necturus", "Notophthalmus",
+               "Phaeognathus", "Plethodon", "Pseudobranchus",
+               "Pseudotriton", "Rhyacotriton", "Siren", 
+               "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander"
 
 
 
@@ -164,11 +186,11 @@ rangelist <- get_range(range.path,
 # USA boundary
 exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
              "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
-usa <- st_read("data/USA/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
+usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
         filter((NAME %in% exclude) == F) %>%
         st_union()
 # CONUS grid
-load("data/USA/grid-covar.rdata")
+load("../species-futures/data/USA/grid-covar.rdata")
 
 # Region
 region <- make_region(rangelist,
@@ -176,9 +198,9 @@ region <- make_region(rangelist,
                       crs = 3857,
                       sub = region.sub,
                       boundary = usa,
-                      grid = conus.grid)
-
-
+                      grid = conus.grid,
+                      rm.clumps = T,
+                      clump.size = 50)
 
 # Set up cross validation blocks ----
 sb <- cv_spatial(x = region$sp.grid, 
@@ -213,243 +235,12 @@ if (block.out == "none") {
 
 
 
-# Covariate data ----
-# covar <- load_covar(sp.code,
-#                     region)
-load("data/USA/grid-covar.rdata")
-covar <- conus.covar.grid %>%
-  filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
-
-# load iNat data for similar species if it exists
-if (file.exists(paste0("data/", sp.code, "/iNat-supp.csv"))) {
-  cat("loading and aggregating iNat records of supplemental species\n")
-  
-  inat <- read.csv(paste0("data/", sp.code, "/iNat-supp.csv"))
-  
-  inat <- inat %>%
-            st_as_sf(crs = 4326,
-                         coords = c("lon", "lat")) %>%
-            st_transform(st_crs(region$sp.grid)) %>%
-            st_join(region$sp.grid, join = st_within) %>%
-            filter(is.na(conus.grid.id) == F) %>%
-            group_by(conus.grid.id) %>%
-            summarize(n.inat = n(), .groups = 'drop') %>%
-            st_drop_geometry()
-  
-  
-  covar <- left_join(covar, inat, by = c("conus.grid.id"))
-  covar$n.inat[which(is.na(covar$n.inat))] <- 0
-} else {
-  cat("Warning: iNat records of supplemental species have not been downloaded yet\n")
-}
-
-# add centroid lat and lon of each grid cell to covar
-centroid <- st_centroid(region$sp.grid) %>%
-              st_coordinates() %>%
-              as.data.frame() %>%
-              mutate(conus.grid.id = region$sp.grid$conus.grid.id)
-
-colnames(centroid)[1:2] <- c("lon", "lat")
-covar <- left_join(covar, centroid, by = "conus.grid.id")
-
-
-
-### Read in process covariates ----
-covs.z <- c(covs.lin, covs.quad, covs.int.factor)
-if ("" %in% covs.z) {
-  covs.z <- covs.z[-which(covs.z == "")]  
-}
-if (NA %in% covs.z) {
-  covs.z <- covs.z[-which(is.na(covs.z))]
-}
-
-
-
-### Add additional/derived covariates -----
-# If you add a new covariate, add a row to data/covariate-labels.csv with a label
-if (sp.code == "RACA") {
-  
-  rain <- read_rds("data/RACA/rain-grid.rds")
-  
-  covar <- left_join(covar, select(rain, !sp.grid.id), by = c("conus.grid.id")) %>%
-    mutate(sqrtarea_small = sqrt(area_small),
-           sqrtarea_medium = sqrt(area_medium))
-  
-  rm <- which(complete.cases(covar[,covs.z]) == F)
-  if (length(rm) > 0) {
-    covar <- covar[-rm,]
-    region$sp.grid <- region$sp.grid[-rm,]
-  }
-  
-  
-} else if (sp.code == "PLSE") {
-  
-  if (buffer == 1) regs <- c("east", "west", "west", "west", "west")
-  if (buffer == 100000) regs <- c("east", "west", "west")
-  reg <- region$region %>%
-    st_cast("POLYGON") %>%
-    mutate(region = regs)
-  
-  grid <- region$sp.grid %>%
-    st_intersection(reg) %>%
-    st_drop_geometry()
-  
-  covar <- covar %>%
-    mutate(N_all = N + NW + NE) %>%
-    full_join(grid, by = c("conus.grid.id", "sp.grid.id"))
-  
-  rm <- which(complete.cases(covar[,covs.z]) == F)
-  if (length(rm) > 0) {
-    covar <- covar[-rm,]
-    region$sp.grid <- region$sp.grid[-rm,]
-  }
-  
-}
-
-
-### Scale covariates ----
-covar_unscaled <- covar
-
-# scale numeric cols
-numcols <- sapply(covar, is.numeric)
-numcols <- which(numcols)
-numcols <- numcols[-which(numcols == 2)] # exclude sp.grid, which is numeric but shouldn't be scaled
-covar[,numcols] <- sapply(covar[,numcols], scale_this)
-
-# remove covariates that are correlated > 0.4
-if (check.covs == T){
-  covs.rm <- select_covar(covs.z, threshold = 0.4)
-  covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
-  covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
-  
-  covs.z <- c(covs.lin, covs.quad)
-}
-
-if (length(covs.z) < 3) {
-  stop("There are fewer than 3 covariates remaining! This probably isn't a good model")
-}
-
-
-### Plot covariates ----
-if (block.out == "none") {
-  
-  
-  # Process covs
-  
-  # get covariate labels
-  covlabs <- read.csv("data/covariate-labels.csv") %>%
-    filter(covariate %in% covs.z)
-  
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-a_process-map")
-  
-  cor_covar(covar, 
-            cov.names = covlabs$covariate,
-            cov.labels = covlabs$Label,
-            out.path = out.dir,
-            out.name = "1_covariates-a_process-correlations", 
-            color.threshold = 0.25)
-  
-  
-  
-  # iNat covs
-  
-  # get covariate labels
-  covlabs <- read.csv("data/covariate-labels.csv") %>%
-    filter(covariate %in% covs.inat)
-  
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-b_iNat-map")
-  
-  if (length(covs.inat) > 1) {
-    cor_covar(covar, 
-              cov.names = covlabs$covariate,
-              cov.labels = covlabs$Label,
-              out.path = out.dir,
-              out.name = "1_covariates-b_iNat-correlations", 
-              color.threshold = 0.25)
-  }
-  
-  
-  
-  # PO covs
-  
-  # get covariate labels
-  covlabs <- read.csv("data/covariate-labels.csv") %>%
-    filter(covariate %in% covs.PO)
-  
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-c_PO-map")
-  
-  if (length(covs.PO) > 1) {
-    cor_covar(covar, 
-              cov.names = covlabs$covariate,
-              cov.labels = covlabs$Label,
-              out.path = out.dir,
-              out.name = "1_covariates-c_PO-correlations", 
-              color.threshold = 0.25)
-  }
-  
-}
-
-
-
-### Add quadratic covariates and interactions ----
-if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
-  for (c in 1:length(covs.quad)) {
-    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
-    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
-  }
-}
-
-# and interactions
-if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) {
-  
-  # pivot factor wider to get dummy cols
-  covar[,covs.int.factor] <- paste0(covs.int.factor, ".", covar[,covs.int.factor])
-  covar <- covar %>%
-    mutate(fact = 1) %>%
-    pivot_wider(names_from = all_of(covs.int.factor), values_from = fact, values_fill = 0)
-  
-  covs.z <- c(covs.z, colnames(covar)[grep(paste0(covs.int.factor, "."), colnames(covar))])
-  
-  for (j in 1:length(covs.int.cont)) {
-    # add interaction
-    tmp <- add_int_cols(covar, int.factor = covs.int.factor, int.cont = covs.int.cont[j])
-    covar <- tmp$covar
-    covs.z <- c(covs.z, tmp$names)
-  }
-  
-  # remove reference level
-  rm <- grep(reference, covs.z)
-  covs.z <- covs.z[-rm]
-  
-  # remove original column name
-  rm <- grep(covs.int.factor, covs.z)[1]
-  covs.z <- covs.z[-rm]
-}
-
-
-
-
 # Make gridkey and spatkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
-            st_drop_geometry() %>%
-            mutate(grid.id = 1:nrow(.),
-                   group = case_when(conus.grid.id %in% train.i ~ "train",
-                                     conus.grid.id %in% test.i ~ "test"))
+  st_drop_geometry() %>%
+  mutate(grid.id = 1:nrow(.),
+         group = case_when(conus.grid.id %in% train.i ~ "train",
+                           conus.grid.id %in% test.i ~ "test"))
 
 if (coarse.grid == T) {
   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
@@ -464,42 +255,48 @@ if (coarse.grid == T) {
 }
 
 
-# LANE - CHECK DATASET SUMMARIES
-
 
 # Species data ----
 # get all files that have data for that species
-allfiles <- read.csv("data/dataset-summary-full.csv") %>%
-  filter(species == sp.code)
+allfiles <- read.csv("data/dataset-summary-full.csv")
+tmp1 <- gsub("[|]", "$|^", sp.code.all)
+tmp2 <- paste0("^", tmp1, "$")
+allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
+  select(-species, -percentdet) %>%
+  distinct()
 
 # detection covariates for each of these datasets
 covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file) %>%
-  select(Covar.mean, Covar.sum, Area)
+  select(Data.Swamp.file.name, Covar.mean, Covar.sum)
 covariates <- list()
 for (i in 1:nrow(covs)) {
   covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
   covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
-  area <- unlist(strsplit(covs$Area[i], split = ","))
-  covs1 <- c(covs.mean, covs.sum, area)
+  #area <- unlist(strsplit(covs$Area[i], split = ","))
+  covs1 <- c(covs.mean, covs.sum)
   covs1 <- covs1[which(is.na(covs1) == F)]
-  covariates[[i]] <- covs1
+  covariates[[covs$Data.Swamp.file.name[i]]] <- covs1
 }
 
 species.data <- load_species_data(sp.code,
+                                  sp.code.all,
                                   file.name = allfiles$file,
                                   file.label = allfiles$name,
-                                  file.path = "DATA SWAMP/data-ready/",
-                                  keep.subsp = T,   # This is a new argument, might want to add it as an input to the csv
+                                  file.path = "data/data-ready/",
                                   keep.cols = covariates,
-                                  region, 
-                                  filter.region = T,
-                                  year.start = 1994,
-                                  year.end = 2025,
-                                  coordunc = 1000,
-                                  coordunc_na.rm = T,
-                                  spat.thin = F,
+                                  region = region, 
+                                  filter.region = filter.region,
+                                  year.start = year.start,
+                                  year.end = year.end,
+                                  coordunc = coordunc,
+                                  coordunc_na.rm = coordunc_na.rm,
+                                  spat.thin = spat.bal,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+
+
+
+
 
 ### Plot species data ----
 if (block == "none") {
@@ -586,12 +383,300 @@ if (block.out != "none") {
 
 
 
+
+# Covariate data ----
+load("../species-futures/data/USA/grid-covar.rdata")
+covar <- conus.covar.grid %>%
+  filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
+
+# load iNat data for similar species
+if ('n.inat' %in% covs.inat) {
+  cat("loading iNat records of supplemental species\n")
+  
+  
+  
+  # Get basic covariate layer
+  inat <- readRDS("data/USA/inateffortcov.rds") %>%
+    mutate(conus.grid.id = as.character(conus.grid.id))
+  
+  covar <- dplyr::left_join(covar, inat, by = c("conus.grid.id"))
+  
+  # Assign Frog or Salamander iNat counts
+  if (spp.type == 'Frog/Toad') {
+    covar$n.inat <- covar$n.frog
+  } else {
+    covar$n.inat <- covar$n.sal
+  }
+  covar <- select(covar, -n.frog, -n.sal)
+  
+  
+  
+  # Now check if records for this species need to be added
+  
+  # read in all inat data for this species
+  files <- list.files("../species-futures/DATA SWAMP/data-ready/", pattern = "_iNat_PO.csv")
+  fs <- files[grep(sp.code.all, files)]
+  if (length(fs) == 0) next
+  inat.dat1 <- c()
+  for (f in 1:length(fs)) {
+    
+    dat <- read.csv(paste0("../species-futures/DATA SWAMP/data-ready/", fs[f])) %>%
+      filter(year >= year.start, year <= year.end)
+    
+    # iNaturalist records for subspecies names might be duplicates, remove here
+    new <- paste0(dat$lat, dat$lon, dat$day, dat$month, dat$year)
+    old <- paste0(inat.dat1$lat, inat.dat1$lon, inat.dat1$day, inat.dat1$month, inat.dat1$year)
+    
+    if (length(old) > 0) {
+      rm <- which(new %in% old)
+      dat <- dat[-rm,]
+      
+      if (nrow(dat) == 0) {
+        #cat("All iNaturalist records are potential duplicates\n")
+        next
+      } else {
+        inat.dat1 <- bind_rows(inat.dat1, dat)
+      }
+    } else {
+      inat.dat1 <- bind_rows(inat.dat1, dat)
+    }
+  } # end loading inat files
+  
+  
+  # if all points in a state are obscured (coord.unc > 25000), species was not included
+  tmp <- inat.dat1 %>%
+    group_by(stateProvince) %>%
+    summarize(min.unc = min(coord.unc, na.rm = T)) %>%
+    mutate(min.unc = case_when(min.unc == Inf ~ NA,
+                               T ~ min.unc)) %>%
+    filter(min.unc > 25000)
+  obsc.state <- tmp$stateProvince
+  statecodes <- read.csv("data/statecodes.csv")
+  obsc.state <- statecodes$abbrev[which(statecodes$state %in% obsc.state)]
+  
+  # species was already included
+  if (nrow(tmp) == 0) {
+    
+    
+    # Need to add species
+  } else {
+    cat("Adding", sp.code, "to iNat effort covariate\n")
+    
+    inat.cells <- inat.dat1 %>%
+      st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+      st_transform(crs = 3857) %>%
+      st_intersection(region$sp.grid) %>%
+      st_drop_geometry() %>%
+      group_by(conus.grid.id) %>%
+      summarize(n.inat.sp = n()) %>%
+      full_join(region$sp.grid, ., by = "conus.grid.id") %>%
+      st_drop_geometry()
+    inat.cells$n.inat.sp[is.na(inat.cells$n.inat.sp)] <- 0
+    
+    covar <- full_join(covar, select(inat.cells, conus.grid.id, n.inat.sp), by = 'conus.grid.id') %>%
+      mutate(n.inat = n.inat + n.inat.sp)
+  }
+}
+
+
+
+
+
+# add centroid lat and lon of each grid cell to covar
+centroid <- st_centroid(region$sp.grid) %>%
+              st_coordinates() %>%
+              as.data.frame() %>%
+              mutate(conus.grid.id = region$sp.grid$conus.grid.id)
+
+colnames(centroid)[1:2] <- c("lon", "lat")
+covar <- left_join(covar, centroid, by = "conus.grid.id")
+
+
+
+### Read in process covariates ----
+covs.z <- c(covs.lin, covs.quad, covs.int.factor)
+if ("" %in% covs.z) {
+  covs.z <- covs.z[-which(covs.z == "")]  
+}
+if (NA %in% covs.z) {
+  covs.z <- covs.z[-which(is.na(covs.z))]
+}
+
+
+
+### Add additional/derived covariates -----
+# If you add a new covariate, add a row to data/covariate-labels.csv with a label
+if (sp.code == "RACA") {
+  
+  covar <- covar %>%
+    mutate(sqrtarea_small = sqrt(area_small),
+           sqrtarea_medium = sqrt(area_medium))
+  
+} else if (sp.code == "PLSE") {
+  
+  covar <- covar %>%
+    mutate(N_all = N + NW + NE)
+  
+}
+
+rm <- which(complete.cases(covar[,covs.z]) == F)
+if (length(rm) > 0) {
+  covar <- covar[-rm,]
+  region$sp.grid <- region$sp.grid[-rm,]
+}
+
+### Scale covariates ----
+covar_unscaled <- covar
+
+# scale numeric cols
+numcols <- sapply(covar, is.numeric)
+numcols <- which(numcols)
+covar[,numcols] <- sapply(covar[,numcols], scale_this)
+
+# remove covariates that are correlated > 0.4
+if (check.covs == T){
+  covs.rm <- select_covar(covs.z, threshold = 0.4)
+  covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
+  covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
+  
+  covs.z <- c(covs.lin, covs.quad)
+}
+
+if (length(covs.z) < 3) {
+  stop("There are fewer than 3 covariates remaining! This probably isn't a good model")
+}
+
+
+### Plot covariates ----
+if (block.out == "none") {
+  
+  
+  # Process covs
+  
+  # get covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+    filter(covariate %in% covs.z)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-a_process-map")
+  
+  cor_covar(covar, 
+            cov.names = covlabs$covariate,
+            cov.labels = covlabs$Label,
+            out.path = out.dir,
+            out.name = "1_covariates-a_process-correlations", 
+            color.threshold = 0.25)
+  
+  
+  
+  # iNat covs
+  if ("iNaturalist" %in% names(species.data$obs)) {
+    # get covariate labels
+    covlabs <- read.csv("data/covariate-labels.csv") %>%
+      filter(covariate %in% covs.inat)
+    
+    plot_covar(covar,
+               region,
+               cov.names = covlabs$covariate,
+               cov.labels = covlabs$Label,
+               out.path = out.dir,
+               out.name = "1_covariates-b_iNat-map")
+    
+    if (length(covs.inat) > 1) {
+      cor_covar(covar, 
+                cov.names = covlabs$covariate,
+                cov.labels = covlabs$Label,
+                out.path = out.dir,
+                out.name = "1_covariates-b_iNat-correlations", 
+                color.threshold = 0.25)
+    }
+  }
+  
+  
+  
+  
+  # PO covs
+  
+  # get covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+    filter(covariate %in% covs.PO)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-c_PO-map")
+  
+  if (length(covs.PO) > 1) {
+    cor_covar(covar, 
+              cov.names = covlabs$covariate,
+              cov.labels = covlabs$Label,
+              out.path = out.dir,
+              out.name = "1_covariates-c_PO-correlations", 
+              color.threshold = 0.25)
+  }
+  
+}
+
+
+
+### Add quadratic covariates and interactions ----
+if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
+  for (c in 1:length(covs.quad)) {
+    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
+    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
+  }
+}
+
+# and interactions
+if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) {
+  
+  # pivot factor wider to get dummy cols
+  covar[,covs.int.factor] <- paste0(covs.int.factor, ".", covar[,covs.int.factor])
+  covar <- covar %>%
+    mutate(fact = 1) %>%
+    pivot_wider(names_from = all_of(covs.int.factor), values_from = fact, values_fill = 0)
+  
+  covs.z <- c(covs.z, colnames(covar)[grep(paste0(covs.int.factor, "."), colnames(covar))])
+  
+  for (j in 1:length(covs.int.cont)) {
+    # add interaction
+    tmp <- add_int_cols(covar, int.factor = covs.int.factor, int.cont = covs.int.cont[j])
+    covar <- tmp$covar
+    covs.z <- c(covs.z, tmp$names)
+  }
+  
+  # remove reference level
+  rm <- grep(reference, covs.z)
+  covs.z <- covs.z[-rm]
+  
+  # remove original column name
+  rm <- grep(covs.int.factor, covs.z)[1]
+  covs.z <- covs.z[-rm]
+}
+
+
+
+
+
+
+
+
+
+
+
 # NIMBLE ----
 
-summary <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>%
+summary <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file,
          Name %in% names(species.data$obs))
 summary <- summary[sort(match(summary$Name, names(species.data$obs))),]
+summary$Area <- "" # we're not using the area column anymore
 
 sp.data <- sppdata_for_nimble(species.data,
                               region,
@@ -617,32 +702,25 @@ data <- tmp$data
 constants <- tmp$constants
 
 
-if (sp.code == "ANMI") {
-  
-  # Need to replace NMGFD datasets with Bernoulli instead of occupancy
-  for (s in 1:length(species.data$obs)) {
-    nm <- constants[[paste0("name", s)]]
-    nm <- gsub(" .*", "", nm)
-    
-    if (nm %in% c("NMGFD", "AZGFD")) {
-      constants[[paste0("nVisitsV", s)]] <- 1
-    }
-  }
-  
-}
+# Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
+# Add state indicator for multi-state PO to indicate which states have data
+constants <- add_state_ind(species.data,
+                           region,
+                           gridkey,
+                           constants,
+                           covs.inat = covs.inat,
+                           obsc.state = obsc.state,
+                           keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 
 
-if (model == "proj08nostate") {
-  if (sp.code == "EBIS") {
+
+if (model == "NEnostate" & sp.code == "EBIS") {
     data$Xw3$WV <- NULL
     data$Xw3$VT <- NULL
     data$S3 <- NULL
     
     constants$nCovW3 <- ncol(data$Xw3)
-  } else {
-    stop("Don't know which states to remove")
-  }
   
   rm.state <- T
 } else {
