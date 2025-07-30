@@ -23,7 +23,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 3
+nums.do <- 2
 block <- c("none")
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -451,6 +451,8 @@ if ('n.inat' %in% covs.inat) {
                                T ~ min.unc)) %>%
     filter(min.unc > 25000)
   obsc.state <- tmp$stateProvince
+  statecodes <- read.csv("data/statecodes.csv")
+  obsc.state <- statecodes$abbrev[which(statecodes$state %in% obsc.state)]
   
   # species was already included
   if (nrow(tmp) == 0) {
@@ -701,39 +703,65 @@ constants <- tmp$constants
 
 
 # Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
-if ("iNaturalist" %in% names(species.data$obs) & "n.inat" %in% covs.inat) {
-  if (length(obsc.state) > 0) {
-    statecodes <- read.csv("data/statecodes.csv")
-    state.abbrev <- statecodes$abbrev[which(statecodes$state %in% obsc.state)]
-    
-    grid.states <- read_rds("data/grid-states.rds") %>%
-      filter(name %in% state.abbrev,
-             conus.grid.id %in% region$sp.grid$conus.grid.id)
-    
-    # iNat is always dataset1 if it exists
-    S1 <- data.frame(grid.id = constants$Wcells1) %>%
-      left_join(gridkey, by = "grid.id") %>%
-      mutate(S1 = case_when(conus.grid.id %in% grid.states$conus.grid.id ~ 0,
-                            T ~ 1)) %>%
-      pull(S1)
-  } else {
-    S1 <- rep(1, nrow(region$sp.grid))
-  }
-  
-  constants$S1 <- S1
-  
-}
+# Add state indicator for multi-state PO to indicate which states have data
+constants <- add_state_ind(species.data,
+                           region,
+                           gridkey,
+                           constants,
+                           covs.inat = covs.inat,
+                           obsc.state = obsc.state,
+                           keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
-if (model == "NEnostate") {
-  if (sp.code == "EBIS") {
+# Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
+# Add state indicator for multi-state PO to indicate which states have data
+# if ("iNaturalist" %in% names(species.data$obs) & "n.inat" %in% covs.inat) {
+#   if (length(obsc.state) > 0) {
+#     statecodes <- read.csv("data/statecodes.csv")
+#     state.abbrev <- statecodes$abbrev[which(statecodes$state %in% obsc.state)]
+#     
+#     grid.states <- read_rds("data/grid-states.rds") %>%
+#       filter(name %in% state.abbrev,
+#              conus.grid.id %in% region$sp.grid$conus.grid.id)
+#     
+#     # iNat is always dataset1 if it exists
+#     S1 <- data.frame(grid.id = constants$Wcells1) %>%
+#       left_join(gridkey, by = "grid.id") %>%
+#       mutate(S1 = case_when(conus.grid.id %in% grid.states$conus.grid.id ~ 0,
+#                             T ~ 1)) %>%
+#       pull(S1)
+#   } else {
+#     S1 <- rep(1, nrow(region$sp.grid))
+#   }
+#   constants$S1 <- S1
+# }
+# 
+# # Add state indicator for multi-state PO to indicate which states have data
+# st <- grep("states", names(constants))
+# if (length(st) > 0) {
+#   num <- gsub("states", "", names(constants)[st])
+#   states <- constants[[st]]
+#   
+#   data("grid_states")
+#   grid.states <- stategrid %>%
+#     filter(name %in% states,
+#            conus.grid.id %in% region$sp.grid$conus.grid.id)
+#   
+#   S <- data.frame(grid.id = constants[[paste0("Wcells", num)]]) %>%
+#     left_join(gridkey, by = "grid.id") %>%
+#     mutate(S = case_when(conus.grid.id %in% grid.states$conus.grid.id ~ 1,
+#                          T ~ 0)) %>%
+#     pull(S)
+#   constants[[paste0("S", num)]] <- S
+# }
+
+
+
+if (model == "NEnostate" & sp.code == "EBIS") {
     data$Xw3$WV <- NULL
     data$Xw3$VT <- NULL
     data$S3 <- NULL
     
     constants$nCovW3 <- ncol(data$Xw3)
-  } else {
-    stop("Don't know which states to remove")
-  }
   
   rm.state <- T
 } else {
