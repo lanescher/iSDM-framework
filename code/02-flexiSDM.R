@@ -17,8 +17,6 @@ print(paste0('Beginning 02-MVPv1.1 script at ', start2))
 # EDIT THIS SECTION ----
 num <- 1
 block <- "none"
-sp.code <- "RACA"
-model <- "WIPtest"
 chain <- 1
 local <- 1
 # ---
@@ -28,15 +26,13 @@ args = commandArgs(trailingOnly = TRUE)
 
 if (length(args) > 0) {
   num = as.numeric(args[1])
-  sp.code = as.character(args[2])
-  model = as.character(args[3])
-  block = as.numeric(args[4])
-  chain = as.numeric(args[5])
-  local = as.numeric(args[6]) 
+  block = as.numeric(args[2])
+  chain = as.numeric(args[3])
+  local = as.numeric(args[4]) 
   
   # If running on HPC, set working directory
   if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/')
+    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework/')
   } 
 }
 
@@ -47,12 +43,17 @@ if (block == 4) {
 
 
 # Load functions and packages
-suppressMessages(source("functions/FXN-nimbleParallel.R"))
+suppressMessages(source("../species-futures/functions/FXN-nimbleParallel.R"))
 library(SpFut.flexiSDM)
 
 
+mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% num)
+
+sp.code <- mods$sp.code[1]
+model <- mods$model[1]
+
 # Set output directory and load setup file
-out.dir = paste0('outputs/03-species-models/MVPv1/',num,'_',sp.code,'_',model,'/')
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 load(paste0(out.dir,'setup_',block,'.Rdata'))
 
 
@@ -64,8 +65,8 @@ if (local == 1) {
                             constants = constants,
                             inits = inits,
                             param = params,
-                            iter = iter,
-                            burnin = burnin,
+                            iter = 5000,
+                            burnin = 1000,
                             thin = thin)
   
   end.nim <- Sys.time() - start.nim
