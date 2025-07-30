@@ -25,8 +25,6 @@ library(SpFut.flexiSDM)
 # EDIT THIS SECTION ----
 num <- 1
 block <- "none"
-sp.code <- "RACA"
-model <- "WIPtest"
 maxchain <- 3
 local <- 1
 # ---
@@ -37,11 +35,9 @@ args = commandArgs(trailingOnly = TRUE)
 
 if (length(args) > 0) {
   num = as.numeric(args[1])
-  sp.code = as.character(args[2])
-  model = as.character(args[3])
-  block = as.numeric(args[4])
-  maxchain = as.numeric(args[5])
-  local = as.numeric(args[6])
+  block = as.numeric(args[2])
+  maxchain = as.numeric(args[3])
+  local = as.numeric(args[4])
   
   if (local == 0) {
     setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/')
@@ -54,8 +50,15 @@ if (block == 4) {
   block <- 'none'
 }
 
+
+mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% num)
+
+sp.code <- mods$sp.code[1]
+model <- mods$model[1]
+
+
 # load output directory, setup, and functions
-out.dir = paste0('outputs/03-species-models/MVPv1/',num,'_',sp.code,'_',model,'/')
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 load(paste0(out.dir,'setup_',block,'.Rdata'))
 
 
@@ -127,15 +130,15 @@ if (block.out == "none") {
   
   ggsave(plot_pars(out, 
                    plot.type = "full", 
-                   plot.group = "observation", 
-                   title = "Observation parameter estimates",
-                   cov.labs = cov.labs),
+                   plot.group = "dataset", 
+                   title = "Dataset parameter estimates"),
          file = paste0(out.dir, "3_parameters-b3_alpha.jpg"), height = 6, width = 10)
   
   ggsave(plot_pars(out, 
                    plot.type = "full", 
-                   plot.group = "dataset", 
-                   title = "Dataset intercept estimates"),
+                   plot.group = "observation", 
+                   title = "Observation intercept estimates",
+                   cov.labs = cov.labs),
          file = paste0(out.dir, "3_parameters-c3_observation.jpg"), height = 6, width = 10)
   
   
