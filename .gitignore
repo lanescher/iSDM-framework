@@ -7,10 +7,7 @@
 # Do not upload files that are too big
 data/USA/
 
-outputs/*/samples_none.rds
-outputs/*/samples_1.rds
-outputs/*/samples_2.rds
-outputs/*/samples_3.rds
-
+outputs/*/samples_*.rds
+outputs/*/setup_*.Rdata
 outputs/RACA-spatial-model-tests
 
