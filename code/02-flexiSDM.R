@@ -45,6 +45,7 @@ if (block == 4) {
 # Load functions and packages
 suppressMessages(source("../species-futures/functions/FXN-nimbleParallel.R"))
 library(SpFut.flexiSDM)
+library(tidyverse)
 
 
 mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% num)
