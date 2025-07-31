@@ -543,10 +543,10 @@ save(species.data, covar, covar_unscaled, data, constants, gridkey, all.auc, blo
 
 done <- list.files(path = out.dir)
 
-if ("data1.rdata" %in% done &
-    "data2.rdata" %in% done &
-    "data3.rdata" %in% done &
-    "datafull.rdata" %in% done) {
+mod.name <- c('data1','data2','data3','datafull')
+
+
+if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done)) {
   
   
   # Load data from all model runs
