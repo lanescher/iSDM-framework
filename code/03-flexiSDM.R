@@ -401,19 +401,19 @@ if (block.out == "none") {
 # Validate ----
 
 # Get all data
-species.data <- load_species_data(sp.code,
+species.data <- load_species_data(sp.code = sp.code,
+                                  sp.code.all = sp.code.all,
                                   file.name = allfiles$file,
                                   file.label = allfiles$name,
                                   file.path = "DATA SWAMP/data-ready/",
-                                  keep.subsp = T,   # This is a new argument, might want to add it as an input to the csv
                                   keep.cols = covariates,
-                                  region, 
-                                  filter.region = T,
-                                  year.start = 1994,
-                                  year.end = 2025,
-                                  coordunc = 1000,
-                                  coordunc_na.rm = T,
-                                  spat.thin = F,
+                                  region = region, 
+                                  filter.region = filter.region,
+                                  year.start = year.start,
+                                  year.end = year.end,
+                                  coordunc = coordunc,
+                                  coordunc_na.rm = coordunc_na.rm,
+                                  spat.thin = spat.bal,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 
