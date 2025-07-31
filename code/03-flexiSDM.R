@@ -432,62 +432,55 @@ val.dat <- val.dat %>%
   select(conus.grid.id, source, pa)
 
 
-
-
-# Calculate AUC for in sample
-val.in <- filter(out$psi0, group == "train") %>%
-  inner_join(val.dat, by = "conus.grid.id")
-
-# overall
-if (length(unique(val.in$pa)) < 2) {
-  AUCin <- NA
-} else {
-  AUCin <- pROC::auc(val.in$pa, val.in$mean)
-}
-
-# each dataset
-dats <- unique(val.in$source)
-aucsin <- c()
-for (s in 1:length(dats)) {
-  val.in1 <- filter(val.in, source == dats[s])
+# If it's only PO data, skip the following
+if (nrow(val.dat) == 0) {
   
-  if (length(unique(val.in1$pa)) < 2) {
-    AUCin1 <- NA
-  } else {
-    AUCin1 <- pROC::auc(val.in1$pa, val.in1$mean)
-  }
-  
-  tmpin <- data.frame(source = dats[s],
-                      AUCin = as.numeric(AUCin1),
-                      in.n = nrow(val.in1),
-                      in.cell = length(unique(val.in1$conus.grid.id)))
-  
-  aucsin <- bind_rows(aucsin, tmpin)
-}
-
-
-
-
-
-# Calculate AUC for out of sample
-val.out <- filter(out$psi0, group == "test") %>%
-  inner_join(val.dat, by = "conus.grid.id")
-
-if (nrow(val.out) == 0) {
-  # if there is no out of sample data
-  
-  AUCout <- NA
-  
-} else {
-  # if there is out of sample data
+  # Calculate AUC for in sample
+  val.in <- filter(out$psi0, group == "train") %>%
+    inner_join(val.dat, by = "conus.grid.id")
   
   # overall
-  if (length(unique(val.out$pa)) < 2) {
-    AUCout <- NA
-    tmpout <- c()
+  if (length(unique(val.in$pa)) < 2) {
+    AUCin <- NA
   } else {
+    AUCin <- pROC::auc(val.in$pa, val.in$mean)
+  }
+  
+  # each dataset
+  dats <- unique(val.in$source)
+  aucsin <- c()
+  for (s in 1:length(dats)) {
+    val.in1 <- filter(val.in, source == dats[s])
+    
+    if (length(unique(val.in1$pa)) < 2) {
+      AUCin1 <- NA
+    } else {
+      AUCin1 <- pROC::auc(val.in1$pa, val.in1$mean)
+    }
+    
+    tmpin <- data.frame(source = dats[s],
+                        AUCin = as.numeric(AUCin1),
+                        in.n = nrow(val.in1),
+                        in.cell = length(unique(val.in1$conus.grid.id)))
+    
+    aucsin <- bind_rows(aucsin, tmpin)
+  }
+  
+  
+  
+  # Calculate AUC for out of sample
+  val.out <- filter(out$psi0, group == "test") %>% inner_join(val.dat, by = "conus.grid.id")
+  
+  # Overall
+  if (nrow(val.out) == 0) {
+    # if there is no out of sample data
+    AUCout <- NA
+    
+  } else {
+    # if there is out of sample data
     AUCout <- pROC::auc(val.out$pa, val.out$mean)
   }
+
   
   # each dataset
   dats <- unique(val.out$source)
@@ -509,23 +502,28 @@ if (nrow(val.out) == 0) {
     aucsout <- bind_rows(aucsout, tmpout)
     
   }
+  
+  
+  
+  if (block.out != "none") {aucs <- full_join(aucsin, aucsout, by = "source")}
+  if (block.out == "none") {aucs <- aucsin}
+  
+  all.auc <- data.frame(sp.code = sp.code,
+                        block = block.out,
+                        AUCin.full = as.numeric(AUCin), 
+                        in.full.n = nrow(val.in),
+                        in.full.cell = length(unique(val.in$conus.grid.id)),
+                        AUCout.full = as.numeric(AUCout),
+                        out.full.n = nrow(val.out),
+                        out.full.cell = length(unique(val.out$conus.grid.id)),
+                        aucs)
+  
 }
 
-
-if (block.out != "none") {aucs <- full_join(aucsin, aucsout, by = "source")}
-if (block.out == "none") {aucs <- aucsin}
-
-all.auc <- data.frame(sp.code = sp.code,
-                      block = block.out,
-                      AUCin.full = as.numeric(AUCin), 
-                      in.full.n = nrow(val.in),
-                      in.full.cell = length(unique(val.in$conus.grid.id)),
-                      AUCout.full = as.numeric(AUCout),
-                      out.full.n = nrow(val.out),
-                      out.full.cell = length(unique(val.out$conus.grid.id)),
-                      aucs)
-
-
+# If there are no validation data, set auc.out = NA
+if (!exists("all.auc")) {
+  all.auc <- NA
+}
 
 
 # Save everything ----
@@ -559,6 +557,9 @@ if ("data1.rdata" %in% done &
   for (i in 1:3) {
     load(paste0(out.dir, "data", i, "-info.rdata"))
     load(paste0(out.dir, "data", i, ".rdata"))
+    
+    # If validation data is missing, skip
+    if (is.na(all.auc)) next
     
     out$process.coef$block.out <- as.character(out$process.coef$block.out)
     out$obs.coef$block.out <- as.character(out$obs.coef$block.out)
