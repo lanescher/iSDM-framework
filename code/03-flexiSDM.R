@@ -433,7 +433,7 @@ val.dat <- val.dat %>%
 
 
 # If it's only PO data, skip the following
-if (nrow(val.dat) == 0) {
+if (nrow(val.dat) != 0) {
   
   # Calculate AUC for in sample
   val.in <- filter(out$psi0, group == "train") %>%
@@ -482,31 +482,32 @@ if (nrow(val.dat) == 0) {
   }
 
   
-  # each dataset
-  dats <- unique(val.out$source)
-  aucsout <- c()
-  for (s in 1:length(dats)) {
-    val.out1 <- filter(val.out, source == dats[s])
-    
-    if (length(unique(val.out1$pa)) < 2) {
-      AUCout1 <- NA
-    } else {
-      AUCout1 <- pROC::auc(val.out1$pa, val.out1$mean)
+  # each dataset --- START HERE
+  if (block.out != 'none'){
+    dats <- unique(val.out$source)
+    aucsout <- c()
+    for (s in 1:length(dats)) {
+      val.out1 <- filter(val.out, source == dats[s])
+      
+      if (length(unique(val.out1$pa)) < 2) {
+        AUCout1 <- NA
+      } else {
+        AUCout1 <- pROC::auc(val.out1$pa, val.out1$mean)
+      }
+      
+      tmpout <- data.frame(source = dats[s],
+                           AUCout = as.numeric(AUCout1),
+                           out.n = nrow(val.out1),
+                           out.cell = length(unique(val.out1$conus.grid.id)))
+      
+      aucsout <- bind_rows(aucsout, tmpout)
+      
     }
     
-    tmpout <- data.frame(source = dats[s],
-                         AUCout = as.numeric(AUCout1),
-                         out.n = nrow(val.out1),
-                         out.cell = length(unique(val.out1$conus.grid.id)))
-    
-    aucsout <- bind_rows(aucsout, tmpout)
-    
-  }
-  
-  
-  
-  if (block.out != "none") {aucs <- full_join(aucsin, aucsout, by = "source")}
-  if (block.out == "none") {aucs <- aucsin}
+    aucs <- full_join(aucsin, aucsout, by = "source")
+  } else { # block.out == "none"
+    aucs <- aucsin
+    }
   
   all.auc <- data.frame(sp.code = sp.code,
                         block = block.out,
