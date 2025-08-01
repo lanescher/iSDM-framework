@@ -24,7 +24,7 @@ library(SpFut.flexiSDM)
 
 # EDIT THIS SECTION ----
 num <- 1
-block <- "none"
+block <- 1
 maxchain <- 3
 local <- 1
 # ---
@@ -400,6 +400,9 @@ if (block.out == "none") {
 
 # Validate ----
 
+load(paste0(out.dir, 'setup_', block, ".Rdata"))
+load(paste0(out.dir, "data", blockname, ".rdata"))
+
 # Get all data
 species.data <- load_species_data(sp.code = sp.code,
                                   sp.code.all = sp.code.all,
@@ -414,7 +417,7 @@ species.data <- load_species_data(sp.code = sp.code,
                                   coordunc = coordunc,
                                   coordunc_na.rm = coordunc_na.rm,
                                   spat.thin = spat.bal,
-                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+                                  keep.conus.grid.id = gridkey$conus.grid.id)
 
 
 
@@ -541,6 +544,7 @@ save(species.data, covar, covar_unscaled, data, constants, gridkey, all.auc, blo
 
 # Final CV Figures ----
 # Make final cross validation figs if all blocks have been done
+cov.labs <- read.csv("data/covariate-labels.csv")
 
 done <- list.files(path = out.dir)
 
@@ -559,17 +563,18 @@ if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done
     load(paste0(out.dir, "data", i, "-info.rdata"))
     load(paste0(out.dir, "data", i, ".rdata"))
     
-    # If validation data is missing, skip
-    if (is.na(all.auc)) next
     
     out$process.coef$block.out <- as.character(out$process.coef$block.out)
     out$obs.coef$block.out <- as.character(out$obs.coef$block.out)
     out$alpha$block.out <- as.character(out$alpha$block.out)
     
-    auc <- bind_rows(auc, all.auc)
     proc <- bind_rows(proc, out$process.coef)
     obs <- bind_rows(obs, out$obs.coef)
     alpha <- bind_rows(alpha, out$alpha)
+    
+    # If validation data is missing, skip
+    if (length(all.auc) == 1) next
+    auc <- bind_rows(auc, all.auc)
     
   }
   
