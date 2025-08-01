@@ -696,7 +696,8 @@ sp.data <- sppdata_for_nimble(species.data,
 tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
                        sp.auto = sp.auto, coarse.grid = coarse.grid, region = region,
                        process.intercept = process.intercept,
-                       gridkey = gridkey, spatRegion= spatRegion)
+                       gridkey = gridkey, spatRegion= spatRegion,
+                       keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 data <- tmp$data
 constants <- tmp$constants
