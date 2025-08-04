@@ -23,7 +23,7 @@ source("../SpFut.flexiSDM/R/get_AUC.R")
 
 
 # EDIT THIS SECTION ----
-num <- 1
+num <- 2
 block <- 3
 maxchain <- 3
 local <- 1
