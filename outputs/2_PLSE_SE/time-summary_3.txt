@@ -1,0 +1,20 @@
+Time summary for: 2 PLSE SE
+
+The model was run on Mon Aug 2025 04 01:26:25 PM
+
+Total time for setup:
+Time difference of 5.738393 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 4.556455 hours
+
+Total time for summarization: 
+Time difference of 27.52088 mins
+
+Start to finish time (code): 
+Time difference of 18398.79 secs
+
+Start to finish time (user delay): 
+Time difference of 2.946397 days
+
+
