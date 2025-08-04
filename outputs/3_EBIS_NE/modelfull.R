@@ -65,10 +65,8 @@ for (j in 1:nW3) {
   W3[j] ~ dpois(lambdaD3[j] * E3[j]) # Poisson
 
   # Effort 
-  log(E3[j]) <- A3[1] * Xw3[j,1]
-
-  # Prior for X imputation
-  Xw3[j, 1] ~ dnorm(0, 1)
+  log(eff3[j]) <- inprod(A3[1:nCovW3], Xw3[j,1:nCovW3])
+  E3[j] <- eff3[j] * S3[j]
 }
 
   
