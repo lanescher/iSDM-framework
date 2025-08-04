@@ -1,0 +1,20 @@
+Time summary for: 3 EBIS NE
+
+The model was run on Mon Aug 2025 04 08:35:12 AM
+
+Total time for setup:
+Time difference of 14.44794 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 3.803655 hours
+
+Total time for summarization: 
+Time difference of 30.27869 mins
+
+Start to finish time (code): 
+Time difference of 16376.75 secs
+
+Start to finish time (user delay): 
+Time difference of 2.744146 days
+
+

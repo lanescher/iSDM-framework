@@ -1,0 +1,20 @@
+Time summary for: 4 EBIS NEnostate
+
+The model was run on Mon Aug 2025 04 08:37:06 AM
+
+Total time for setup:
+Time difference of 14.5165 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 4.128275 hours
+
+Total time for summarization: 
+Time difference of 31.892 mins
+
+Start to finish time (code): 
+Time difference of 17646.3 secs
+
+Start to finish time (user delay): 
+Time difference of 2.745441 days
+
+

@@ -1,0 +1,20 @@
+Time summary for: 1 RACA PNW
+
+The model was run on Mon Aug 2025 04 08:25:20 AM
+
+Total time for setup:
+Time difference of 6.281056 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 6.893713 hours
+
+Total time for summarization: 
+Time difference of 21.25552 mins
+
+Start to finish time (code): 
+Time difference of 26469.56 secs
+
+Start to finish time (user delay): 
+Time difference of 2.737328 days
+
+
