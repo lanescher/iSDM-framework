@@ -23,7 +23,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 1
+nums.do <- 3
 block <- c("none")
 # block <- c("none", 1, 2, 3)
 local <- 1
