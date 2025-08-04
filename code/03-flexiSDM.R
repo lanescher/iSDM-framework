@@ -19,7 +19,7 @@ library(tidyverse, quietly = T)
 library(magrittr, quietly = T)
 library(sf, quietly = T)
 library(SpFut.flexiSDM)
-source("../SpFut.flexiSDM/R/get_AUC.R")
+# source("../SpFut.flexiSDM/R/get_AUC.R")
 
 
 # EDIT THIS SECTION ----
