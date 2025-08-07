@@ -100,8 +100,8 @@ rain_85_4069,"Rainfall, projected RCP 8.5 2040-2069"
 rain_45_7099,"Rainfall, projected RCP 4.5 2070-2099"
 rain_85_7099,"Rainfall, projected RCP 8.5 2070-2099"
 rain_current,Rainfall
-sqrtarea_small,Sqrt(Area of small water bodies)
-sqrtarea_medium,Sqrt(Area of medium water bodies)
+sqrtarea_small,Sqrt(small water bodies)
+sqrtarea_medium,Sqrt(medium water bodies)
 cwd_45_4069,"CWD, projected RCP 4.5 2040-2069"
 cwd_85_4069,"CWD, projected RCP 8.5 2040-2069"
 cwd_45_7099,"CWD, projected RCP 4.5 2070-2099"
