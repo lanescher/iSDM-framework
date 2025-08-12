@@ -23,7 +23,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 3
+nums.do <- 2
 block <- c("none")
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -696,8 +696,7 @@ sp.data <- sppdata_for_nimble(species.data,
 tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
                        sp.auto = sp.auto, coarse.grid = coarse.grid, region = region,
                        process.intercept = process.intercept,
-                       gridkey = gridkey, spatRegion= spatRegion,
-                       keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+                       gridkey = gridkey, spatRegion= spatRegion)
 
 data <- tmp$data
 constants <- tmp$constants
