@@ -23,8 +23,8 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 2
-block <- 3
+nums.do <- 1
+block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
 a <- 1
@@ -55,11 +55,9 @@ if (length(args) > 0) {
 } 
 
 # load libraries ----
-library(blockCV)
 library(tidyverse)
 library(sf)
 library(nimble)
-# remotes::install_github("rileymummah/SpFut.flexiSDM")
 library(SpFut.flexiSDM)
 
 
@@ -174,8 +172,7 @@ if (dir.exists(out.dir) == F) {
 
 # Make region ----
 # Load ranges
-gappath <- list.files(paste0("data/", sp.code, "/GAP/"))[1] 
-range.path <- c(paste0("data/", sp.code, "/GAP/", gappath, "/"),
+range.path <- c(paste0("data/", sp.code, "/GAP/"),
                 paste0("data/", sp.code, "/IUCN/"))
 range.name <- c("GAP", "IUCN")
 rangelist <- get_range(range.path,
@@ -672,7 +669,7 @@ if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) {
 summary <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file,
          Name %in% names(species.data$obs))
-summary <- summary[sort(match(summary$Name, names(species.data$obs))),]
+summary <- summary[order(match(summary$Name, names(species.data$obs))),]
 summary$Area <- "" # we're not using the area column anymore
 
 sp.data <- sppdata_for_nimble(species.data,
@@ -712,20 +709,6 @@ constants <- add_state_ind(species.data,
 
 
 
-if (model == "NEnostate" & sp.code == "EBIS") {
-    data$Xw3$WV <- NULL
-    data$Xw3$VT <- NULL
-    data$S3 <- NULL
-    
-    constants$nCovW3 <- ncol(data$Xw3)
-  
-  rm.state <- T
-} else {
-  rm.state <- F
-}
-
-
-
 ### Code ----
 code <- nimble_code(data,
                     constants, 
@@ -736,7 +719,7 @@ code <- nimble_code(data,
                     block.out = block.out,
                     min.visits.incl = 3, 
                     zero_mean = zero_mean,
-                    rm.state = rm.state)
+                    rm.state = F)
 
 ### Initial values ----
 inits <- function(x){nimble_inits(data,
