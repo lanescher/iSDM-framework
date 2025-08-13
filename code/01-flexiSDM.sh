@@ -9,7 +9,7 @@
 #SBATCH --time=00-6:00:00
 #SBATCH --partition=cpu
 #SBATCH --account=eesc
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=ARRAY_TASKS,FAIL,END
 #SBATCH --mail-user=rmummah@usgs.gov
 #SBATCH -o %x-%A-%a.out
 #SBATCH -e %x-%A-%a.err
