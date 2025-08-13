@@ -24,7 +24,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 # EDIT THIS SECTION ----
 nums.do <- 2
-block <- c("none")
+block <- 3
 # block <- c("none", 1, 2, 3)
 local <- 1
 a <- 1
@@ -203,14 +203,8 @@ region <- make_region(rangelist,
                       clump.size = 50)
 
 # Set up cross validation blocks ----
-sb <- cv_spatial(x = region$sp.grid, 
-                 rows_cols = c(block.rows, block.cols),
-                 k = block.folds, 
-                 hexagon = F, 
-                 selection = "systematic", 
-                 biomod2 = F, 
-                 plot = F, 
-                 report = F)
+spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
+
 
 
 
@@ -220,7 +214,7 @@ if (block.out == "none") {
   train.i <- region$sp.grid$conus.grid.id
   
 } else {
-  block1 <- sb$blocks %>%
+  block1 <- spatblocks %>%
     filter(folds == block.out)
   
   # find grid.ids for test block, everything else is train
@@ -269,6 +263,8 @@ allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
 covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file) %>%
   select(Data.Swamp.file.name, Covar.mean, Covar.sum)
+covs <- covs[order(match(covs$Data.Swamp.file.name, allfiles$file)),]
+
 covariates <- list()
 for (i in 1:nrow(covs)) {
   covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
@@ -334,7 +330,7 @@ if (block.out != "none") {
                          year.end = year.end,
                          plot = "samples",
                          plot.blocks = T,
-                         blocks = sb$blocks[which(sb$blocks$folds == block),],
+                         blocks = spatblocks[which(spatblocks$folds == block),],
                          plot.region = T,
                          details = T,
                          title = paste0(common, " (", sp.code, ")", title))
@@ -346,7 +342,7 @@ if (block.out != "none") {
                          year.end = year.end,
                          plot = "samples",
                          plot.blocks = T,
-                         blocks = sb$blocks[which(sb$blocks$folds == block),],
+                         blocks = spatblocks[which(spatblocks$folds == block),],
                          plot.region = T,
                          details = F,
                          title = paste0(common, " (", sp.code, ")", title))
@@ -360,7 +356,7 @@ if (block.out != "none") {
                          year.end = year.end,
                          plot = "samples",
                          plot.blocks = T,
-                         blocks = sb$blocks,
+                         blocks = spatblocks,
                          plot.region = T,
                          details = T,
                          title = paste0(common, " (", sp.code, ")", title))
@@ -372,7 +368,7 @@ if (block.out != "none") {
                          year.end = year.end,
                          plot = "samples",
                          plot.blocks = T,
-                         blocks = sb$blocks,
+                         blocks = spatblocks,
                          plot.region = T,
                          details = F,
                          title = paste0(common, " (", sp.code, ")", title))
@@ -388,6 +384,7 @@ if (block.out != "none") {
 load("../species-futures/data/USA/grid-covar.rdata")
 covar <- conus.covar.grid %>%
   filter(conus.grid.id %in% region$sp.grid$conus.grid.id)
+covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
 
 # load iNat data for similar species
 if ("iNaturalist" %in% names(species.data$obs)) {
