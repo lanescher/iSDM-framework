@@ -1,0 +1,7 @@
+Time summary for: 3 EBIS NE
+
+The model was run on Wed Aug 2025 20 02:10:01 PM
+
+Total time for setup:
+Time difference of 12.55942 mins
+
