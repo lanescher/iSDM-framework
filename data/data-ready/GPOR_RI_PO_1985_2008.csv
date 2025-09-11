@@ -1,0 +1,6 @@
+"site.id","lat","lon","day","month","year","survey.conducted","survey.id","data.type","pass.id","species","age","individual.id","time.to.detect","count","date","survey.pass"
+5,42.004368,-71.798252,1,1,2008,1,1,"PO",1,"GPOR","larva",NA,NA,1,"1/1/2008","1_1"
+3,41.942501,-71.783302,26,4,1989,1,2,"PO",1,"GPOR","adult",NA,NA,1,"4/26/1989","2_1"
+4,41.9612,-71.787696,8,11,1986,1,3,"PO",1,"GPOR","larva",NA,NA,1,"11/8/1986","3_1"
+2,41.851799,-71.768798,12,10,1985,1,4,"PO",1,"GPOR","adult",NA,NA,1,"10/12/1985","4_1"
+1,41.849998,-71.7835,NA,9,1985,1,5,"PO",1,"GPOR","larva",NA,NA,1,NA,"5_1"
