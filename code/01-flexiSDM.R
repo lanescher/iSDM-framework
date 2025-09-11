@@ -23,7 +23,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 1
+nums.do <- 4
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -668,9 +668,12 @@ if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) {
 
 summary <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Data.Swamp.file.name %in% allfiles$file,
-         Name %in% names(species.data$obs))
-summary <- summary[order(match(summary$Name, names(species.data$obs))),]
+         Name %in% names(species.data$obs)) %>%
+  select(-Data.Swamp.file.name) %>%
+  distinct()
+summary <- summary[order(match(summary$Name, names(species.data$obs))),] %>% distinct()
 summary$Area <- "" # we're not using the area column anymore
+
 
 sp.data <- sppdata_for_nimble(species.data,
                               region,
@@ -719,7 +722,8 @@ code <- nimble_code(data,
                     block.out = block.out,
                     min.visits.incl = 3, 
                     zero_mean = zero_mean,
-                    rm.state = F)
+                    rm.state = F,
+                    tau = 1)
 
 ### Initial values ----
 inits <- function(x){nimble_inits(data,
