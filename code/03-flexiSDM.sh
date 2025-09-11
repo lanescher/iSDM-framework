@@ -8,7 +8,7 @@
 #SBATCH --partition=cpu
 #SBATCH --account=eesc
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=rmummah@usgs.gov
+#SBATCH --mail-user=cscher@usgs.gov
 #SBATCH -o %x-%j.out
 #SBATCH -e %x-%j.err
 
@@ -19,7 +19,7 @@ module load cray-R-spatial
 
 
 ## Set the name of the R script to run, and the directory in which to save outputs
-script=/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework/code/03-flexiSDM.R
+script=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/code/03-flexiSDM.R
 
 
 # Inputs

@@ -32,7 +32,7 @@ if (length(args) > 0) {
   
   # If running on HPC, set working directory
   if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework/')
+    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/')
   } 
 }
 

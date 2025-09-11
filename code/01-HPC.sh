@@ -6,7 +6,7 @@ num=$1 # Model number to execute
 # Fixed inputs
 local=0
 
-home=/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework
+home=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework
 
 # Pull species code from MVPv1.csv
 while IFS=, read number code model stuff; do

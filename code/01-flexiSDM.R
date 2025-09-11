@@ -50,7 +50,7 @@ if (length(args) > 0) {
   local = as.numeric(args[3])
   
   if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework/')
+    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/')
   } 
 } 
 

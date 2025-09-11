@@ -11,7 +11,7 @@ maxchain=3
 
 
 # Set working directory
-home=/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/iSDM-framework
+home=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework
 
 
 # Pull species code from MVPv1.csv
