@@ -736,7 +736,8 @@ params <- nimble_params(data,
                         constants,
                         lambda = T,
                         XB = T,
-                        sp.auto = sp.auto)
+                        sp.auto = sp.auto,
+                        effort = T)
 
 
 
