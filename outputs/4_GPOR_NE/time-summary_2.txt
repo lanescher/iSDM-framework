@@ -1,0 +1,20 @@
+Time summary for: 4 GPOR NE
+
+The model was run on Mon Sep 2025 15 08:35:58 AM
+
+Total time for setup:
+Time difference of 42.33724 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 10.80752 hours
+
+Total time for summarization: 
+Time difference of 1.072701 hours
+
+Start to finish time (code): 
+Time difference of 45309.03 secs
+
+Start to finish time (user delay): 
+Time difference of 3.76965 days
+
+
