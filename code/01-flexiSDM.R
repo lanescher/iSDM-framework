@@ -93,7 +93,9 @@ if (block.out == "none") {
   blockname <- "full"
 } else {blockname <- block.out}
 
-zero_mean <- 1
+zero_mean <- mods$zero_mean[a]
+tau <- mods$tau[a]
+
 
 iter <- mods$iter[a]
 thin <- mods$thin[a]
@@ -723,7 +725,7 @@ code <- nimble_code(data,
                     min.visits.incl = 3, 
                     zero_mean = zero_mean,
                     rm.state = F,
-                    tau = 1)
+                    tau = tau)
 
 ### Initial values ----
 inits <- function(x){nimble_inits(data,
