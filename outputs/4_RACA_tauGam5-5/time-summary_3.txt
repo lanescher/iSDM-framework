@@ -1,0 +1,20 @@
+Time summary for: 4 RACA tauGam5-5
+
+The model was run on Tue Sep 2025 23 08:30:10 AM
+
+Total time for setup:
+Time difference of 4.818447 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 2.953669 days
+
+Total time for summarization: 
+Time difference of 39.93886 mins
+
+Start to finish time (code): 
+Time difference of 257882.5 secs
+
+Start to finish time (user delay): 
+Time difference of 3.770639 days
+
+
