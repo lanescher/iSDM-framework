@@ -112,6 +112,7 @@ if (block.out == "none") {
   ### Chains ----
   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"), height = 6, width = 8)
   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"), height = 6, width = 8)
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "tau", cutoff = 0), file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"), height = 6, width = 8)
   
   # Posteriors ----
   ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"), height = 6, width = 8)
@@ -140,6 +141,11 @@ if (block.out == "none") {
                    cov.labs = cov.labs),
          file = paste0(out.dir, "3_parameters-c3_observation.jpg"), height = 6, width = 10)
   
+  ggsave(plot_pars(out, 
+                   plot.type = "full", 
+                   plot.group = "tau", 
+                   title = "Tau estimate"),
+         file = paste0(out.dir, "3_parameters-c3_observation.jpg"), height = 6, width = 10)
   
   ### Marginal effects ----
   ggsave(plot_effects(data, out, breaks = 0.001), file = paste0(out.dir, "/3_parameters-a4-effects.jpg"), height = 7, width = 10)
