@@ -22,8 +22,8 @@ library(SpFut.flexiSDM)
 
 
 # EDIT THIS SECTION ----
-num <- 2
-block <- 3
+num <- 1
+block <- "none"
 maxchain <- 3
 local <- 1
 # ---
@@ -61,7 +61,7 @@ out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 load(paste0(out.dir,'setup_',block,'.Rdata'))
 
 
-
+project <- 0
 
 # Load chains (samples) ----
 
@@ -80,8 +80,8 @@ if (file.exists(paste0(out.dir,'samples_',block,'.rds'))) { # If it was run loca
 ## Calculate derived quantities ----
 # This takes longer with the coarse grid.
 samples <- lapply(samples, get_derived, data = data, project = project, 
-                  coarse.grid = coarse.grid, spatRegion = spatRegion,
-                  pathToProj = 'code/03-species-models/setup-projections.R')
+                  coarse.grid = coarse.grid, spatRegion = spatRegion, sp.auto = sp.auto,
+                  pathToProj = '')
 
 
 
