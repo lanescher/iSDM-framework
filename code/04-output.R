@@ -1241,3 +1241,60 @@ pl <- raca | ebis / plse
 pl <- pl + plot_annotation(tag_levels = "a")
 
 ggsave(pl, file = "outputs/figures/FigSX-CV.jpg", height = 9, width = 12)
+
+
+
+
+# Appendix 3: tau ----
+
+dirs <- list.dirs("outputs/", recursive = F)
+dirs <- dirs[grep("RACA", dirs)]
+
+tau <- c()
+for (d in 1:length(dirs)) {
+  load(paste0(dirs[d], "/datafull.rdata"))
+  tau1 <- out$tau %>%
+    mutate(model = d)
+  
+  tau <- bind_rows(tau, tau1)
+}
+
+priors <- c()
+for (p in 4:6) {
+  if (p == 4) vec <- rgamma(100000, 5, 5)
+  if (p == 5) vec <- rnorm(100000, 0, (1/sqrt(0.1)))
+  if (p == 6) vec <- rgamma(100000, 0.01, 0.01)
+  
+  tmp <- data.frame(model = p,
+                    prior = vec)
+  
+
+  priors <- bind_rows(priors, tmp)
+}
+
+priors <- priors %>%
+  mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
+                          model == 5 ~ "Normal(0, 3.16)",
+                          model == 6 ~ "Gamma(0.01, 0.01)"))
+
+tau <- tau %>%
+  mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
+                          model == 5 ~ "Normal(0, 3.16)",
+                          model == 6 ~ "Gamma(0.01, 0.01)"))
+
+ggplot() + 
+  geom_violin(data = priors, aes(x = name, y = prior)) +
+  geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
+  theme_bw() +
+  labs(x = "Model", y = "Value") +
+  facet_wrap(~model, scales = "free_x") +
+  coord_cartesian(ylim = c(-10, 10))
+
+ggplot() + 
+  geom_violin(data = priors, aes(x = name, y = prior)) +
+  geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
+  theme_bw() +
+  labs(x = "Model", y = "Value") +
+  facet_wrap(~model, scales = "free_x") +
+  coord_cartesian(ylim = c(-0.25, 0.25))
+
