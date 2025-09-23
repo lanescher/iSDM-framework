@@ -145,7 +145,7 @@ if (block.out == "none") {
                    plot.type = "full", 
                    plot.group = "tau", 
                    title = "Tau estimate"),
-         file = paste0(out.dir, "3_parameters-c3_observation.jpg"), height = 6, width = 10)
+         file = paste0(out.dir, "3_parameters-c3_tau.jpg"), height = 6, width = 10)
   
   ### Marginal effects ----
   ggsave(plot_effects(data, out, breaks = 0.001), file = paste0(out.dir, "/3_parameters-a4-effects.jpg"), height = 7, width = 10)
