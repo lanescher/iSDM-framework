@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=03flexiSDM
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=12
+#SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=40000
 #SBATCH --hint=nomultithread
 #SBATCH --partition=cpu
