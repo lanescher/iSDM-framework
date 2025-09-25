@@ -1,0 +1,20 @@
+Time summary for: 10 GPOR tauGam5-5
+
+The model was run on Thu Sep 2025 25 01:48:41 PM
+
+Total time for setup:
+Time difference of 54.12254 mins
+
+Total time for fitting NIMBLE model: 
+Time difference of 1.01519 days
+
+Total time for summarization: 
+Time difference of 2.659496 hours
+
+Start to finish time (code): 
+Time difference of 100533.9 secs
+
+Start to finish time (user delay): 
+Time difference of 2.191655 days
+
+
