@@ -94,6 +94,7 @@ out <- summarize_samples(samples,
                          block.out = block.out,
                          gridkey = gridkey, 
                          spatkey = spatRegion$spatkey, 
+                         effort = T,
                          SLURM = ifelse(local == 1, F, T))
 
 save(out, file = paste0(out.dir, "data", blockname, ".rdata"))
@@ -229,6 +230,11 @@ if (block.out == "none") {
                          plot.exp = T)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"), height = 7, width = 9)
   
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), 
+                         region, 
+                         plot = "effort",
+                         out = out)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"), height = 7, width = 9)
   
   
   ### Future projections ----
