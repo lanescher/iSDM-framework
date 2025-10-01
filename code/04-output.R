@@ -1058,6 +1058,8 @@ ggsave(pl, file = "outputs/figures/FigS5-coarsegrid.jpg", height = 6, width = 12
 
 # Figure S6: AUC ----
 
+blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
+
 auc <- c()
 
 
@@ -1089,38 +1091,20 @@ mean(auc$AUCin, na.rm = T)
 
 auc1 <- auc %>%
   select(sp.code, block, AUCin.full, AUCout.full) %>%
-  distinct()
+  distinct() %>%
+  mutate(species = case_when(sp.code == "GPOR" ~ "Spring Salamander",
+                             sp.code == "RACA" ~ "Cascades Frog"))
 
 mean(auc1$AUCout.full, na.rm = T)
 mean(auc1$AUCin.full, na.rm = T)
 
-
-
-blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
-
-
-auc1 <- pivot_longer(auc, cols = !c("sp.code", "block", "source")) %>%
-  mutate(inout = case_when(name %in% c("AUCin", "AUCin.full", "in.cell", "in.full.cell", "in.full.n", "in.n") ~ "In sample",
-                           T ~ "Out of sample"),
-         type = case_when(name %in% c("AUCin", "AUCin.full", "AUCout", "AUCout.full") ~ "AUC",
-                          name %in% c("in.cell", "in.full.cell", "out.cell", "out.full.cell") ~ "cells",
-                          name %in% c("in.full.n", "in.n", "out.full.n", "out.n") ~ "samples"),
-         full = case_when(name %in% c("AUCin.full", "AUCout.full", "in.full.cell", "in.full.n", "out.full.cell", "out.full.n") ~ "full",
-                          T ~ "dataset")) %>%
-  select(!name) %>%
-  pivot_wider(names_from = c(type), values_from = value) %>%
-  mutate(source = case_when(full == "dataset" ~ source,
-                            T ~ "All"),
-         species = case_when(sp.code == "GPOR" ~ "Spring Salamander",
-                             sp.code == "RACA" ~ "Cascades Frog")) %>%
-  distinct()
-
-pl <- ggplot(auc1) +
-  geom_line(aes(x = source, y = AUC,
-                group = interaction(source, block), color = as.factor(block)),
+auc2 <- pivot_longer(auc1, cols = !c("species", "sp.code", "block"))
+pl <- ggplot(auc2) +
+  geom_line(aes(x = block, y = value,
+                group = interaction(block), color = as.factor(block)),
             position = position_dodge(width = 0.6)) +
-  geom_point(aes(x = source, y = AUC, shape = inout,
-                 color = as.factor(block), group = as.factor(block), size = cells),
+  geom_point(aes(x = block, y = value, shape = name,
+                 color = as.factor(block), group = as.factor(block)),
              position = position_dodge(width = 0.6)) +
   theme_bw() +
   scale_shape_manual(values = c(16, 1)) +
@@ -1134,9 +1118,53 @@ pl <- ggplot(auc1) +
   facet_wrap(~species, scales = "free_x") +
   guides(color = guide_legend(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5),
-         shape = guide_legend(title.position="top", title.hjust = 0.5))
+         shape = guide_legend(title.position="top", title.hjust = 0.5)) +
+  coord_cartesian(ylim = c(0.5, 1))
+  
+ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 5, width = 7)
 
-ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 7, width = 11)
+
+
+
+
+# auc1 <- pivot_longer(auc, cols = !c("sp.code", "block", "source")) %>%
+#   mutate(inout = case_when(name %in% c("AUCin", "AUCin.full", "in.cell", "in.full.cell", "in.full.n", "in.n") ~ "In sample",
+#                            T ~ "Out of sample"),
+#          type = case_when(name %in% c("AUCin", "AUCin.full", "AUCout", "AUCout.full") ~ "AUC",
+#                           name %in% c("in.cell", "in.full.cell", "out.cell", "out.full.cell") ~ "cells",
+#                           name %in% c("in.full.n", "in.n", "out.full.n", "out.n") ~ "samples"),
+#          full = case_when(name %in% c("AUCin.full", "AUCout.full", "in.full.cell", "in.full.n", "out.full.cell", "out.full.n") ~ "full",
+#                           T ~ "dataset")) %>%
+#   select(!name) %>%
+#   pivot_wider(names_from = c(type), values_from = value) %>%
+#   mutate(source = case_when(full == "dataset" ~ source,
+#                             T ~ "All"),
+#          species = case_when(sp.code == "GPOR" ~ "Spring Salamander",
+#                              sp.code == "RACA" ~ "Cascades Frog")) %>%
+#   distinct()
+# 
+# pl <- ggplot(auc1) +
+#   geom_line(aes(x = source, y = AUC,
+#                 group = interaction(source, block), color = as.factor(block)),
+#             position = position_dodge(width = 0.6)) +
+#   geom_point(aes(x = source, y = AUC, shape = inout,
+#                  color = as.factor(block), group = as.factor(block), size = cells),
+#              position = position_dodge(width = 0.6)) +
+#   theme_bw() +
+#   scale_shape_manual(values = c(16, 1)) +
+#   scale_color_manual(values = blockcols) +
+#   labs(x = "Dataset", y = "AUC", color = "Excluded block",
+#        shape = "Validation", size = "Number of cells \nwith validation data") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+#         strip.background = element_blank(),
+#         legend.position = "bottom") +
+#   scale_x_discrete(labels = scales::label_wrap(15)) +
+#   facet_wrap(~species, scales = "free_x") +
+#   guides(color = guide_legend(title.position="top", title.hjust = 0.5),
+#          size = guide_legend(title.position="top", title.hjust = 0.5),
+#          shape = guide_legend(title.position="top", title.hjust = 0.5))
+# 
+# ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 7, width = 11)
 
 
 
