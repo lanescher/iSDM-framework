@@ -1204,6 +1204,54 @@ write.csv(datsum, file = "outputs/tables/TabS3-datasummary.csv",
 
 
 
+
+# Other: dataset intercepts ----
+
+
+load("outputs/2_RACA_tau1/datafull.rdata")
+
+dp <- out$alpha
+
+
+a <- ggplot(dp) + 
+  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
+                      ymax = log(hi), ymin = log(lo),
+                      color = data.type)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1, 
+                                   vjust = 0.5)) +
+  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
+  coord_cartesian(ylim = c(-8, 3))
+
+
+
+
+load("outputs/8_GPOR_tau1/datafull.rdata")
+
+dp <- out$alpha
+
+
+b <- ggplot(dp) + 
+  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
+                      ymax = log(hi), ymin = log(lo),
+                      color = data.type)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1, 
+                                   vjust = 0.5),
+        axis.text.y = element_blank()) +
+  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
+  coord_cartesian(ylim = c(-8, 3))
+
+pl <- a | b 
+pl <- pl +
+  plot_layout(guides = "collect",
+              axes = "collect") +
+  plot_annotation(tag_levels = "a") 
+pl
+
+
 # Appendix 3: tau ----
 
 dirs <- list.dirs("outputs/", recursive = F)
