@@ -1098,12 +1098,15 @@ auc1 <- auc %>%
 mean(auc1$AUCout.full, na.rm = T)
 mean(auc1$AUCin.full, na.rm = T)
 
-auc2 <- pivot_longer(auc1, cols = !c("species", "sp.code", "block"))
+auc2 <- pivot_longer(auc1, cols = !c("species", "sp.code", "block")) %>%
+  mutate(inout = case_when(name == "AUCin.full" ~ "In-sample",
+                           name == "AUCout.full" ~ "Out-of-sample"))
+
 pl <- ggplot(auc2) +
   geom_line(aes(x = block, y = value,
                 group = interaction(block), color = as.factor(block)),
             position = position_dodge(width = 0.6)) +
-  geom_point(aes(x = block, y = value, shape = name,
+  geom_point(aes(x = block, y = value, shape = inout,
                  color = as.factor(block), group = as.factor(block)),
              position = position_dodge(width = 0.6)) +
   theme_bw() +
