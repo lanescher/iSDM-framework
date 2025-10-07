@@ -28,67 +28,10 @@ library(ggpubr)
 library(patchwork)
 library(SpFut.flexiSDM)
 
-na <- rnaturalearth::ne_countries(continent = "North America", 
-                                  returnclass = "sf", 
-                                  scale = 10) %>%
-  st_transform(crs = 3857)
-
-wa <- rnaturalearth::ne_download(type = "lakes", 
-                                 category = "physical", load = T,
-                                 returnclass = "sf",
-                                 scale = 10) %>%
-  st_transform(crs = 3857)
-
-st <- rnaturalearth::ne_states(country = c("Canada", "Mexico", "United States of America"),
-                               returnclass = "sf") %>%
-  st_transform(crs = 3857)
-
 
 
 # Figure 1: Model framework ----
 
-
-
-# out.dir <- "outputs/2_RACA_tau1//"
-# load(paste0(out.dir, "datafull-info.rdata"))
-# load(paste0(out.dir, "datafull.rdata"))
-# load(paste0(out.dir, "region.rdata"))
-
-
-# # Load data from all model runs
-# auc <- c()
-# proc <- c()
-# obs <- c()
-# alpha <- c()
-# for (i in 1:3) {
-#   load(paste0(out.dir, "data", i, "-info.rdata"))
-#   load(paste0(out.dir, "data", i, ".rdata"))
-#   
-#   out$process.coef$block.out <- as.character(out$process.coef$block.out)
-#   out$obs.coef$block.out <- as.character(out$obs.coef$block.out)
-#   out$alpha$block.out <- as.character(out$alpha$block.out)
-#   
-#   auc <- bind_rows(auc, all.auc)
-#   proc <- bind_rows(proc, out$process.coef)
-#   obs <- bind_rows(obs, out$obs.coef)
-#   alpha <- bind_rows(alpha, out$alpha)
-#   
-# }
-# 
-# # now add full model
-# load(paste0(out.dir, "datafull-info.rdata"))
-# 
-# out$process.coef$block.out <- as.character(out$process.coef$block.out)
-# out$obs.coef$block.out <- as.character(out$obs.coef$block.out)
-# out$alpha$block.out <- as.character(out$alpha$block.out)
-# 
-# proc <- bind_rows(proc, out$process.coef)
-# obs <- bind_rows(obs, out$obs.coef)
-# alpha <- bind_rows(alpha, out$alpha)
-# 
-# auc$block <- as.character(auc$block)
-# auc <- bind_rows(auc, all.auc)
-# 
 
 
 ## Figure 2: RACA- range (a), intensity (b), suitable habitat (c), uncertainty (d) ----
@@ -380,7 +323,179 @@ ggsave(covs, file = "outputs/figures/Fig3-racaparameters.jpg",
 
 
 
-## Figure 4: GPOR- PO data and effort ----
+
+
+
+
+
+
+# Figure 4: GPOR- Process model ----
+
+load("outputs/8_GPOR_tau1/datafull-info.rdata")
+load("outputs/8_GPOR_tau1/datafull.rdata")
+load("outputs/8_GPOR_tau1/region.rdata")
+
+na <- rnaturalearth::ne_countries(continent = "North America", 
+                                  returnclass = "sf", 
+                                  scale = 10) %>%
+  st_transform(crs = 3857)
+
+wa <- rnaturalearth::ne_download(type = "lakes", 
+                                 category = "physical", load = T,
+                                 returnclass = "sf",
+                                 scale = 10) %>%
+  st_transform(crs = 3857)
+
+st <- rnaturalearth::ne_states(country = c("Canada", "Mexico", "United States of America"),
+                               returnclass = "sf") %>%
+  st_transform(crs = 3857)
+
+
+bb <- st_bbox(region$region)
+xlim <- c(bb[1], bb[3])
+ylim <- c(bb[2], bb[4])
+
+base <- ggplot() +
+  geom_sf(data = na, fill = "gray90") +
+  geom_sf(data = st, fill = "gray90", color= "gray40") +
+  geom_sf(data = wa, fill = "lightsteelblue") +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = "lightsteelblue"),
+        panel.grid = element_blank(),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(angle = 45,
+                                   vjust = 1,
+                                   hjust = 1),
+        legend.text = element_text(size = 9),
+        legend.title = element_text(size = 12),
+        strip.background = element_blank(),
+        strip.text.x = element_blank(),
+        title = element_text(hjust = 0.5))
+
+betas <- out$process.coef %>%
+  mutate(covariate = case_when(covariate == "elevation" ~ "Elevation",
+                               covariate == "elevation2" ~ "Elevation^2",
+                               covariate == "forest" ~ "Forest",
+                               covariate == "prec" ~ "Precipitation",
+                               covariate == "streamLength.km" ~ "Stream length"))
+
+plotbetas <- ggplot(betas) +
+  geom_hline(yintercept = 0) +
+  geom_pointrange(aes(x = covariate, y = mean,
+                      ymin = lo, ymax = hi), size = 0.2) +
+  theme_bw() +
+  theme(axis.text = element_text(size = 11),
+        axis.title = element_text(size = 12),
+        axis.text.x = element_text(hjust = 0.5),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14)) +
+  labs(x = "Covariate", y = "Estimate")
+
+
+
+
+lam <- out$lambda0 %>%
+  full_join(region$sp.grid, ., by = "conus.grid.id")
+q99 <- quantile(lam$mean, 0.99, na.rm = T)
+lam$mean[which(lam$mean > q99)] <- q99
+
+maplam <- base +
+  geom_sf(data = lam, aes(fill = mean, color = mean)) +
+  #geom_sf(data = st, fill = NA, color= "gray40") +
+  coord_sf(xlim = xlim, ylim = ylim) +
+  labs(fill = "Relative abundance", color = "Relative abundance") +
+  theme(legend.title = element_text(hjust = 0.5),
+        legend.key.height = unit(0.4, "cm"),
+        legend.key.width = unit(1.5, "cm")) +
+  viridis::scale_fill_viridis(option = "magma",
+                              na.value = "black",
+                              direction = -1,
+                              limits = range(c(lam$mean, lam$mean)),
+                              breaks = c(min(lam$mean), max(lam$mean)),
+                              labels = c("Low", "High")) +
+  viridis::scale_color_viridis(option = "magma",
+                               na.value = "black",
+                               direction = -1,
+                               limits = range(c(lam$mean, lam$mean)),
+                               breaks = c(min(lam$mean), max(lam$mean)),
+                               labels = c("Low", "High")) +
+  guides(color = guide_colorbar(title.position = "top",
+                                position = "bottom"),
+         fill = guide_colorbar(title.position = "top",
+                               position = "bottom"))
+
+
+xb <- out$XB0 %>%
+  full_join(region$sp.grid, ., by = "conus.grid.id")
+q99 <- quantile(xb$mean, 0.99, na.rm = T)
+xb$mean[which(xb$mean > q99)] <- q99
+
+mapxb <- base +
+  geom_sf(data = xb, aes(fill = mean, color = mean)) +
+  #geom_sf(data = st, fill = NA, color= "gray40") +
+  coord_sf(xlim = xlim, ylim = ylim) +
+  labs(fill = "XB", color = "XB") +
+  theme(axis.text.y = element_blank(), legend.title = element_text(hjust = 0.5),
+        legend.key.height = unit(0.4, "cm"),
+        legend.key.width = unit(1.5, "cm")) +
+  viridis::scale_fill_viridis(option = "magma",
+                              na.value = "black",
+                              direction = -1,
+                              limits = range(c(xb$mean, xb$mean)),
+                              breaks = c(min(xb$mean), max(xb$mean)),
+                              labels = c("Low", "High")) +
+  viridis::scale_color_viridis(option = "magma",
+                               na.value = "black",
+                               direction = -1,
+                               limits = range(c(xb$mean, xb$mean)),
+                               breaks = c(min(xb$mean), max(xb$mean)),
+                               labels = c("Low", "High")) +
+  guides(color = guide_colorbar(title.position = "top",
+                                position = "bottom"),
+         fill = guide_colorbar(title.position = "top",
+                               position = "bottom"))
+
+
+
+spat <- out$spat %>%
+  full_join(region$sp.grid, ., by = "conus.grid.id")
+q99 <- quantile(spat$mean, 0.99, na.rm = T)
+spat$mean[which(spat$mean > q99)] <- q99
+
+mapspat <- base +
+  geom_sf(data = spat, aes(fill = mean, color = mean)) +
+  #geom_sf(data = st, fill = NA, color= "gray40") +
+  coord_sf(xlim = xlim, ylim = ylim) +
+  labs(fill = "Spatial effect", color = "Spatial effect") +
+  theme(axis.text.y = element_blank(), legend.title = element_text(hjust = 0.5),
+        legend.key.height = unit(0.4, "cm"),
+        legend.key.width = unit(1.5, "cm")) +
+  ggplot2::scale_fill_gradient2(guide = ggplot2::guide_colorbar(), high = "darkblue", low = "darkred", mid = "white", na.value = NA) +
+  ggplot2::scale_color_gradient2(guide = "none", high = "darkblue", low = "darkred", mid = "white", na.value = NA) +
+  guides(color = guide_colorbar(title.position = "top",
+                                position = "bottom"),
+         fill = guide_colorbar(title.position = "top",
+                               position = "bottom"))
+
+
+
+
+layout <- "
+AAA
+AAA
+BBB
+BBB
+BBB
+"
+pl <- plotbetas / (maplam | mapxb | mapspat) +
+  plot_layout(design = layout) +
+  plot_annotation(tag_levels = "a")
+
+ggsave(pl, file = "outputs/figures/Fig4-gporprocess.jpg",
+       height = 8, width = 12)
+
+
+## Figure 5: GPOR- PO data and effort ----
 
 load("outputs/8_GPOR_tau1/datafull-info.rdata")
 load("outputs/8_GPOR_tau1/datafull.rdata")
@@ -635,7 +750,7 @@ pl <- pl +
   plot_annotation(tag_levels = "a") +
   plot_layout(design = layout)
 
-ggsave(pl, file = "outputs/figures/Fig4-gporPO.jpg",
+ggsave(pl, file = "outputs/figures/Fig5-gporPO.jpg",
        height = 12, width = 12)
 
 
@@ -644,11 +759,8 @@ ggsave(pl, file = "outputs/figures/Fig4-gporPO.jpg",
 
 
 
-# Figure 5: GPOR- Process model ----
 
-load("outputs/8_GPOR_tau1/datafull-info.rdata")
-load("outputs/8_GPOR_tau1/datafull.rdata")
-load("outputs/8_GPOR_tau1/region.rdata")
+# Figure S2: CV maps ----
 
 na <- rnaturalearth::ne_countries(continent = "North America", 
                                   returnclass = "sf", 
@@ -666,269 +778,7 @@ st <- rnaturalearth::ne_states(country = c("Canada", "Mexico", "United States of
   st_transform(crs = 3857)
 
 
-bb <- st_bbox(region$region)
-xlim <- c(bb[1], bb[3])
-ylim <- c(bb[2], bb[4])
 
-base <- ggplot() +
-  geom_sf(data = na, fill = "gray90") +
-  geom_sf(data = st, fill = "gray90", color= "gray40") +
-  geom_sf(data = wa, fill = "lightsteelblue") +
-  theme_bw() +
-  theme(panel.background = element_rect(fill = "lightsteelblue"),
-        panel.grid = element_blank(),
-        axis.text = element_text(size = 9),
-        axis.text.x = element_text(angle = 45,
-                                   vjust = 1,
-                                   hjust = 1),
-        legend.text = element_text(size = 9),
-        legend.title = element_text(size = 12),
-        strip.background = element_blank(),
-        strip.text.x = element_blank(),
-        title = element_text(hjust = 0.5))
-
-betas <- out$process.coef %>%
-  mutate(covariate = case_when(covariate == "elevation" ~ "Elevation",
-                               covariate == "elevation2" ~ "Elevation^2",
-                               covariate == "forest" ~ "Forest",
-                               covariate == "prec" ~ "Precipitation",
-                               covariate == "streamLength.km" ~ "Stream length"))
-
-plotbetas <- ggplot(betas) +
-  geom_hline(yintercept = 0) +
-  geom_pointrange(aes(x = covariate, y = mean,
-                      ymin = lo, ymax = hi), size = 0.2) +
-  theme_bw() +
-  theme(axis.text = element_text(size = 11),
-        axis.title = element_text(size = 12),
-        axis.text.x = element_text(hjust = 0.5),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14)) +
-  labs(x = "Covariate", y = "Estimate")
-
-
-
-
-lam <- out$lambda0 %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id")
-q99 <- quantile(lam$mean, 0.99, na.rm = T)
-lam$mean[which(lam$mean > q99)] <- q99
-
-maplam <- base +
-  geom_sf(data = lam, aes(fill = mean, color = mean)) +
-  #geom_sf(data = st, fill = NA, color= "gray40") +
-  coord_sf(xlim = xlim, ylim = ylim) +
-  labs(fill = "Relative abundance", color = "Relative abundance") +
-  theme(legend.title = element_text(hjust = 0.5),
-        legend.key.height = unit(0.4, "cm"),
-        legend.key.width = unit(1.5, "cm")) +
-  viridis::scale_fill_viridis(option = "magma",
-                              na.value = "black",
-                              direction = -1,
-                              limits = range(c(lam$mean, lam$mean)),
-                              breaks = c(min(lam$mean), max(lam$mean)),
-                              labels = c("Low", "High")) +
-  viridis::scale_color_viridis(option = "magma",
-                               na.value = "black",
-                               direction = -1,
-                               limits = range(c(lam$mean, lam$mean)),
-                               breaks = c(min(lam$mean), max(lam$mean)),
-                               labels = c("Low", "High")) +
-  guides(color = guide_colorbar(title.position = "top",
-                                position = "bottom"),
-         fill = guide_colorbar(title.position = "top",
-                               position = "bottom"))
-
-
-xb <- out$XB0 %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id")
-q99 <- quantile(xb$mean, 0.99, na.rm = T)
-xb$mean[which(xb$mean > q99)] <- q99
-
-mapxb <- base +
-  geom_sf(data = xb, aes(fill = mean, color = mean)) +
-  #geom_sf(data = st, fill = NA, color= "gray40") +
-  coord_sf(xlim = xlim, ylim = ylim) +
-  labs(fill = "XB", color = "XB") +
-  theme(axis.text.y = element_blank(), legend.title = element_text(hjust = 0.5),
-        legend.key.height = unit(0.4, "cm"),
-        legend.key.width = unit(1.5, "cm")) +
-  viridis::scale_fill_viridis(option = "magma",
-                              na.value = "black",
-                              direction = -1,
-                              limits = range(c(xb$mean, xb$mean)),
-                              breaks = c(min(xb$mean), max(xb$mean)),
-                              labels = c("Low", "High")) +
-  viridis::scale_color_viridis(option = "magma",
-                               na.value = "black",
-                               direction = -1,
-                               limits = range(c(xb$mean, xb$mean)),
-                               breaks = c(min(xb$mean), max(xb$mean)),
-                               labels = c("Low", "High")) +
-  guides(color = guide_colorbar(title.position = "top",
-                                position = "bottom"),
-         fill = guide_colorbar(title.position = "top",
-                               position = "bottom"))
-
-
-
-spat <- out$spat %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id")
-q99 <- quantile(spat$mean, 0.99, na.rm = T)
-spat$mean[which(spat$mean > q99)] <- q99
-
-mapspat <- base +
-  geom_sf(data = spat, aes(fill = mean, color = mean)) +
-  #geom_sf(data = st, fill = NA, color= "gray40") +
-  coord_sf(xlim = xlim, ylim = ylim) +
-  labs(fill = "Spatial effect", color = "Spatial effect") +
-  theme(axis.text.y = element_blank(), legend.title = element_text(hjust = 0.5),
-        legend.key.height = unit(0.4, "cm"),
-        legend.key.width = unit(1.5, "cm")) +
-  ggplot2::scale_fill_gradient2(guide = ggplot2::guide_colorbar(), high = "darkblue", low = "darkred", mid = "white", na.value = NA) +
-  ggplot2::scale_color_gradient2(guide = "none", high = "darkblue", low = "darkred", mid = "white", na.value = NA) +
-  guides(color = guide_colorbar(title.position = "top",
-                                position = "bottom"),
-         fill = guide_colorbar(title.position = "top",
-                               position = "bottom"))
-
-
-
-
-layout <- "
-AAA
-AAA
-BBB
-BBB
-BBB
-"
-pl <- plotbetas / (maplam | mapxb | mapspat) +
-  plot_layout(design = layout) +
-  plot_annotation(tag_levels = "a")
-
-ggsave(pl, file = "outputs/figures/Fig4-gporprocess.jpg",
-       height = 8, width = 12)
-
-
-
-
-
-
-
-## Figure 5: parameters ----
-
-
-proc <- ggplot(filter(out$process.coef)) +
-  geom_hline(yintercept = 0) +
-  geom_pointrange(aes(x = covariate, y = mean, ymin = lo, ymax = hi),
-                  position = position_dodge(width = 0.3)) +
-  scale_x_discrete(labels = c("elevation" = "Elevation",
-                              "elevation2" = "Elevation^2",
-                              "forest" = "Forest cover",
-                              "prec" = "Annual \nprecipitation",
-                              "streamLength.km" = "Total stream \nlength")) +
-  theme_bw() +
-  theme(legend.position = "bottom",
-        axis.text = element_text(size = 10),
-        axis.text.x = element_text(vjust = 1,
-                                   hjust = 0.5),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14)) +
-  labs(x = "Covariate", y = "Estimate")
-
-alpha <- ggplot(filter(out$alpha)) +
-  geom_hline(yintercept = 0) +
-  geom_pointrange(aes(x = name, y = mean, ymin = lo, ymax = hi),
-                  position = position_dodge(width = 0.3)) +
-  scale_x_discrete(labels = c("iNaturalist" = "iNaturalist",
-                              "MA VES" = "MA VES",
-                              "MDMBSS" = "MDMBSS",
-                              "Museum" = "Museum",
-                              "NY Atlas, WV PO, VT PO" = "NY Atlas, \nWV PO, \nVT PO",
-                              "USGS VES - NE" = "USGS VES")) +
-  theme_bw() +
-  theme(legend.position = "bottom",
-        axis.text = element_text(size = 10),
-        axis.text.x = element_text(vjust = 1,
-                                   hjust = 0.5),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14)) +
-  labs(x = "Dataset", y = "Estimate")
-
-
-state <- ggplot(filter(out$obs.coef, name %in% c("NY Atlas, WV PO, VT PO"))) +
-  geom_hline(yintercept = 0) +
-  geom_pointrange(aes(x = covariate, y = mean, ymin = lo, ymax = hi),
-                  position = position_dodge(width = 0.3)) +
-  scale_x_discrete(labels = c("traveltime" = "Travel time \nto city",
-                              "VT" = "Vermont",
-                              "WV" = "West Virginia")) +
-  theme_bw() +
-  theme(legend.position = "bottom",
-        axis.text = element_text(size = 10),
-        axis.text.x = element_text(vjust = 1,
-                                   hjust = 0.5),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14)) +
-  labs(x = "Effort covariate", y = "Estimate")
-
-
-pars <- proc / alpha / state
-pars <- pars + 
-  plot_annotation(tag_levels = c("a"))
-
-ggsave(pars, file = "outputs/figures/Fig5-ebisparameters.jpg",
-       height = 10, width = 6)
-
-
-
-
-# AUC
-for (i in 1:3) {
-  # load model that accounts for state effort
-  load(paste0("outputs/03-species-models/MVPv1/29_EBIS_proj08/data", i, "-info.rdata"))
-  load("outputs/03-species-models/MVPv1/29_EBIS_proj08/datafull.rdata")
-  load("outputs/03-species-models/MVPv1/29_EBIS_proj08/region.rdata")
-  
-}
-
-
-
-
-
-
-
-# Get extent of each dataset
-
-load("outputs/1_RACA_PNW/datafull-info.rdata")
-load("outputs/1_RACA_PNW/region.rdata")
-
-ggplot() + geom_sf(data = region$range) +
-  geom_sf(data = species.data$locs$cont) +
-  facet_wrap(~ source)
-
-load("outputs/2_PLSE_SE/datafull-info.rdata")
-load("outputs/2_PLSE_SE/region.rdata")
-
-ggplot() + geom_sf(data = region$range) +
-  geom_sf(data = species.data$locs$cont) +
-  facet_wrap(~ source)
-
-
-load("outputs/3_EBIS_NE/datafull-info.rdata")
-load("outputs/3_EBIS_NE/region.rdata")
-
-range <- region$range %>%
-  summarize(geometry = st_union(geometry))
-
-ggplot() + geom_sf(data = range) +
-  geom_sf(data = species.data$locs$cont) +
-  facet_wrap(~ source)
-
-
-
-
-# Figure S2: CV maps ----
 blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
 
 
@@ -1172,6 +1022,183 @@ ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 5, width = 7)
 
 
 
+# Figure S7: Dataset intercepts ----
+
+
+load("outputs/2_RACA_tau1/datafull.rdata")
+
+dp <- out$alpha
+
+
+a <- ggplot(dp) + 
+  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
+                      ymax = log(hi), ymin = log(lo),
+                      color = data.type)) +
+  scale_color_manual(values = c("#000000", "#56B4E9", "#CC79A7")) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1, 
+                                   vjust = 0.5),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type",
+       title = "Cascades Frog") +
+  coord_cartesian(ylim = c(-8, 3))
+
+
+
+
+load("outputs/8_GPOR_tau1/datafull.rdata")
+
+dp <- out$alpha
+
+
+b <- ggplot(dp) + 
+  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
+                      ymax = log(hi), ymin = log(lo),
+                      color = data.type)) +
+  scale_color_manual(values = c("#000000", "#56B4E9", "#CC79A7")) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1, 
+                                   vjust = 0.5),
+        axis.text.y = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type",
+       title = "Spring Salamander") +
+  coord_cartesian(ylim = c(-8, 3))
+
+pl <- a | b 
+pl <- pl +
+  plot_layout(guides = "collect",
+              axes = "collect") +
+  plot_annotation(tag_levels = "a") 
+
+ggsave(pl, file = "outputs/figures/FigS7-datasetintercepts.jpg", height = 5, width = 7)
+
+
+
+
+# Figure S8: GPOR partial effects ----
+
+load("outputs/8_GPOR_tau1/datafull-info.rdata")
+load("outputs/8_GPOR_tau1/datafull.rdata")
+cov.labs <- read.csv("data/covariate-labels.csv")
+
+dat <- out$process.coef %>%
+  mutate(x = covariate) %>%
+  mutate(cov1 = gsub("2", "", covariate),
+         tmp = gsub("_x_.*", "", covariate),
+         quad = case_when(substr(tmp, nchar(tmp), nchar(tmp)) == 2 ~ "^2",
+                          T ~ "")) %>%
+  left_join(cov.labs, by = c("cov1" = "covariate")) %>%
+  mutate(x = paste0(Label, quad)) %>%
+  select(!tmp)
+
+
+
+breaks <- 0.01
+# Start with process covariates
+ball <- out$process.coef
+
+# Get names of covariates, excluding intercepts, squares, and interactions
+covs <- colnames(data$Xz)
+rm <- grep("Z1|2|_x_", covs)
+if (length(rm) > 0) covs <- covs[-rm]
+
+
+# For each covariate, produce marginal effect curve
+all <- c()
+all.labs <- c()
+for (n in 1:length(covs)) {
+  cov <- covs[n]
+  
+  # get index of main effect
+  ind <- grep(cov, ball$covariate, value = T)
+  ind1 <- grep(cov, ball$covariate)
+  ind1 <- ind1[ind == covs[n]]
+  
+  # get index of quadratic (if it exists)
+  ind <- grep(paste0(cov, "2"), ball$covariate, value = T)
+  ind2 <- grep(paste0(cov, "2"), ball$covariate)
+  ind2 <- ind2[ind == paste0(cov, "2")]
+  
+  # get scaled covariate values
+  q99 <- quantile(data$Xz[,cov], 0.99)
+  data$Xz[,cov][data$Xz[,cov] > q99] <- q99
+  s <- seq(min(data$Xz[,cov]), max(data$Xz[,cov]), breaks)
+  
+  
+  
+  # linear term with no interaction
+  # b1 * x
+  if (length(ind2) == 0) {
+    
+    b <- as.numeric(ball[ind1, "mean"])
+    blo <- as.numeric(ball[ind1, "lo"])
+    bhi <- as.numeric(ball[ind1, "hi"])
+    
+    use <- data.frame(cov = cov,
+                      x = s,
+                      mean = exp(b * s),
+                      hi = exp(bhi * s),
+                      lo = exp(blo * s),
+                      factor = "none")
+    
+    all <- bind_rows(all, use)
+  }
+  
+  
+  # quadratic term
+  # b1 * x + b2 * x^2
+  if (length(ind2) == 1) {
+    
+    quad <- ind2
+    main <- ind1
+    
+    b1 <- as.numeric(ball[main, "mean"])
+    blo1 <- as.numeric(ball[main, "lo"])
+    bhi1 <- as.numeric(ball[main, "hi"])
+    
+    b2 <- as.numeric(ball[quad, "mean"])
+    blo2 <- as.numeric(ball[quad, "lo"])
+    bhi2 <- as.numeric(ball[quad, "hi"])
+    
+    
+    use <- data.frame(cov = cov,
+                      x = s,
+                      mean = exp(b1 * s + b2 * s^2),
+                      hi = exp(bhi1 * s + bhi2 * s^2),
+                      lo = exp(blo1 * s + blo2 * s^2),
+                      factor = "none")
+    
+    all <- bind_rows(all, use)
+  }
+  
+  
+}
+
+
+all1 <- inner_join(all, cov.labs, by = c("cov" = "covariate")) %>%
+  mutate(cov = Label)
+
+
+effects <- ggplot(filter(all1)) +
+  geom_hline(yintercept = 0) +
+  geom_ribbon(aes(x = x, ymax = hi, ymin = lo), alpha = 0.5) +
+  geom_line(aes(x = x, y = mean)) +
+  facet_wrap(~ cov, scales = "free") +
+  theme_bw() +
+  theme(strip.background = element_blank())+
+  labs(x = "Scaled covariate value", y = "Exp(Estimate)")
+
+
+ggsave(effects, file = "outputs/figures/FigS8-GPORpartialeffects.jpg",
+       height = 7, width = 7)
+
+
+
+
+
 
 # Table S3: Data summary ----
 
@@ -1236,250 +1263,204 @@ write.csv(datsum, file = "outputs/tables/TabS3-datasummary.csv",
 
 
 
-# Other: dataset intercepts ----
 
-
-load("outputs/2_RACA_tau1/datafull.rdata")
-
-dp <- out$alpha
-
-
-a <- ggplot(dp) + 
-  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
-                      ymax = log(hi), ymin = log(lo),
-                      color = data.type)) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90,
-                                   hjust = 1, 
-                                   vjust = 0.5)) +
-  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
-  coord_cartesian(ylim = c(-8, 3))
-
-
-
-
-load("outputs/8_GPOR_tau1/datafull.rdata")
-
-dp <- out$alpha
-
-
-b <- ggplot(dp) + 
-  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
-                      ymax = log(hi), ymin = log(lo),
-                      color = data.type)) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90,
-                                   hjust = 1, 
-                                   vjust = 0.5),
-        axis.text.y = element_blank()) +
-  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
-  coord_cartesian(ylim = c(-8, 3))
-
-pl <- a | b 
-pl <- pl +
-  plot_layout(guides = "collect",
-              axes = "collect") +
-  plot_annotation(tag_levels = "a") 
-pl
-
-
-# Appendix 3: tau ----
-
-dirs <- list.dirs("outputs/", recursive = F)
-dirs <- dirs[grep("RACA|GPOR", dirs)]
-
-tau <- c()
-auc <- c()
-lambda <- c()
-psi <- c()
-for (d in 1:length(dirs)) {
-  
-  
-  ind <- as.numeric(gsub("outputs/|_.*", "", dirs[d]))
-  if (ind %in% c(1, 7)) mod <- 1
-  if (ind %in% c(2, 8)) mod <- 2
-  if (ind %in% c(3, 9)) mod <- 3
-  if (ind %in% c(4, 10)) mod <- 4
-  if (ind %in% c(5, 11)) mod <- 5
-  if (ind %in% c(6, 12)) mod <- 6
-  
-  
-  load(paste0(dirs[d], "/datafull-info.rdata"))
-  
-  auc1 <- all.auc %>%
-    mutate(model = mod,
-           block = "none")
-  auc <- bind_rows(auc, auc1)
-  
-  for (i in 1:3) {
-    load(paste0(dirs[d], "/data", i, "-info.rdata"))
-    auc1 <- all.auc %>%
-      mutate(model = mod,
-             block = as.character(i))
-    auc <- bind_rows(auc, auc1)
-    
-  }
-  
-  load(paste0(dirs[d], "/datafull.rdata"))
-  
-  tau1 <- out$tau %>%
-    mutate(model = mod,
-           sp.code = auc1$sp.code[1])
-  
-  tau <- bind_rows(tau, tau1)
-  
-  
-  lambda1 <- out$lambda %>%
-    mutate(model = mod,
-           sp.code = auc1$sp.code[1])
-  
-  lambda <- bind_rows(lambda, lambda1)
-  
-  psi1 <- out$psi %>%
-    mutate(model = mod,
-           sp.code = auc1$sp.code[1])
-  
-  psi <- bind_rows(psi, psi1)
-  
-}
-
-
-# Plot tau 
-priors <- c()
-for (p in 4:6) {
-  if (p == 4) vec <- rgamma(100000, 5, 5)
-  if (p == 5) vec <- rnorm(100000, 0, (1/sqrt(0.1)))
-  if (p == 6) vec <- rgamma(100000, 0.01, 0.01)
-  
-  tmp <- data.frame(model = p,
-                    prior = vec)
-  
-  
-  priors <- bind_rows(priors, tmp)
-}
-
-priors <- priors %>%
-  mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
-                          model == 5 ~ "Normal(0, 3.16)",
-                          model == 6 ~ "Gamma(0.01, 0.01)"))
-
-tau <- tau %>%
-  mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
-                          model == 5 ~ "Normal(0, 3.16)",
-                          model == 6 ~ "Gamma(0.01, 0.01)"))
-
-ggplot() + 
-  geom_violin(data = priors, aes(x = name, y = prior)) +
-  geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
-  theme_bw() +
-  labs(x = "Model", y = "Value") +
-  facet_wrap(~sp.code + model, scales = "free_x") +
-  coord_cartesian(ylim = c(-10, 10))
-
-ggplot() + 
-  geom_violin(data = priors, aes(x = name, y = prior)) +
-  geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
-  theme_bw() +
-  labs(x = "Model", y = "Value") +
-  facet_wrap(~sp.code + model, scales = "free_x") +
-  coord_cartesian(ylim = c(-0.5, 0.5))
-
-
-
-# Plot AUC
-auc1 <- auc %>%
-  select(sp.code, model, block, AUCin.full, AUCout.full) %>%
-  distinct() %>%
-  pivot_longer(cols = c(AUCin.full, AUCout.full))%>%
-  mutate(dist = case_when(model == 4 ~ "Gamma(5, 5)",
-                          model == 5 ~ "Normal(0, 3.16)",
-                          model == 6 ~ "Gamma(0.01, 0.01)",
-                          model == 1 ~ "0.1",
-                          model == 2 ~ "1",
-                          model == 3 ~ "10"),
-         val = case_when(name == "AUCin.full" ~ "In-sample",
-                         T ~ "Out-of-sample"))
-
-
-blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
-ggplot(auc1) +
-  geom_point(aes(x = dist, y = value, shape = val, group = block, color = block),
-             position = position_dodge(width = 0.6)) +
-  geom_line(aes(x = dist, y = value, group = interaction(block, dist), color = block),
-            position = position_dodge(width = 0.6)) +
-  theme_bw() +
-  scale_shape_manual(values = c(16, 1)) +
-  scale_color_manual(values = blockcols) +
-  labs(x = "Tau", y = "AUC", color = "Fold", shape = "Validation") +
-  facet_wrap(~ sp.code)
-
-
-# Maps
-load("outputs/1_RACA_tau0.1/region.rdata")
-lam <- filter(lambda, sp.code == "RACA") %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id")
-
-
-q99 <- stats::quantile(lam$mean, 0.99, na.rm = T)
-lam$mean[which(lam$mean > q99)] <- q99
-
-ggplot(lam) +
-  geom_sf(aes(fill = mean), color = NA) +
-  facet_wrap(~ model) +
-  viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
-                              option = "magma",
-                              na.value = NA,
-                              direction = -1)
-
-
-
-
-ggplot(lam) +
-  geom_sf(aes(fill = log(mean)), color = NA) +
-  facet_wrap(~ model) +
-  viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
-                              option = "magma",
-                              na.value = NA,
-                              direction = -1)
-
-
-q99 <- stats::quantile(lam$mean, 0.95, na.rm = T)
-lam$mean[which(lam$mean > q99)] <- q99
-
-
-
-
-ggplot(lam) +
-  geom_sf(aes(fill = mean), color = NA) +
-  facet_wrap(~ model) +
-  viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
-                              option = "magma",
-                              na.value = NA,
-                              direction = -1)
-
-
-tmp <- lam %>%
-  st_drop_geometry() %>%
-  select(conus.grid.id, model, mean) %>%
-  pivot_wider(values_from = mean, names_from = model)
-tmp1 <- as.data.frame(cor(tmp[,2:7])) %>%
-  dplyr::mutate(model1 = row.names(.)) %>%
-  tidyr::pivot_longer(!model1) %>%
-  dplyr::filter(value != 1) 
-
-ggplot(tmp1) + geom_tile(aes(x = model1, y = name, fill = value))
-
-ps <- filter(psi, sp.code == "RACA") %>%
-  mutate(pres = case_when(mean > 0.5 ~ "present",
-                          T ~ "absent")) %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id")
-
-
-
-ggplot(ps) +
-  geom_sf(aes(fill = pres), color = NA) +
-  facet_wrap(~ model) +
-  ggplot2::scale_fill_manual(values = c("white", "darkblue"), na.value = NA) +
-  ggplot2::scale_color_manual(values = c("white", "darkblue"), na.value = NA)
-
+# # Appendix 3: tau ----
+# 
+# dirs <- list.dirs("outputs/", recursive = F)
+# dirs <- dirs[grep("RACA|GPOR", dirs)]
+# 
+# tau <- c()
+# auc <- c()
+# lambda <- c()
+# psi <- c()
+# for (d in 1:length(dirs)) {
+#   
+#   
+#   ind <- as.numeric(gsub("outputs/|_.*", "", dirs[d]))
+#   if (ind %in% c(1, 7)) mod <- 1
+#   if (ind %in% c(2, 8)) mod <- 2
+#   if (ind %in% c(3, 9)) mod <- 3
+#   if (ind %in% c(4, 10)) mod <- 4
+#   if (ind %in% c(5, 11)) mod <- 5
+#   if (ind %in% c(6, 12)) mod <- 6
+#   
+#   
+#   load(paste0(dirs[d], "/datafull-info.rdata"))
+#   
+#   auc1 <- all.auc %>%
+#     mutate(model = mod,
+#            block = "none")
+#   auc <- bind_rows(auc, auc1)
+#   
+#   for (i in 1:3) {
+#     load(paste0(dirs[d], "/data", i, "-info.rdata"))
+#     auc1 <- all.auc %>%
+#       mutate(model = mod,
+#              block = as.character(i))
+#     auc <- bind_rows(auc, auc1)
+#     
+#   }
+#   
+#   load(paste0(dirs[d], "/datafull.rdata"))
+#   
+#   tau1 <- out$tau %>%
+#     mutate(model = mod,
+#            sp.code = auc1$sp.code[1])
+#   
+#   tau <- bind_rows(tau, tau1)
+#   
+#   
+#   lambda1 <- out$lambda %>%
+#     mutate(model = mod,
+#            sp.code = auc1$sp.code[1])
+#   
+#   lambda <- bind_rows(lambda, lambda1)
+#   
+#   psi1 <- out$psi %>%
+#     mutate(model = mod,
+#            sp.code = auc1$sp.code[1])
+#   
+#   psi <- bind_rows(psi, psi1)
+#   
+# }
+# 
+# 
+# # Plot tau 
+# priors <- c()
+# for (p in 4:6) {
+#   if (p == 4) vec <- rgamma(100000, 5, 5)
+#   if (p == 5) vec <- rnorm(100000, 0, (1/sqrt(0.1)))
+#   if (p == 6) vec <- rgamma(100000, 0.01, 0.01)
+#   
+#   tmp <- data.frame(model = p,
+#                     prior = vec)
+#   
+#   
+#   priors <- bind_rows(priors, tmp)
+# }
+# 
+# priors <- priors %>%
+#   mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
+#                           model == 5 ~ "Normal(0, 3.16)",
+#                           model == 6 ~ "Gamma(0.01, 0.01)"))
+# 
+# tau <- tau %>%
+#   mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
+#                           model == 5 ~ "Normal(0, 3.16)",
+#                           model == 6 ~ "Gamma(0.01, 0.01)"))
+# 
+# ggplot() + 
+#   geom_violin(data = priors, aes(x = name, y = prior)) +
+#   geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
+#   theme_bw() +
+#   labs(x = "Model", y = "Value") +
+#   facet_wrap(~sp.code + model, scales = "free_x") +
+#   coord_cartesian(ylim = c(-10, 10))
+# 
+# ggplot() + 
+#   geom_violin(data = priors, aes(x = name, y = prior)) +
+#   geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
+#   theme_bw() +
+#   labs(x = "Model", y = "Value") +
+#   facet_wrap(~sp.code + model, scales = "free_x") +
+#   coord_cartesian(ylim = c(-0.5, 0.5))
+# 
+# 
+# 
+# # Plot AUC
+# auc1 <- auc %>%
+#   select(sp.code, model, block, AUCin.full, AUCout.full) %>%
+#   distinct() %>%
+#   pivot_longer(cols = c(AUCin.full, AUCout.full))%>%
+#   mutate(dist = case_when(model == 4 ~ "Gamma(5, 5)",
+#                           model == 5 ~ "Normal(0, 3.16)",
+#                           model == 6 ~ "Gamma(0.01, 0.01)",
+#                           model == 1 ~ "0.1",
+#                           model == 2 ~ "1",
+#                           model == 3 ~ "10"),
+#          val = case_when(name == "AUCin.full" ~ "In-sample",
+#                          T ~ "Out-of-sample"))
+# 
+# 
+# blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
+# ggplot(auc1) +
+#   geom_point(aes(x = dist, y = value, shape = val, group = block, color = block),
+#              position = position_dodge(width = 0.6)) +
+#   geom_line(aes(x = dist, y = value, group = interaction(block, dist), color = block),
+#             position = position_dodge(width = 0.6)) +
+#   theme_bw() +
+#   scale_shape_manual(values = c(16, 1)) +
+#   scale_color_manual(values = blockcols) +
+#   labs(x = "Tau", y = "AUC", color = "Fold", shape = "Validation") +
+#   facet_wrap(~ sp.code)
+# 
+# 
+# # Maps
+# load("outputs/1_RACA_tau0.1/region.rdata")
+# lam <- filter(lambda, sp.code == "RACA") %>%
+#   full_join(region$sp.grid, ., by = "conus.grid.id")
+# 
+# 
+# q99 <- stats::quantile(lam$mean, 0.99, na.rm = T)
+# lam$mean[which(lam$mean > q99)] <- q99
+# 
+# ggplot(lam) +
+#   geom_sf(aes(fill = mean), color = NA) +
+#   facet_wrap(~ model) +
+#   viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
+#                               option = "magma",
+#                               na.value = NA,
+#                               direction = -1)
+# 
+# 
+# 
+# 
+# ggplot(lam) +
+#   geom_sf(aes(fill = log(mean)), color = NA) +
+#   facet_wrap(~ model) +
+#   viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
+#                               option = "magma",
+#                               na.value = NA,
+#                               direction = -1)
+# 
+# 
+# q99 <- stats::quantile(lam$mean, 0.95, na.rm = T)
+# lam$mean[which(lam$mean > q99)] <- q99
+# 
+# 
+# 
+# 
+# ggplot(lam) +
+#   geom_sf(aes(fill = mean), color = NA) +
+#   facet_wrap(~ model) +
+#   viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
+#                               option = "magma",
+#                               na.value = NA,
+#                               direction = -1)
+# 
+# 
+# tmp <- lam %>%
+#   st_drop_geometry() %>%
+#   select(conus.grid.id, model, mean) %>%
+#   pivot_wider(values_from = mean, names_from = model)
+# tmp1 <- as.data.frame(cor(tmp[,2:7])) %>%
+#   dplyr::mutate(model1 = row.names(.)) %>%
+#   tidyr::pivot_longer(!model1) %>%
+#   dplyr::filter(value != 1) 
+# 
+# ggplot(tmp1) + geom_tile(aes(x = model1, y = name, fill = value))
+# 
+# ps <- filter(psi, sp.code == "RACA") %>%
+#   mutate(pres = case_when(mean > 0.5 ~ "present",
+#                           T ~ "absent")) %>%
+#   full_join(region$sp.grid, ., by = "conus.grid.id")
+# 
+# 
+# 
+# ggplot(ps) +
+#   geom_sf(aes(fill = pres), color = NA) +
+#   facet_wrap(~ model) +
+#   ggplot2::scale_fill_manual(values = c("white", "darkblue"), na.value = NA) +
+#   ggplot2::scale_color_manual(values = c("white", "darkblue"), na.value = NA)
+# 
 
