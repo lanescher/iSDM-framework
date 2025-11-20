@@ -15,7 +15,7 @@ for (i in 1:nCell) {
 
 # ---------------------------------------
 
-# Observation Model 1: PO, BLM Surveys
+# Observation Model 1: PO, FS NRIS
 # 13321 cells
 for (j in 1:nW1) {
 
@@ -34,7 +34,7 @@ for (j in 1:nW1) {
 
   
 
-# Observation Model 2: PO, NCCN
+# Observation Model 2: PO, Museum
 # 13321 cells
 for (j in 1:nW2) {
 
@@ -53,7 +53,7 @@ for (j in 1:nW2) {
 
   
 
-# Observation Model 3: PO, USGS RACA assessment - current, FS NRIS, ORBIC, WDWF
+# Observation Model 3: PO, BLM Surveys, ORBIC, WDWF, NCCN
 # 13321 cells
 for (j in 1:nW3) {
 
@@ -70,18 +70,18 @@ for (j in 1:nW3) {
 
   
 
-# Observation Model 4: DND, ARMI VES
-# 795 observations, 5 median visits per site
+# Observation Model 4: DND, USGS RACA assessment - historic
+# 101 observations, 1.5 median visits per site
 for (j in 1:nV4) {
 
   # Make dataset-specific lambda (and N and Z if needed)
   lambdaD4[j] <- lambda0[Vcells4[j]] * alpha[4]
 
   # Observation model
-  V4[j] ~ dbern(ZD4[j] * p4[j]) # Occupancy
+  V4[j] ~ dbern(1-exp(-lambdaD4[j] * p4[j])) # Bernoulli
 
   # Detection 
-  logit(p4[j]) <- inprod(D4[1:nCovV4], Xv4[j,1:nCovV4])
+  log(p4[j]) <- inprod(D4[1:nCovV4], Xv4[j,1:nCovV4])
 
   # Prior for X imputation
   for (c in 1:nCovV4) {
@@ -107,20 +107,44 @@ for (j in 1:nY5) {
 log(p5) <- 0
   
 
-# Observation Model 6: count, USGS RACA assessment - historic
-# 101 observations, 1.5 median visits per site
+# Observation Model 6: count, ARMI VES
+# 795 observations, 5 median visits per site
 for (j in 1:nY6) {
 
   # Make dataset-specific lambda (and N and Z if needed)
   lambdaD6[j] <- lambda0[Ycells6[j]] * alpha[6]
 
   # Observation model
-  Y6[j] ~ dpois(lambdaD6[j] * p6) # Poisson
+  Y6[j] ~ dbinom(p6[j], ND6[j]) # N-mixture
+
+  # Detection 
+  logit(p6[j]) <- inprod(C6[1:nCovY6], Xy6[j,1:nCovY6])
+
+  # Prior for X imputation
+  for (c in 1:nCovY6) {
+    Xy6[j,c] ~ dnorm(0, 1)
+  }
+}
 
   
+
+# Observation Model 7: count, USGS RACA assessment - current
+# 88 observations, 1 median visits per site
+for (j in 1:nY7) {
+
+  # Make dataset-specific lambda (and N and Z if needed)
+  lambdaD7[j] <- lambda0[Ycells7[j]] * alpha[7]
+
+  # Observation model
+  Y7[j] ~ dpois(lambdaD7[j] * p7[j]) # Poisson
+
+  # Detection 
+  log(p7[j]) <- C7[1] * Xy7[j,1]
+
+  # Prior for X imputation
+  Xy7[j, 1] ~ dnorm(0, 1)
 }
-# Detection 
-log(p6) <- 0
+
   
 # ---------------------------------------
 # Process priors
@@ -134,27 +158,36 @@ for (a in 1:nD) {
   w[a] ~ dnorm(0,1)
 }
 
-# Observation priors, PO 1: BLM Surveys
+# Observation priors, PO 1: FS NRIS
 for (b in 1:nCovW1) {
   A1[b] ~ dnorm(0,1)
 }
 
-# Observation priors, PO 2: NCCN
+# Observation priors, PO 2: Museum
 for (b in 1:nCovW2) {
   A2[b] ~ dnorm(0,1)
 }
 
-# Observation priors, PO 3: USGS RACA assessment - current, FS NRIS, ORBIC, WDWF
+# Observation priors, PO 3: BLM Surveys, ORBIC, WDWF, NCCN
 for (b in 1:nCovW3) {
   A3[b] ~ dnorm(0,1)
 }
 
-# Observation priors, DND 4: ARMI VES
+# Observation priors, DND 4: USGS RACA assessment - historic
 for (b in 1:nCovV4) {
   D4[b] ~ dnorm(0,1)
 }
 
 
+# Observation priors, count 6: ARMI VES
+for (b in 1:nCovY6) {
+  C6[b] ~ dnorm(0,1)
+}
+
+# Observation priors, count 7: USGS RACA assessment - current
+for (b in 1:nCovY7) {
+  C7[b] ~ dnorm(0,1)
+}
 
 tau <- 1
 spat[1:nCell] ~ dcar_normal(adj[1:L], weights[1:L], num[1:nCell], tau, zero_mean = 1)

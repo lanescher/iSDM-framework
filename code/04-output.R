@@ -36,7 +36,7 @@ library(SpFut.flexiSDM)
 
 ## Figure 2: RACA- range (a), intensity (b), suitable habitat (c), uncertainty (d) ----
 # load(paste0(out.dir, "datafull.rdata"))
-out.dir <- "outputs/2_RACA_tau1//"
+out.dir <- "outputs/2_RACA_tau1/"
 load(paste0(out.dir, "datafull-info.rdata"))
 load(paste0(out.dir, "datafull.rdata"))
 load(paste0(out.dir, "region.rdata"))
@@ -176,7 +176,7 @@ maprange <- base +
         legend.key = element_rect(fill = "white")) +
   labs(fill = "", color = "", linetype = "")
 
-racamap <- maprange | mapint | mapocc | mapunc
+racamap <- maprange | mapocc | mapint | mapunc
 racamap <- racamap + 
   plot_annotation(tag_levels = c("a"))
 ggsave(racamap, file = "outputs/figures/Fig2-racamap.jpg",
@@ -1040,8 +1040,7 @@ a <- ggplot(dp) +
                                    hjust = 1, 
                                    vjust = 0.5),
         plot.title = element_text(hjust = 0.5)) +
-  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type",
-       title = "Cascades Frog") +
+  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
   coord_cartesian(ylim = c(-8, 3))
 
 
@@ -1063,8 +1062,7 @@ b <- ggplot(dp) +
                                    vjust = 0.5),
         axis.text.y = element_blank(),
         plot.title = element_text(hjust = 0.5)) +
-  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type",
-       title = "Spring Salamander") +
+  labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
   coord_cartesian(ylim = c(-8, 3))
 
 pl <- a | b 
