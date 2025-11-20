@@ -50,10 +50,7 @@ library(nimble)
 ## To install SpFut.flexiSDM or check for updates, use the commented code below:
 # remotes::install_github("rileymummah/SpFut.flexiSDM", build_vignettes = T)
 library(SpFut.flexiSDM)
-
 ```
-
-
 
 
 ## Model specifications
@@ -66,22 +63,21 @@ mods <- read.csv("code/model-specs.csv")
 head(mods, n=2)
 ```
 
-The following table describes the column names, data type, and description
-# FINISH TABLE
+The following table describes the column names, data type, and description found in `model-specs.csv`.
 
 | Column Name     | Type      | Description                              |
 |-----------------|-----------|------------------------------------------|
 | number          | numeric   | Model number                             |
 | sp.code         | character | Four digit species code                  |
 | model           | character | Model name                               |
-| mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE     |
+| mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE. Could be omitted if not using an HPC. |
 | mem.sum         | numeric   | Memory allocation (in MB) for parallelized summarization. Could be omitted if not using an HPC. |
 | year.start      | numeric   | Starting year of data inclusion          |
 | year.end        | numeric   | Ending year of data inclusion            |
 | buffer          | numeric   | Size of buffer around range edge (in km) |
 | sp.auto         | logical   | Should a spatial model be included?      |
 | zero_mean       | logical   | Should a zero mean assumption be included in the spatial model |
-| tau             | numeric/character | Assign a fixed value or a prior distribution for precision ($\tau$) |
+| tau             | numeric/character | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
 | coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
 | cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
 | covs.PO         | character | A comma-separated list of covariates for modeling PO sampling effort. These must match the covariate names in the data. |
@@ -89,8 +85,8 @@ The following table describes the column names, data type, and description
 | covs.lin        | character | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | covs.quad       | character | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | check.covs      | logical   | Should covariate selection remove multicollinearity? |
-| Bprior          | character |
-| filter.region   | logical   |
+| Bprior          | character | Assign a prior distribution in BUGS lanaguage for the $\beta$ coefficients in the state model (e.g., dnorm(1,0))
+| filter.region   | logical   | Should the region be spatially filtered?          |
 | spat.bal        | logical   | Should the PO data be spatially balanced?         |
 | coordunc        | numeric   | The level of acceptable coordinate uncertainty    |
 | coordunc_na.rm  | logical   | Should coordinates with uncertainty beyond `coordunc` be removed? |
@@ -111,55 +107,14 @@ The following table describes the column names, data type, and description
 We have set up the scripts in the flexiSDM workflow so that a minimum number of parameters needs to be changed among them. To run this script in full (using our file arrangement), you only need to edit the following parameters:
 
 ```{r param.edit}
-nums.do <- 2 # model number to run
+nums.do <- 3 # model number to run
 block <- 'none' # block to run ('none', 1, 2, or 3)
 local <- 1 # are you running the code locally (1) or on an HPC (0)?
-a <- 1 # Fixed for indexing a vector below
 ```
 
 For the purposes of this demonstration, we're going TO FIT X MODEL WITH THESE ASSUMPTIONS
 
 
-### Side note: High performance computing
-
-We almost exclusively run these models on a high performance computing (HPC) cluster. We clone our repository directly to the HPC to ensure we have the same file structure and no version conflicts. We've set up the code so we can seamlessly move between running the workflow locally and on our HPC. 
-
-To run the first steps of the workflow via `01-flexiSDM.R`, we call the script `01-flexiSDM.sh`, which takes 3 inputs: 
-
-- Model number
-- Block (defined by an array in the script)
-- Local (1/0)
-
-We have simplified this further by writing a wrapper called `01-HPC.sh`, which only takes one input: model number. Within the script, `local` is set to 0, indicating a run on an HPC.
-
-The inputs provided to the `.sh` scripts are converted to inputs to the `01-flexiSDM.R` script and are interpreted below:
-
-```{r hpc, eval = F}
-# Converts command arguments to something interpretable by R
-args = commandArgs(trailingOnly = TRUE)
-
-if (length(args) > 0) {
-
-  # Model number to run
-  nums.do = as.numeric(args[1])
-
-  # Blocks can be run as single jobs or as arrays
-  block = as.numeric(args[2])
-  
-  # The block input is numeric only. Convert 4 = 'none'
-  if (block == 4) {
-    block <- 'none'
-  }
-
-  # Running locally? Yes = 1
-  local = as.numeric(args[3])
-
-  # If running on an HPC, set the working directory to the project home directory
-  if (local == 0) {
-    setwd('/home/directory/')
-  }
-}
-```
 
 
 ### Load model specifications
@@ -170,109 +125,71 @@ Then we can use our model specifications to define a series of inputs for the se
 ## Set up model variables
 mods <- filter(mods, number %in% nums.do)
 
-## Create all the combinations of model number and cross-validation block
-tmp <- expand.grid(block.out = block, number = unique(mods$number))
-mods <- full_join(mods, tmp, by = c("number"))
-# CAN WE SIMPLIFY THIS SO THE CODE ONLY RUNS ONE MODEL NUMBER-BLOCK COMBO?
-# THEN WE COULD REMOVE 'A' BELOW AND FIX IT AT 1 - DO THIS
-
 ## Get variables for model from model-specs.csv
-number <- mods$number[a] # model number
-sp.code <- mods$sp.code[a] # 4-digit species code
-model <- mods$model[a] # model name
-sp.auto <- mods$sp.auto[a] # include spatial autocorrelation?
-coarse.grid <- mods$coarse.grid[a] # use a coarse grid?
-cont.grid <- mods$cont.grid[a] # restrict to only a continuous grid?
-year.start <- mods$year.start[a] # start year for data
-year.end <- mods$year.end[a] # end year for data
-buffer <- mods$buffer[a] # buffer size (km)
-filter.region <- mods$filter.region[a]
-spat.bal <- mods$spat.bal[a] # include spatial balancing?
-coordunc <- mods$coordunc[a] # level of coordinate uncertainty to include (km)
-coordunc_na.rm <- mods$coordunc_na.rm[a] # filter by coordinate uncertainty?
-block.folds <- mods$block.folds[a] # how many groups of blocks?
-block.rows <- mods$block.rows[a] # how many rows of blocks?
-block.cols <- mods$block.cols[a] # how many columns of blocks?
-block.out <- mods$block.out[a] # IS THIS PART OF THE SIMPLIFICATION
+number <- mods$number[1] # model number
+sp.code <- mods$sp.code[1] # 4-digit species code
+model <- mods$model[1] # model name
+sp.auto <- mods$sp.auto[1] # include spatial autocorrelation?
+coarse.grid <- mods$coarse.grid[1] # use a coarse grid?
+cont.grid <- mods$cont.grid[1] # restrict to only a continuous grid?
+year.start <- mods$year.start[1] # start year for data
+year.end <- mods$year.end[1] # end year for data
+buffer <- mods$buffer[1] # buffer size (km)
+filter.region <- mods$filter.region[1] # filter the region? LANE - FILTER BY WHAT?
+spat.bal <- mods$spat.bal[1] # include spatial balancing?
+coordunc <- mods$coordunc[1] # level of coordinate uncertainty to include (km)
+coordunc_na.rm <- mods$coordunc_na.rm[1] # filter by coordinate uncertainty?
+block.folds <- mods$block.folds[1] # how many groups of blocks?
+block.rows <- mods$block.rows[1] # how many rows of blocks?
+block.cols <- mods$block.cols[1] # how many columns of blocks?
+block.out <- block # define the block to setup
 
 if (block.out == "none") {
   blockname <- "full" # rename the block to 'full' if not doing cross-validation
 } else {blockname <- block.out} # otherwise, keep the block number
 
 # names of datasets to exclude (e.g., iNaturalist) - must match dataset naming
-exclude.dataset <- unlist(str_split(mods$exclude.dataset[a], pattern = ", "))
+exclude.dataset <- unlist(str_split(mods$exclude.dataset[1], pattern = ", "))
 
 ## ICAR parameters
-zero_mean <- mods$zero_mean[a] # zero mean assumption?
-tau <- mods$tau[a] # precision (tau) can be a fixed value or a prior
+zero_mean <- mods$zero_mean[1] # zero mean assumption?
+tau <- mods$tau[1] # precision (tau) can be a fixed value or a prior
 
 ## MCMC parameters
-iter <- mods$iter[a] # number of MCMC iterations
-thin <- mods$thin[a] # number to thin by
+iter <- mods$iter[1] # number of MCMC iterations
+thin <- mods$thin[1] # number to thin by
 burnin <- floor(iter*0.75) # burnin to discard
 
 ## Change of region
-region.sub <- mods$region.sub[a] # only estimate for a subregion?
-lat.hi <- mods$lat.hi[a] # high value of latitude range
-lat.lo <- mods$lat.lo[a] # low value of latitude range
-lon.hi <- mods$lon.hi[a] # high value of longitude range
-lon.lo <- mods$lon.lo[a] # low value of longitude range
+region.sub <- mods$region.sub[1] # only estimate for a subregion?
+lat.hi <- mods$lat.hi[1] # high value of latitude range
+lat.lo <- mods$lat.lo[1] # low value of latitude range
+lon.hi <- mods$lon.hi[1] # high value of longitude range
+lon.lo <- mods$lon.lo[1] # low value of longitude range
 
 ## Future projections
-project <- mods$project[a] # how many projections?
+project <- mods$project[1] # how many projections?
 if (block.out != "none") {
   project <- 0 # no projections for cross-validation blocks
 }
 
 ## Covariates
 # list of PO covariates
-covs.PO <- unlist(str_split(mods$covs.PO[a], pattern = ", "))
+covs.PO <- unlist(str_split(mods$covs.PO[1], pattern = ", "))
 # list of iNaturalist covariates
-covs.inat <- unlist(str_split(mods$covs.inat[a], pattern = ", "))
+covs.inat <- unlist(str_split(mods$covs.inat[1], pattern = ", "))
 # list of linear covariates for state model
-covs.lin <- unlist(str_split(mods$covs.lin[a], pattern = ", "))
+covs.lin <- unlist(str_split(mods$covs.lin[1], pattern = ", "))
 # list of quadratic covariates for state model
-covs.quad <- unlist(str_split(mods$covs.quad[a], pattern = ", "))
-check.covs <- mods$check.covs[a] # covariate selection to remove multicollinearity?
+covs.quad <- unlist(str_split(mods$covs.quad[1], pattern = ", "))
+check.covs <- mods$check.covs[1] # covariate selection to remove multicollinearity?
 
 # Define the prior for the state model coefficients
-Bpriordist <- mods$Bprior[a]
+Bprior <- mods$Bprior[1]
 ```
 
 
-
-
-<!-- codeKey <- read.csv("data/model-specieslist.csv") -->
-<!-- common <- codeKey %>% -->
-<!--   filter(DS.code == sp.code) %>% -->
-<!--   pull(SSAR.common) -->
-<!-- sp.code.all <- codeKey %>% -->
-<!--   filter(DS.code == sp.code) %>% -->
-<!--   pull(all.codes) -->
-<!-- sciname <- codeKey %>% -->
-<!--   filter(DS.code == sp.code) %>% -->
-<!--   pull(SSAR.scientific) -->
-
-<!-- gen <- stringr::word(sciname, 1) -->
-
-<!-- if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus",  -->
-<!--                "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus", -->
-<!--                "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius", -->
-<!--                "Leptodactylus", "Lithobates", "Osteopilus", -->
-<!--                "Pseudacris", "Rana", "Rhinella", "Rhinophrynus", -->
-<!--                "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad" -->
-<!-- if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps", -->
-<!--                "Cryptobranchus", "Desmognathus", "Dicamptodon",  -->
-<!--                "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium", -->
-<!--                "Hydromantes", "Necturus", "Notophthalmus", -->
-<!--                "Phaeognathus", "Plethodon", "Pseudobranchus", -->
-<!--                "Pseudotriton", "Rhyacotriton", "Siren",  -->
-<!--                "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander" -->
-
-
-
-
-Now that we have our model specifications loaded, we're ready to start loading data and covariates. First, let's ensure that we have an output folder specific to the model we are fitting.
+Now that we have our model specifications loaded, we're ready to set up the region and load data and covariates. First, let's ensure that we have an output folder specific to the model we are fitting.
 
 ```{r output-folder}
 # Make output folder ----
@@ -286,7 +203,7 @@ if (dir.exists(out.dir) == F) {
 
 We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. 
 
-```{r ranges, message = F}
+```{r ranges, results = 'hide'}
 ## Load ranges
 range.path <- c(paste0("data/", sp.code, "/GAP/"),
                 paste0("data/", sp.code, "/IUCN/"))
@@ -303,10 +220,10 @@ usa <- st_read("data/USA/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
         filter((NAME %in% exclude) == F) %>%
         st_union()
 
-# CONUS grid
+## Load CONUS grid covariates
 load("data/USA/grid-covar.rdata")
 
-# Region
+## Generate the region for inference and plotting
 region <- make_region(rangelist,
                       buffer = buffer,
                       crs = 3857,
@@ -316,7 +233,22 @@ region <- make_region(rangelist,
                       rm.clumps = T,
                       clump.size = 50,
                       continuous = cont.grid)
+
+## If using the coarse spatial grid, redefine the grid and plot the resulting grid.
+if (coarse.grid == T) {
+  spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
+
+  # Print spatial grid
+  if (block.out == 'none') {
+    pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
+    ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
+  }
+} else {
+  spatRegion <- NULL
+}
 ```
+
+
 
 ## Step 2: Set up cross-validation blocks (if using)
 
@@ -349,29 +281,68 @@ if (block.out == "none") { # If fitting the full model, then there are
 
 LEAVE HERE WITH CONTEXT FOR CREATION AND USE
 NEEDED FOR INDEXING IN NIMBLE CODE
-<!-- # Make gridkey ---- -->
-<!-- gridkey <- select(region$sp.grid, conus.grid.id) %>% -->
-<!--   st_drop_geometry() %>% -->
-<!--   mutate(group = case_when(conus.grid.id %in% train.i ~ "train", -->
-<!--                            conus.grid.id %in% test.i ~ "test")) -->
 
-MOVE ABOVE WITH REGION
-<!-- if (coarse.grid == T) { -->
-<!--   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid)) -->
+```{r gridkey}
+# Make gridkey ----
+gridkey <- select(region$sp.grid, conus.grid.id) %>%
+  st_drop_geometry() %>%
+  mutate(group = case_when(conus.grid.id %in% train.i ~ "train",
+                           conus.grid.id %in% test.i ~ "test"))
+```
 
-<!--   # Print spatial grid -->
-<!--   if (block.out == 'none') { -->
-<!--     pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw() -->
-<!--     ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10) -->
-<!--   } -->
-<!-- } else { -->
-<!--   spatRegion <- NULL -->
-<!-- } -->
+
+
 
 
 ## Step 3: Load species data
 
-MOVE SPECIES CODE ETC FROM BELOW HERE
+TEXT AND CONTEXT HERE
+
+```{r spp-codes}
+## Define species codes
+codeKey <- read.csv("data/model-specieslist.csv")
+
+## Common name
+common <- codeKey %>%
+            filter(DS.code == sp.code) %>%
+            pull(SSAR.common)
+common
+
+## All species codes used (some species are complexes or have subspecies so multiple codes exist)
+sp.code.all <- codeKey %>%
+                filter(DS.code == sp.code) %>%
+                pull(all.codes)
+sp.code.all
+
+## Scientific name
+sciname <- codeKey %>%
+            filter(DS.code == sp.code) %>%
+            pull(SSAR.scientific)
+sciname
+
+## Save genus name to assign Frog/Toad or Salamander
+gen <- stringr::word(sciname, 1)
+
+if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus",
+               "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus",
+               "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius",
+               "Leptodactylus", "Lithobates", "Osteopilus",
+               "Pseudacris", "Rana", "Rhinella", "Rhinophrynus",
+               "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad"
+if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+               "Cryptobranchus", "Desmognathus", "Dicamptodon",
+               "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+               "Hydromantes", "Necturus", "Notophthalmus",
+               "Phaeognathus", "Plethodon", "Pseudobranchus",
+               "Pseudotriton", "Rhyacotriton", "Siren",
+               "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander"
+
+gen; spp.type
+```
+
+
+
+
 <!-- # summarize datasets to get up-to-date available datasets -->
 <!-- # this script also prints messages from QC functions -->
 <!-- # source("DATA SWAMP/00-summarize-datasets.R") -- needed load_species_data() -->
@@ -394,56 +365,67 @@ allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
 
 NEED THESE TO LOAD SPECIES DATA
 NEED A LIST SAME LENGTH AS FILE VECTOR WHERE EACH ELEMENT IS A DETECTION COVARIATE
-<!-- # detection covariates for each of these datasets -->
-<!-- covs <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>% -->
-<!--   filter(Data.Swamp.file.name %in% allfiles$file) %>% -->
-<!--   select(Name, Covar.mean, Covar.sum, Area) -->
-<!-- covariates <- list() -->
-<!-- for (i in 1:nrow(covs)) { -->
-<!--   covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", ")) -->
-<!--   covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", ")) -->
-<!--   #area <- unlist(strsplit(covs$Area[i], split = ",")) -->
-<!--   covs1 <- c(covs.mean, covs.sum) -->
-<!--   covs1 <- covs1[which(is.na(covs1) == F)] -->
-<!--   covariates[[i]] <- covs1 -->
-<!-- } -->
 
-<!-- species.data <- load_species_data(sp.code, -->
-<!--                                   sp.code.all, -->
-<!--                                   file.name = allfiles$file, -->
-<!--                                   file.label = allfiles$name, -->
-<!--                                   file.path = "DATA SWAMP/data-ready/", -->
-<!--                                   keep.cols = covariates, -->
-<!--                                   region = region,  -->
-<!--                                   filter.region = filter.region, -->
-<!--                                   year.start = year.start, -->
-<!--                                   year.end = year.end, -->
-<!--                                   coordunc = coordunc, -->
-<!--                                   coordunc_na.rm = coordunc_na.rm, -->
-<!--                                   spat.thin = spat.bal, -->
-<!--                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) -->
+```{r load-species-data, eval=F}
+# detection covariates for each of these datasets
+covs <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>%
+  filter(Data.Swamp.file.name %in% allfiles$file) %>%
+  select(Name, Covar.mean, Covar.sum, Area)
+covariates <- list()
+for (i in 1:nrow(covs)) {
+  covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
+  covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
+  #area <- unlist(strsplit(covs$Area[i], split = ","))
+  covs1 <- c(covs.mean, covs.sum)
+  covs1 <- covs1[which(is.na(covs1) == F)]
+  covariates[[i]] <- covs1
+}
+
+species.data <- load_species_data(sp.code,
+                                  sp.code.all,
+                                  file.name = allfiles$file,
+                                  file.label = allfiles$name,
+                                  file.path = "DATA SWAMP/data-ready/",
+                                  keep.cols = covariates,
+                                  region = region,
+                                  filter.region = filter.region,
+                                  year.start = year.start,
+                                  year.end = year.end,
+                                  coordunc = coordunc,
+                                  coordunc_na.rm = coordunc_na.rm,
+                                  spat.thin = spat.bal,
+                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+```
+
 
 
 
 ## Step 4: Plot species data
 
-```{r plot-species-data}
+
+WE PROBABLY DON'T NEED TO INCLUDE ALL OF THE FIGURES THAT WE MAKE, SO LET'S CHOOSE A FEW TO HIGHLIGHT
+
+```{r plot-species-data, eval=F}
+## Quick title to be used across figures
 if (block == "none") {
   title <- ", full model"
 } else {
   title <- paste0(", excluding block ", block)
 }
-```
 
-<!-- pl <- map_species_data(region = region, -->
-<!--                        species.data = species.data, -->
-<!--                        year.start = year.start, -->
-<!--                        year.end = year.end, -->
-<!--                        plot = "samples", -->
-<!--                        plot.region = T, -->
-<!--                        details = T, -->
-<!--                        title = paste0(common, " (", sp.code, ")", title)) -->
-<!-- ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10) -->
+## Plot data samples
+pl <- map_species_data(region = region,
+                       species.data = species.data,
+                       year.start = year.start,
+                       year.end = year.end,
+                       plot = "samples",
+                       plot.region = T,
+                       details = T,
+                       title = paste0(common, " (", sp.code, ")", title))
+## Save plot
+# ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
+pl
+```
 
 <!-- pl <- map_species_data(region = region, -->
 <!--                        species.data = species.data, -->
@@ -1806,3 +1788,43 @@ if (block == "none") {
 <!-- # End script -->
 
 
+## High performance computing
+
+We almost exclusively run these models on a high performance computing (HPC) cluster. We clone our repository directly to the HPC to ensure we have the same file structure and no version conflicts. We've set up the code so we can seamlessly move between running the workflow locally and on our HPC. 
+
+To run the first steps of the workflow via `01-flexiSDM.R`, we call the script `01-flexiSDM.sh`, which takes 3 inputs: 
+
+- Model number
+- Block (defined by an array in the script)
+- Local (1/0)
+
+We have simplified this further by writing a wrapper called `01-HPC.sh`, which only takes one input: model number. Within the script, `local` is set to 0, indicating a run on an HPC.
+
+The inputs provided to the `.sh` scripts are converted to inputs to the `01-flexiSDM.R` script and are interpreted below:
+
+```{r hpc, eval = F}
+# Converts command arguments to something interpretable by R
+args = commandArgs(trailingOnly = TRUE)
+
+if (length(args) > 0) {
+
+  # Model number to run
+  nums.do = as.numeric(args[1])
+
+  # Blocks can be run as single jobs or as arrays
+  block = as.numeric(args[2])
+  
+  # The block input is numeric only. Convert 4 = 'none'
+  if (block == 4) {
+    block <- 'none'
+  }
+
+  # Running locally? Yes = 1
+  local = as.numeric(args[3])
+
+  # If running on an HPC, set the working directory to the project home directory
+  if (local == 0) {
+    setwd('/home/directory/')
+  }
+}
+```
