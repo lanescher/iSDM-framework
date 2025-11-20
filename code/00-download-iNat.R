@@ -17,10 +17,10 @@ library(SpFut.processGBIF)
 
 # Get iNat data ----
 
-if (file.exists("data/inat-raw.rds")) {
+if (file.exists("data/gbif-raw.rds")) {
 
   cat("Loading raw data\n")
-  dat <- read_rds("data/inat-raw.rds")
+  dat <- read_rds("data/gbif-raw.rds")
 } else {
 
   cat("Downloading raw data\n")
@@ -31,7 +31,6 @@ if (file.exists("data/inat-raw.rds")) {
     rgbif::pred("hasCoordinate", TRUE),
     rgbif::pred("occurrenceStatus", "PRESENT"),
     rgbif::pred("taxonKey", 131),
-    rgbif::pred("institutionCode", "iNaturalist"),
     rgbif::pred("country", "US"),
     rgbif::pred_gte("year", 2010),
     format = "SIMPLE_CSV",
@@ -49,7 +48,7 @@ if (file.exists("data/inat-raw.rds")) {
   dat <- list(dat = dat.gbif,
               citation = cite)
   
-  write_rds(dat, "data/inat-raw.rds")
+  write_rds(dat, "data/gbif-raw.rds")
 }
 cat(dat$citation, "\n")
 
