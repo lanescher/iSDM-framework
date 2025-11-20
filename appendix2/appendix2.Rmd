@@ -89,12 +89,7 @@ The following table describes the column names, data type, and description
 | covs.lin        | character | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | covs.quad       | character | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | check.covs      | logical   | Should covariate selection remove multicollinearity? |
-| covs.int.factor |
-| reference       |
-| covs.int.cont   |
-| Bpriordist      |
-| Bpriorvar1      |
-| Bpriorvar2      |
+| Bprior          | character |
 | filter.region   | logical   |
 | spat.bal        | logical   | Should the PO data be spatially balanced?         |
 | coordunc        | numeric   | The level of acceptable coordinate uncertainty    |
@@ -179,7 +174,7 @@ mods <- filter(mods, number %in% nums.do)
 tmp <- expand.grid(block.out = block, number = unique(mods$number))
 mods <- full_join(mods, tmp, by = c("number"))
 # CAN WE SIMPLIFY THIS SO THE CODE ONLY RUNS ONE MODEL NUMBER-BLOCK COMBO?
-# THEN WE COULD REMOVE 'A' BELOW AND FIX IT AT 1
+# THEN WE COULD REMOVE 'A' BELOW AND FIX IT AT 1 - DO THIS
 
 ## Get variables for model from model-specs.csv
 number <- mods$number[a] # model number
@@ -238,26 +233,16 @@ covs.inat <- unlist(str_split(mods$covs.inat[a], pattern = ", "))
 covs.lin <- unlist(str_split(mods$covs.lin[a], pattern = ", "))
 # list of quadratic covariates for state model
 covs.quad <- unlist(str_split(mods$covs.quad[a], pattern = ", "))
-
-# SHOULD WE KEEP THIS IN? WE'RE NOT CURRENTLY USING IT BUT COULD??
-# covs.int.factor <- unlist(str_split(mods$covs.int.factor[a], pattern = ", "))
-# reference <- mods$reference[a]
-# covs.int.cont <- unlist(str_split(mods$covs.int.cont[a], pattern = ", "))
 check.covs <- mods$check.covs[a] # covariate selection to remove multicollinearity?
 
 # Define the prior for the state model coefficients
-Bpriordist <- mods$Bpriordist[a]
-Bpriorvar1 <- mods$Bpriorvar1[a]
-Bpriorvar2 <- mods$Bpriorvar2[a]
-# WE COULD SIMPLIFY THIS TO LOOK LIKE TAU
-
-process.intercept <- F # SHOULD RENAME TO state.intercept??
+Bpriordist <- mods$Bprior[a]
 ```
 
 
 
 
-<!-- codeKey <- read.csv("code/02-species-data-and-ranges/model-specieslist.csv") -->
+<!-- codeKey <- read.csv("data/model-specieslist.csv") -->
 <!-- common <- codeKey %>% -->
 <!--   filter(DS.code == sp.code) %>% -->
 <!--   pull(SSAR.common) -->
@@ -301,7 +286,7 @@ if (dir.exists(out.dir) == F) {
 
 We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. 
 
-```{r ranges, include = F}
+```{r ranges, message = F}
 ## Load ranges
 range.path <- c(paste0("data/", sp.code, "/GAP/"),
                 paste0("data/", sp.code, "/IUCN/"))
@@ -335,19 +320,10 @@ region <- make_region(rangelist,
 
 ## Step 2: Set up cross-validation blocks (if using)
 
+ADD SHORT EXPLANATION HERE
 
-```{r cv-blocks, eval=F}
+```{r cv-blocks}
 ## Set up cross validation blocks
-sb <- blockCV::cv_spatial(x = region$sp.grid,
-                          rows_cols = c(block.rows, block.cols),
-                          k = block.folds,
-                          hexagon = F,
-                          selection = "systematic",
-                          biomod2 = F,
-                          plot = F,
-                          report = F)
-
-## LANE CAN YOU GIVE A ONE SENTENCE AS TO WHAT THIS LINE IS DOING?
 spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
 
 ## Set up training and test sets based on cross validation blocks
@@ -358,8 +334,7 @@ if (block.out == "none") { # If fitting the full model, then there are
 } else {
   block1 <- spatblocks %>% filter(folds == block.out)
 
-  ## Find grid.ids for test block, everything else is train
-  # test.i1 <- st_intersection(region$sp.grid, block1) DELETE???
+  ## Find grid.ids for test block, everything else is in the training block
   test.i <- st_intersection(region$sp.grid, block1) %>%
              pull(conus.grid.id) %>%
              unique()
@@ -372,14 +347,15 @@ if (block.out == "none") { # If fitting the full model, then there are
 
 
 
-
+LEAVE HERE WITH CONTEXT FOR CREATION AND USE
+NEEDED FOR INDEXING IN NIMBLE CODE
 <!-- # Make gridkey ---- -->
 <!-- gridkey <- select(region$sp.grid, conus.grid.id) %>% -->
 <!--   st_drop_geometry() %>% -->
 <!--   mutate(group = case_when(conus.grid.id %in% train.i ~ "train", -->
 <!--                            conus.grid.id %in% test.i ~ "test")) -->
 
-
+MOVE ABOVE WITH REGION
 <!-- if (coarse.grid == T) { -->
 <!--   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid)) -->
 
@@ -395,6 +371,7 @@ if (block.out == "none") { # If fitting the full model, then there are
 
 ## Step 3: Load species data
 
+MOVE SPECIES CODE ETC FROM BELOW HERE
 <!-- # summarize datasets to get up-to-date available datasets -->
 <!-- # this script also prints messages from QC functions -->
 <!-- # source("DATA SWAMP/00-summarize-datasets.R") -- needed load_species_data() -->
@@ -403,10 +380,10 @@ if (block.out == "none") { # If fitting the full model, then there are
 ```{r species-data, eval=F}
 ## Compile the name of all files that have data for the species of interest
 allfiles <- read.csv("data/dataset-summary-full.csv")
-
+# oNLY NEED VECTOR OF FILE NAMES AND FILE VECTORS
 head(allfiles, 2)
 
-tmp1 <- gsub("[|]", "$|^", sp.code.all) # THIS LINE WON'T RUN UNTIL THE SP.CODE.ALL IS CREATED - DO WE NEED THAT STEP?
+tmp1 <- gsub("[|]", "$|^", sp.code.all) # THIS LINE WON'T RUN UNTIL THE SP.CODE.ALL IS CREATED
 tmp2 <- paste0("^", tmp1, "$")
 allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
             select(name, file) %>%
@@ -415,7 +392,8 @@ allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
 ```
 
 
-
+NEED THESE TO LOAD SPECIES DATA
+NEED A LIST SAME LENGTH AS FILE VECTOR WHERE EACH ELEMENT IS A DETECTION COVARIATE
 <!-- # detection covariates for each of these datasets -->
 <!-- covs <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>% -->
 <!--   filter(Data.Swamp.file.name %in% allfiles$file) %>% -->

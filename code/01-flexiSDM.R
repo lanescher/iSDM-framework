@@ -113,16 +113,9 @@ covs.PO <- unlist(str_split(mods$covs.PO[a], pattern = ", "))
 covs.inat <- unlist(str_split(mods$covs.inat[a], pattern = ", "))
 covs.lin <- unlist(str_split(mods$covs.lin[a], pattern = ", "))
 covs.quad <- unlist(str_split(mods$covs.quad[a], pattern = ", "))
-covs.int.factor <- unlist(str_split(mods$covs.int.factor[a], pattern = ", "))
-reference <- mods$reference[a]
-covs.int.cont <- unlist(str_split(mods$covs.int.cont[a], pattern = ", "))
 check.covs <- mods$check.covs[a]
 
-Bpriordist <- mods$Bpriordist[a]
-Bpriorvar1 <- mods$Bpriorvar1[a]
-Bpriorvar2 <- mods$Bpriorvar2[a]
-
-process.intercept <- F
+Bpriordist <- mods$Bprior[a]
 
 
 codeKey <- read.csv("data/model-specieslist.csv")
