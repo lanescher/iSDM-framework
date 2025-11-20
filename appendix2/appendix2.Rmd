@@ -2,6 +2,7 @@
 title: "Appendix 2"
 output: pdf_document
 date: "2025-11-18"
+toc: true
 ---
 
 ```{r setup, include=FALSE}
@@ -33,9 +34,10 @@ So you wanna fit an integrated species distribution model? You've come to the ri
 
 # NEED SOME SORT OF INTRO HERE.
 
-<!-- # summarize datasets to get up-to-date available datasets -->
-<!-- # this script also prints messages from QC functions -->
-<!-- # source("DATA SWAMP/00-summarize-datasets.R") -- needed load_species_data() -->
+- The first part of this sets up the range, imports species and covariate data, scales covariates, and sets everything up for NIMBLE.
+- The second part fits the NIMBLE model
+- The third part summarizes the NIMBLE output and creates output figures.
+
 
 Let's first load the libraries we'll need to set up, visualize, fit, and summarize our data.
 
@@ -52,30 +54,9 @@ library(SpFut.flexiSDM)
 ```
 
 
-# WHERE/HOW TO INTRODUCE RUNNING THIS ON AN HPC
 
-<!-- # DO NOT EDIT BELOW HERE ---- -->
-<!-- args = commandArgs(trailingOnly = TRUE) -->
 
-<!-- if (length(args) > 0) { -->
-
-<!--   # Number of model to run -->
-<!--   nums.do = as.numeric(args[1]) -->
-
-<!--   # Assign a block to run if running locally -->
-<!--   block = as.numeric(args[2]) -->
-
-<!--   if (block == 4) { -->
-<!--     block <- 'none' -->
-<!--   }   -->
-
-<!--   # Running locally? Yes = 1 -->
-<!--   local = as.numeric(args[3]) -->
-
-<!--   if (local == 0) { -->
-<!--     setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/') -->
-<!--   }  -->
-<!-- }  -->
+## Model specifications
 
 To load data or fit a model, you must first create a .csv file that outlines the model specifications. We call ours `model-specs.csv`. Let's load the .csv and take a look at how we structured it.
 
@@ -85,7 +66,52 @@ mods <- read.csv("code/model-specs.csv")
 head(mods, n=2)
 ```
 
-# INSERT TABLE DESCRIBING WHAT EACH COLUMN IS AND WHY IT'S INCLUDED IN THE .CSV
+The following table describes the column names, data type, and description
+# FINISH TABLE
+
+| Column Name     | Type      | Description                              |
+|-----------------|-----------|------------------------------------------|
+| number          | numeric   | Model number                             |
+| sp.code         | character | Four digit species code                  |
+| model           | character | Model name                               |
+| mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE     |
+| mem.sum         | numeric   | Memory allocation (in MB) for parallelized summarization. Could be omitted if not using an HPC. |
+| year.start      | numeric   | Starting year of data inclusion          |
+| year.end        | numeric   | Ending year of data inclusion            |
+| buffer          | numeric   | Size of buffer around range edge (in km) |
+| sp.auto         | logical   | Should a spatial model be included?      |
+| zero_mean       | logical   | Should a zero mean assumption be included in the spatial model |
+| tau             | numeric/character | Assign a fixed value or a prior distribution for precision ($\tau$) |
+| coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
+| cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
+| covs.PO         | character | A comma-separated list of covariates for modeling PO sampling effort. These must match the covariate names in the data. |
+| covs.inat       | character | A comma-separated list of covariates for modeling iNaturalist sampling effort. These must match the covariate names in the data. |
+| covs.lin        | character | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
+| covs.quad       | character | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
+| check.covs      | logical   | Should covariate selection remove multicollinearity? |
+| covs.int.factor |
+| reference       |
+| covs.int.cont   |
+| Bpriordist      |
+| Bpriorvar1      |
+| Bpriorvar2      |
+| filter.region   | logical   |
+| spat.bal        | logical   | Should the PO data be spatially balanced?         |
+| coordunc        | numeric   | The level of acceptable coordinate uncertainty    |
+| coordunc_na.rm  | logical   | Should coordinates with uncertainty beyond `coordunc` be removed? |
+| block.rows      | numeric   | The number of rows for cross-validation blocks    |
+| block.cols      | numeric   | The number of columns for cross-validation blocks |
+| block.folds     | numeric   | The number of cross-validation block groups       |
+| iter            | numeric   | The number of iterations to run an MCMC chain     |
+| thin            | numeric   | Thin the MCMC chains by this parameter            |
+| region.sub      | logical   | Only use the centroid of the region with a radius equal to the buffer size? |
+| lon.hi          | numeric   | High longitude value to restrict the range
+| lon.lo          | numeric   | Low longitude value to restrict the range
+| lat.hi          | numeric   | High latitude value to restrict the range
+| lat.lo          | numeric   | Low latitude value to restrict the range
+| project         | numeric   | The number of future projections (otherwise, NA)  |
+| exclude.dataset | character | A comma-separated list of datasets to exclude from analysis |
+
 
 We have set up the scripts in the flexiSDM workflow so that a minimum number of parameters needs to be changed among them. To run this script in full (using our file arrangement), you only need to edit the following parameters:
 
@@ -96,6 +122,52 @@ local <- 1 # are you running the code locally (1) or on an HPC (0)?
 a <- 1 # Fixed for indexing a vector below
 ```
 
+For the purposes of this demonstration, we're going TO FIT X MODEL WITH THESE ASSUMPTIONS
+
+
+### Side note: High performance computing
+
+We almost exclusively run these models on a high performance computing (HPC) cluster. We clone our repository directly to the HPC to ensure we have the same file structure and no version conflicts. We've set up the code so we can seamlessly move between running the workflow locally and on our HPC. 
+
+To run the first steps of the workflow via `01-flexiSDM.R`, we call the script `01-flexiSDM.sh`, which takes 3 inputs: 
+
+- Model number
+- Block (defined by an array in the script)
+- Local (1/0)
+
+We have simplified this further by writing a wrapper called `01-HPC.sh`, which only takes one input: model number. Within the script, `local` is set to 0, indicating a run on an HPC.
+
+The inputs provided to the `.sh` scripts are converted to inputs to the `01-flexiSDM.R` script and are interpreted below:
+
+```{r hpc, eval = F}
+# Converts command arguments to something interpretable by R
+args = commandArgs(trailingOnly = TRUE)
+
+if (length(args) > 0) {
+
+  # Model number to run
+  nums.do = as.numeric(args[1])
+
+  # Blocks can be run as single jobs or as arrays
+  block = as.numeric(args[2])
+  
+  # The block input is numeric only. Convert 4 = 'none'
+  if (block == 4) {
+    block <- 'none'
+  }
+
+  # Running locally? Yes = 1
+  local = as.numeric(args[3])
+
+  # If running on an HPC, set the working directory to the project home directory
+  if (local == 0) {
+    setwd('/home/directory/')
+  }
+}
+```
+
+
+### Load model specifications
 
 Then we can use our model specifications to define a series of inputs for the setup script (found in `01-flexiSDM.R`).
 
@@ -109,7 +181,7 @@ mods <- full_join(mods, tmp, by = c("number"))
 # CAN WE SIMPLIFY THIS SO THE CODE ONLY RUNS ONE MODEL NUMBER-BLOCK COMBO?
 # THEN WE COULD REMOVE 'A' BELOW AND FIX IT AT 1
 
-## Get variables for model from MVPv1.csv
+## Get variables for model from model-specs.csv
 number <- mods$number[a] # model number
 sp.code <- mods$sp.code[a] # 4-digit species code
 model <- mods$model[a] # model name
@@ -126,7 +198,7 @@ coordunc_na.rm <- mods$coordunc_na.rm[a] # filter by coordinate uncertainty?
 block.folds <- mods$block.folds[a] # how many groups of blocks?
 block.rows <- mods$block.rows[a] # how many rows of blocks?
 block.cols <- mods$block.cols[a] # how many columns of blocks?
-block.out <- mods$block.out[a]
+block.out <- mods$block.out[a] # IS THIS PART OF THE SIMPLIFICATION
 
 if (block.out == "none") {
   blockname <- "full" # rename the block to 'full' if not doing cross-validation
@@ -225,73 +297,79 @@ if (dir.exists(out.dir) == F) {
 }
 ```
 
-Step 1: Define the region
+## Step 1: Define the region
 
-We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We 
+We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. 
 
-```{r ranges}
-# Load ranges
-range.path <- c(paste0("data/species/", sp.code, "/GAP/"),
-                paste0("data/species/", sp.code, "/IUCN/"))
+```{r ranges, include = F}
+## Load ranges
+range.path <- c(paste0("data/", sp.code, "/GAP/"),
+                paste0("data/", sp.code, "/IUCN/"))
 range.name <- c("GAP", "IUCN")
 rangelist <- get_range(range.path,
                        range.name,
                        crs = 4326)
+
+## Load USA boundary
+exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
+             "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
+
+usa <- st_read("data/USA/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
+        filter((NAME %in% exclude) == F) %>%
+        st_union()
+
+# CONUS grid
+load("data/USA/grid-covar.rdata")
+
+# Region
+region <- make_region(rangelist,
+                      buffer = buffer,
+                      crs = 3857,
+                      sub = region.sub,
+                      boundary = usa,
+                      grid = conus.grid,
+                      rm.clumps = T,
+                      clump.size = 50,
+                      continuous = cont.grid)
 ```
 
-<!-- # USA boundary -->
-<!-- exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands", -->
-<!--              "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico") -->
-<!-- usa <- st_read("data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>% -->
-<!--         filter((NAME %in% exclude) == F) %>% -->
-<!--         st_union() -->
-<!-- # CONUS grid -->
-<!-- load("data/USA/grid-covar.rdata") -->
-
-<!-- # Region -->
-<!-- region <- make_region(rangelist, -->
-<!--                       buffer = buffer, -->
-<!--                       crs = 3857, -->
-<!--                       sub = region.sub, -->
-<!--                       boundary = usa, -->
-<!--                       grid = conus.grid, -->
-<!--                       rm.clumps = T, -->
-<!--                       clump.size = 50, -->
-<!--                       continuous = cont.grid) -->
+## Step 2: Set up cross-validation blocks (if using)
 
 
+```{r cv-blocks, eval=F}
+## Set up cross validation blocks
+sb <- blockCV::cv_spatial(x = region$sp.grid,
+                          rows_cols = c(block.rows, block.cols),
+                          k = block.folds,
+                          hexagon = F,
+                          selection = "systematic",
+                          biomod2 = F,
+                          plot = F,
+                          report = F)
 
-<!-- # Set up cross validation blocks ---- -->
-<!-- # sb <- cv_spatial(x = region$sp.grid,  -->
-<!-- #                  rows_cols = c(block.rows, block.cols), -->
-<!-- #                  k = block.folds,  -->
-<!-- #                  hexagon = F,  -->
-<!-- #                  selection = "systematic",  -->
-<!-- #                  biomod2 = F,  -->
-<!-- #                  plot = F,  -->
-<!-- #                  report = F) -->
-<!-- spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds) -->
+## LANE CAN YOU GIVE A ONE SENTENCE AS TO WHAT THIS LINE IS DOING?
+spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
+
+## Set up training and test sets based on cross validation blocks
+if (block.out == "none") { # If fitting the full model, then there are
+  test.i <- c()            # no test data
+  train.i <- region$sp.grid$conus.grid.id
+
+} else {
+  block1 <- spatblocks %>% filter(folds == block.out)
+
+  ## Find grid.ids for test block, everything else is train
+  # test.i1 <- st_intersection(region$sp.grid, block1) DELETE???
+  test.i <- st_intersection(region$sp.grid, block1) %>%
+             pull(conus.grid.id) %>%
+             unique()
+  train.i <- filter(region$sp.grid, conus.grid.id %in% test.i == F) %>%
+              pull(conus.grid.id)
+}
+```
 
 
 
-<!-- # Set up training and test sets based on cross validation blocks -->
-<!-- if (block.out == "none") { -->
-<!--   test.i <- c() -->
-<!--   train.i <- region$sp.grid$conus.grid.id -->
-
-<!-- } else { -->
-<!--   block1 <- spatblocks %>% -->
-<!--     filter(folds == block.out) -->
-
-<!--   # find grid.ids for test block, everything else is train -->
-<!--   test.i1 <- st_intersection(region$sp.grid, block1) -->
-<!--   test.i <- st_intersection(region$sp.grid, block1) %>% -->
-<!--     pull(conus.grid.id) %>% -->
-<!--     unique() -->
-<!--   train.i <- filter(region$sp.grid, conus.grid.id %in% test.i == F) %>% -->
-<!--     pull(conus.grid.id) -->
-
-<!-- } -->
 
 
 
@@ -315,16 +393,28 @@ rangelist <- get_range(range.path,
 <!-- } -->
 
 
-<!-- # Species data ---- -->
-<!-- # get all files that have data for that species -->
-<!-- allfiles <- read.csv("DATA SWAMP/dataset-summary-full.csv") -->
-<!-- tmp1 <- gsub("[|]", "$|^", sp.code.all) -->
-<!-- tmp2 <- paste0("^", tmp1, "$") -->
-<!-- allfiles <- allfiles[grep(tmp2, allfiles$species),] %>% -->
-<!--   #select(-species, -percentdet) %>% -->
-<!--   select(name, file) %>% -->
-<!--   distinct() %>% -->
-<!--   filter(name %in% exclude.dataset == F) -->
+## Step 3: Load species data
+
+<!-- # summarize datasets to get up-to-date available datasets -->
+<!-- # this script also prints messages from QC functions -->
+<!-- # source("DATA SWAMP/00-summarize-datasets.R") -- needed load_species_data() -->
+
+
+```{r species-data, eval=F}
+## Compile the name of all files that have data for the species of interest
+allfiles <- read.csv("data/dataset-summary-full.csv")
+
+head(allfiles, 2)
+
+tmp1 <- gsub("[|]", "$|^", sp.code.all) # THIS LINE WON'T RUN UNTIL THE SP.CODE.ALL IS CREATED - DO WE NEED THAT STEP?
+tmp2 <- paste0("^", tmp1, "$")
+allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
+            select(name, file) %>%
+            distinct() %>%
+            filter(name %in% exclude.dataset == F)
+```
+
+
 
 <!-- # detection covariates for each of these datasets -->
 <!-- covs <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>% -->
@@ -357,12 +447,15 @@ rangelist <- get_range(range.path,
 
 
 
-<!-- ### Plot species data ---- -->
-<!-- if (block == "none") { -->
-<!--   title <- ", full model" -->
-<!-- } else { -->
-<!--   title <- paste0(", excluding block ", block) -->
-<!-- } -->
+## Step 4: Plot species data
+
+```{r plot-species-data}
+if (block == "none") {
+  title <- ", full model"
+} else {
+  title <- paste0(", excluding block ", block)
+}
+```
 
 <!-- pl <- map_species_data(region = region, -->
 <!--                        species.data = species.data, -->
@@ -441,7 +534,7 @@ rangelist <- get_range(range.path,
 
 
 
-<!-- # Covariate data ---- -->
+## Load covariate data
 <!-- load("data/USA/grid-covar.rdata") -->
 <!-- covar <- conus.covar.grid %>% filter(conus.grid.id %in% region$sp.grid$conus.grid.id) -->
 <!-- covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),] -->
