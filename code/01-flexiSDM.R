@@ -17,9 +17,6 @@ start1 <- Sys.time()
 print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
-# summarize datasets to get up-to-date available datasets
-# this script also prints messages from QC functions
-# source("DATA SWAMP/00-summarize-datasets.R")
 
 
 # EDIT THIS SECTION ----
@@ -251,12 +248,13 @@ if (coarse.grid == T) {
 
 # Species data ----
 # get all files that have data for that species
-allfiles <- read.csv("data/dataset-summary-full.csv")
-tmp1 <- gsub("[|]", "$|^", sp.code.all)
-tmp2 <- paste0("^", tmp1, "$")
-allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
-  select(-species, -percentdet) %>%
-  distinct()
+allfiles <- read.csv("data/00-data-summary-flexiSDM.csv")
+# allfiles <- read.csv("data/dataset-summary-full.csv")
+# tmp1 <- gsub("[|]", "$|^", sp.code.all)
+# tmp2 <- paste0("^", tmp1, "$")
+# allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
+#   select(-species, -percentdet) %>%
+#   distinct()
 
 # detection covariates for each of these datasets
 covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
