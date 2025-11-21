@@ -63,12 +63,15 @@ sp.codes <- c("GPOR", "RACA")
 
 
 for (s in 1:length(sp)) {
-  dat <- dat$dat %>%
+  dat1 <- dat$dat %>%
     filter(species == sp[s])
-  dat <- clean_gbif(dat)
+  dat1 <- clean_gbif(dat1)
   
   
-  dat1 <- dat %>%
+  # Get iNat data
+  dat2 <- dat1 %>%
+    
+    filter(institutionCode == "iNaturalist") %>%
     
     dplyr::mutate(date = substr(eventDate, 1, 10),
                   date = lubridate::as_date(date),
@@ -102,7 +105,47 @@ for (s in 1:length(sp)) {
                   survey.pass, data.type, species, age, individual.id,
                   time.to.detect, count)
   
+  write.csv(dat2, paste0("data/data-ready/", sp.codes[s], "_iNat_PO.csv"))
   
-  write.csv(dat1, paste0("data/data-ready/", sp.codes[s], "_iNat_PO.csv"))
+  
+  # Get museum data
+  dat3 <- dat1 %>%
+    
+    filter(basisOfRecord == "PRESERVED_SPECIMEN") %>%
+    
+    dplyr::mutate(date = substr(eventDate, 1, 10),
+                  date = lubridate::as_date(date),
+                  year = lubridate::year(date),
+                  lat = decimalLatitude,
+                  lon = decimalLongitude,
+                  coord.unc = coordinateUncertaintyInMeters,
+                  survey.conducted = 1,
+                  count = 1,
+                  data.type = "PO",
+                  age = "NR",
+                  individual.id = NA,
+                  time.to.detect = NA,
+                  species = sp.codes[s]) %>%
+    
+    # make site.id
+    dplyr::group_by(lat, lon) %>%
+    dplyr::mutate(site.id = paste0(source, dplyr::cur_group_id())) %>%
+    dplyr::ungroup() %>%
+    
+    
+    # get survey.id
+    dplyr::mutate(survey.id = 1:nrow(.),
+                  pass.id = 1,
+                  survey.pass = paste0(survey.id, "_", pass.id)) %>%
+    
+    
+    # select cols to keep
+    dplyr::select(site.id, lat, lon, stateProvince, source, coord.unc, eventDate,
+                  day, month, year, survey.conducted, survey.id, pass.id,
+                  survey.pass, data.type, species, age, individual.id,
+                  time.to.detect, count)
+  
+  write.csv(dat3, paste0("data/data-ready/", sp.codes[s], "_museum_PO.csv"))
+  
   
 }

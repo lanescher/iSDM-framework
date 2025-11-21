@@ -1,0 +1,17 @@
+"","site.id","lat","lon","stateProvince","source","coord.unc","eventDate","day","month","year","survey.conducted","survey.id","pass.id","survey.pass","data.type","species","age","individual.id","time.to.detect","count"
+"1","Museum4",41.0416,-122.819,"California","Museum",32,"2011-07-22",22,7,2011,1,1,1,"1_1","PO","RACA","NR",NA,NA,1
+"2","Museum4",41.0416,-122.819,"California","Museum",32,"2011-07-22",22,7,2011,1,2,1,"2_1","PO","RACA","NR",NA,NA,1
+"3","Museum4",41.0416,-122.819,"California","Museum",32,"2011-07-22",22,7,2011,1,3,1,"3_1","PO","RACA","NR",NA,NA,1
+"4","Museum1",40.22354,-121.41267,"California","Museum",32,"2011-07-07",7,7,2011,1,4,1,"4_1","PO","RACA","NR",NA,NA,1
+"5","Museum5",41.04206,-121.78749,"California","Museum",32,"2011-05-26",26,5,2011,1,5,1,"5_1","PO","RACA","NR",NA,NA,1
+"6","Museum6",41.20191,-122.76981,"California","Museum",32,"2011-07-17",17,7,2011,1,6,1,"6_1","PO","RACA","NR",NA,NA,1
+"7","Museum3",41.00768,-122.80443,"California","Museum",32,"2011-06-29",29,6,2011,1,7,1,"7_1","PO","RACA","NR",NA,NA,1
+"8","Museum7",41.20242,-122.84478,"California","Museum",32,"2011-07-18",18,7,2011,1,8,1,"8_1","PO","RACA","NR",NA,NA,1
+"9","Museum1",40.22354,-121.41267,"California","Museum",32,"2011-07-07",7,7,2011,1,9,1,"9_1","PO","RACA","NR",NA,NA,1
+"10","Museum6",41.20191,-122.76981,"California","Museum",32,"2011-07-17",17,7,2011,1,10,1,"10_1","PO","RACA","NR",NA,NA,1
+"11","Museum5",41.04206,-121.78749,"California","Museum",32,"2011-05-26",26,5,2011,1,11,1,"11_1","PO","RACA","NR",NA,NA,1
+"12","Museum3",41.00768,-122.80443,"California","Museum",32,"2011-06-29",29,6,2011,1,12,1,"12_1","PO","RACA","NR",NA,NA,1
+"13","Museum2",40.66075,-121.67,"California","Museum",32,"2011-05-27",27,5,2011,1,13,1,"13_1","PO","RACA","NR",NA,NA,1
+"14","Museum7",41.20242,-122.84478,"California","Museum",32,"2011-07-18",18,7,2011,1,14,1,"14_1","PO","RACA","NR",NA,NA,1
+"15","Museum6",41.20191,-122.76981,"California","Museum",32,"2011-07-17",17,7,2011,1,15,1,"15_1","PO","RACA","NR",NA,NA,1
+"16","Museum2",40.66075,-121.67,"California","Museum",32,"2011-05-27",27,5,2011,1,16,1,"16_1","PO","RACA","NR",NA,NA,1
