@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 3
+nums.do <- 1
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -644,7 +644,7 @@ source("../species-futures/code/03-species-models/xx-flexiSDM-setuptests.R")
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
 rm(list=c('local','block','args','conus.covar.grid','conus.grid','usa','conus',
-          'pl','centroid'))
+          'pl'))
 
 
 # Save environment and full set up
