@@ -128,34 +128,6 @@ if (NA %in% covs.z) {
 
 
 
-codeKey <- read.csv("data/model-specieslist.csv")
-common <- codeKey %>%
-  filter(DS.code == sp.code) %>%
-  pull(SSAR.common)
-sp.code.all <- codeKey %>%
-  filter(DS.code == sp.code) %>%
-  pull(all.codes)
-sciname <- codeKey %>%
-  filter(DS.code == sp.code) %>%
-  pull(SSAR.scientific)
-
-gen <- stringr::word(sciname, 1)
-
-if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus", 
-               "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus",
-               "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius",
-               "Leptodactylus", "Lithobates", "Osteopilus",
-               "Pseudacris", "Rana", "Rhinella", "Rhinophrynus",
-               "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad"
-if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
-               "Cryptobranchus", "Desmognathus", "Dicamptodon", 
-               "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
-               "Hydromantes", "Necturus", "Notophthalmus",
-               "Phaeognathus", "Plethodon", "Pseudobranchus",
-               "Pseudotriton", "Rhyacotriton", "Siren", 
-               "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander"
-
-
 
 
 # Ready to start processing ----
@@ -209,7 +181,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         rm.clumps = T,
                         clump.size = 50)
   
-  write_rds(region, file = paste0("data/", nums.do, "_", sp.code, "_", model, "/region.rds"))
+  write_rds(region, file = paste0(data.dir, "region.rds"))
 }
 
 
@@ -260,6 +232,37 @@ if (coarse.grid == T) {
 
 
 # Species data ----
+
+
+codeKey <- read.csv("data/model-specieslist.csv")
+common <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.common)
+sp.code.all <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(all.codes)
+sciname <- codeKey %>%
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.scientific)
+
+gen <- stringr::word(sciname, 1)
+
+if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus", 
+               "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus",
+               "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius",
+               "Leptodactylus", "Lithobates", "Osteopilus",
+               "Pseudacris", "Rana", "Rhinella", "Rhinophrynus",
+               "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad"
+if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+               "Cryptobranchus", "Desmognathus", "Dicamptodon", 
+               "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+               "Hydromantes", "Necturus", "Notophthalmus",
+               "Phaeognathus", "Plethodon", "Pseudobranchus",
+               "Pseudotriton", "Rhyacotriton", "Siren", 
+               "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander"
+
+
+
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
   filter(Species == sp.code) %>%
