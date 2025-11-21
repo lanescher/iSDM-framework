@@ -1,1 +1,0 @@
-GBIF Occurrence Download https://doi.org/10.15468/dl.vfugeu Accessed from R via rgbif (https://github.com/ropensci/rgbif) on 2024-12-18
