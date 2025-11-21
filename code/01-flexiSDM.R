@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 4
+nums.do <- 3
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -402,6 +402,9 @@ if (sp.code == "RACA") {
              sqrtarea_medium = sqrt(area_medium)) %>%
       select(conus.grid.id, sqrtarea_small, sqrtarea_medium, footprint, TRI, tmin, traveltime)
     
+    
+    
+    covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
     write_rds(covar, file = paste0(data.dir, "covariates.rds"))
     
   }
@@ -425,28 +428,45 @@ if (sp.code == "GPOR") {
     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
     
     
+    # Get ORM for iNat data
+    dat <- read_rds("data/gbif-raw.rds")
+    genera <- c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+                "Cryptobranchus", "Desmognathus", "Dicamptodon", 
+                "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+                "Hydromantes", "Necturus", "Notophthalmus",
+                "Phaeognathus", "Plethodon", "Pseudobranchus",
+                "Pseudotriton", "Rhyacotriton", "Siren", 
+                "Stereochilus", "Taricha", "Urspelerpes")
     
-    #### ADD N.INAT!!!!!
+    dat1 <- dat$dat %>%
+      filter(genus %in% genera,
+             coordinateUncertaintyInMeters < 25000)
+    dat.grid <- clean_gbif(dat1) %>%
+      st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326) %>%
+      st_transform(crs = st_crs(region$sp.grid)) %>%
+      st_intersection(region$sp.grid) %>%
+      st_drop_geometry() %>%
+      group_by(conus.grid.id) %>%
+      summarize(ORM = n())
     
     
-    
-    
+    # Combine
     covar <- full_join(tri, stream, by = "conus.grid.id") %>%
       full_join(landcover, by = "conus.grid.id") %>%
       full_join(climate, by = "conus.grid.id") %>%
       full_join(traveltime, by = "conus.grid.id") %>%
-      select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime)
+      full_join(dat.grid, by = "conus.grid.id")
+      select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime, ORM)
+    covar$ORM[which(is.na(covar$ORM))] <- 0
+    
     
     
     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
-    
     write_rds(covar, file = paste0(data.dir, "covariates.rds"))
     
     
   }
 }
-
-
 
 rm <- which(complete.cases(covar[,covs.z]) == F)
 if (length(rm) > 0) {
@@ -574,6 +594,7 @@ constants <- tmp$constants
 
 # Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
 # Add state indicator for multi-state PO to indicate which states have data
+if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
 constants <- add_state_ind(species.data,
                            region,
                            gridkey,
