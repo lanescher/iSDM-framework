@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 1
+nums.do <- 4
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -60,7 +60,7 @@ library(SpFut.covariates)
 
 
 # Set up model variables ----
-mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% nums.do)
+mods <- read.csv("code/model-specs.csv") %>% filter(number %in% nums.do)
 
 tmp <- expand.grid(block.out = block, number = unique(mods$number))
 mods <- full_join(mods, tmp, by = c("number"))
@@ -117,18 +117,13 @@ check.covs <- mods$check.covs[a]
 
 Bpriordist <- mods$Bprior[a]
 
-covs.z <- c(covs.lin, covs.quad, covs.int.factor)
+covs.z <- c(covs.lin, covs.quad)
 if ("" %in% covs.z) {
   covs.z <- covs.z[-which(covs.z == "")]  
 }
 if (NA %in% covs.z) {
   covs.z <- covs.z[-which(is.na(covs.z))]
 }
-
-
-# Bpriordist <- mods$Bpriordist[a]
-# Bpriorvar1 <- mods$Bpriorvar1[a]
-# Bpriorvar2 <- mods$Bpriorvar2[a]
 
 
 
@@ -176,38 +171,48 @@ if (dir.exists(out.dir) == F) {
   dir.create(out.dir)
 }
 
+data.dir <- paste0("data/", number, "_", sp.code, "_", model, "/")
+if (dir.exists(data.dir) == F) {
+  dir.create(data.dir)
+}
+
 
 # Make region ----
 
 # Generating region requires files that are too big for github, just read it in
-# It was generated originally using SpFut.flexiSDM::make_region()
-region <- read_rds(file = paste0("data/", sp.code, "/region.rds"))
+if (file.exists(paste0(data.dir, "region.rds"))) {
+  region <- read_rds(file = paste0(data.dir, "region.rds"))
+} else {
+  # Load ranges
+  range.path <- c(paste0("data/", sp.code, "/GAP/"),
+                  paste0("data/", sp.code, "/IUCN/"))
+  range.name <- c("GAP", "IUCN")
+  rangelist <- get_range(range.path,
+                         range.name,
+                         crs = 4326)
+  # USA boundary
+  exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
+               "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
+  usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
+          filter((NAME %in% exclude) == F) %>%
+          st_union()
+  # CONUS grid
+  load("../species-futures/data/USA/grid-covar.rdata")
 
-# # Load ranges
-# range.path <- c(paste0("data/", sp.code, "/GAP/"),
-#                 paste0("data/", sp.code, "/IUCN/"))
-# range.name <- c("GAP", "IUCN")
-# rangelist <- get_range(range.path,
-#                        range.name,
-#                        crs = 4326)
-# # USA boundary
-# exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
-#              "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
-# usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
-#         filter((NAME %in% exclude) == F) %>%
-#         st_union()
-# # CONUS grid
-# load("../species-futures/data/USA/grid-covar.rdata")
-# 
-# # Region
-# region <- make_region(rangelist,
-#                       buffer = buffer,
-#                       crs = 3857,
-#                       sub = region.sub,
-#                       boundary = usa,
-#                       grid = conus.grid,
-#                       rm.clumps = T,
-#                       clump.size = 50)
+  # Region
+  region <- make_region(rangelist,
+                        buffer = buffer,
+                        crs = 3857,
+                        sub = region.sub,
+                        boundary = usa,
+                        grid = conus.grid,
+                        rm.clumps = T,
+                        clump.size = 50)
+  
+  write_rds(region, file = paste0("data/", nums.do, "_", sp.code, "_", model, "/region.rds"))
+}
+
+
 
 # Set up cross validation blocks ----
 spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
@@ -257,36 +262,22 @@ if (coarse.grid == T) {
 # Species data ----
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-  filter(Species == sp.code)
-# allfiles <- read.csv("data/dataset-summary-full.csv")
-# tmp1 <- gsub("[|]", "$|^", sp.code.all)
-# tmp2 <- paste0("^", tmp1, "$")
-# allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
-#   select(-species, -percentdet) %>%
-#   distinct()
+  filter(Species == sp.code) %>%
+  rename(file.name = Data.Swamp.file.name,
+         file.label = Name,
+         covar.mean = Covar.mean,
+         covar.sum = Covar.sum,
+         data.type = Type.true) %>%
+  select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
 
-# detection covariates for each of these datasets
-# covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-#   filter(Data.Swamp.file.name %in% allfiles$file) %>%
-#   select(Data.Swamp.file.name, Covar.mean, Covar.sum)
-# covs <- covs[order(match(covs$Data.Swamp.file.name, allfiles$file)),]
-
-covariates <- list()
-for (i in 1:nrow(allfiles)) {
-  covs.mean <- unlist(strsplit(allfiles$Covar.mean[i], split = ", "))
-  covs.sum <- unlist(strsplit(allfiles$Covar.sum[i], split = ", "))
-  #area <- unlist(strsplit(covs$Area[i], split = ","))
-  covs1 <- c(covs.mean, covs.sum)
-  covs1 <- covs1[which(is.na(covs1) == F)]
-  covariates[[allfiles$Data.Swamp.file.name[i]]] <- covs1
-}
 
 species.data <- load_species_data(sp.code,
                                   sp.code.all,
-                                  file.name = allfiles$Data.Swamp.file.name,
-                                  file.label = allfiles$Name,
+                                  file.info = allfiles,
+                                  # file.name = allfiles$Data.Swamp.file.name,
+                                  # file.label = allfiles$Name,
                                   file.path = "data/data-ready/",
-                                  keep.cols = covariates,
+                                  # keep.cols = covariates,
                                   region = region, 
                                   filter.region = filter.region,
                                   year.start = year.start,
@@ -390,8 +381,8 @@ if (block.out != "none") {
 
 if (sp.code == "RACA") {
   
-  if (file.exists("data/RACA/covariates.rds")) {
-    covar <- read_rds("data/RACA/covariates.rds")
+  if (file.exists(paste0(data.dir, "covariates.rds"))) {
+    covar <- read_rds(paste0(data.dir, "covariates.rds"))
   } else {
     
     # Note that elevation data must be downloaded before running get_elevation()
@@ -411,7 +402,7 @@ if (sp.code == "RACA") {
              sqrtarea_medium = sqrt(area_medium)) %>%
       select(conus.grid.id, sqrtarea_small, sqrtarea_medium, footprint, TRI, tmin, traveltime)
     
-    write_rds(covar, file = "data/RACA/covariates.rds")
+    write_rds(covar, file = paste0(data.dir, "covariates.rds"))
     
   }
   
@@ -420,16 +411,16 @@ if (sp.code == "RACA") {
 
 if (sp.code == "GPOR") {
   
-  if (file.exists("data/GPOR/covariates.rds")) {
-    covar <- read_rds("data/GPOR/covariates.rds")
+  if (file.exists(paste0(data.dir, "covariates.rds"))) {
+    covar <- read_rds(paste0(data.dir, "covariates.rds"))
   } else {
     
     # Note that elevation and flowlines data must be downloaded before running 
     # get_elevation() and get_flowlines(). See documentation for details.
     tri <- get_elevation(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
-    stream <- get_flowlines(locs = region$sp.grid, path = "../species-futures/data/USA/")
+    stream <- get_flowlines(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
+    landcover <- get_landcover(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
     
-    landcover <- get_landcover(locs = region$sp.grid, id.label = "conus.grid.id")
     climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
     
@@ -446,14 +437,16 @@ if (sp.code == "GPOR") {
       full_join(traveltime, by = "conus.grid.id") %>%
       select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime)
     
-    write_rds(covar, file = "data/GPOR/covariates.rds")
+    
+    covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
+    
+    write_rds(covar, file = paste0(data.dir, "covariates.rds"))
     
     
   }
 }
 
 
-covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
 
 rm <- which(complete.cases(covar[,covs.z]) == F)
 if (length(rm) > 0) {
@@ -559,25 +552,12 @@ if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
 
 # NIMBLE ----
 
-summary <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-  filter(Species == sp.code,
-         Name %in% names(species.data$obs)) %>%
-  select(-Data.Swamp.file.name) %>%
-  distinct()
-summary <- summary[order(match(summary$Name, names(species.data$obs))),] %>% distinct()
-summary$Area <- "" # we're not using the area column anymore
-
-
 sp.data <- sppdata_for_nimble(species.data,
                               region,
-                              data.type = summary$Type.true,
-                              PO.extent = summary$PO.extent,
+                              file.info = allfiles,
                               covar = covar,
                               covs.inat = covs.inat,
                               covs.PO = covs.PO,
-                              covs.mean = summary$Covar.mean,
-                              covs.sum = summary$Covar.sum,
-                              offset.area = summary$Area,
                               DND.maybe = 1,
                               keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) # get rid of PO cells that are in the wrong grid cells
 
@@ -611,7 +591,7 @@ code <- nimble_code(data,
                     path = out.dir,
                     sp.auto = sp.auto, 
                     coarse.grid = coarse.grid,
-                    Bpriordist = Bpriordist, Bpriorvar1 = Bpriorvar1, Bpriorvar2 = Bpriorvar2,
+                    Bprior = Bpriordist,
                     block.out = block.out,
                     min.visits.incl = 3, 
                     zero_mean = zero_mean,
@@ -635,6 +615,10 @@ params <- nimble_params(data,
 
 
 end1 <- Sys.time() - start1
+
+
+source("../species-futures/code/03-species-models/xx-flexiSDM-setuptests.R")
+
 
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
