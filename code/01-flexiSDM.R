@@ -639,7 +639,7 @@ params <- nimble_params(data,
 end1 <- Sys.time() - start1
 
 
-source("../species-futures/code/03-species-models/xx-flexiSDM-setuptests.R")
+#source("../species-futures/code/03-species-models/xx-flexiSDM-setuptests.R")
 
 
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
