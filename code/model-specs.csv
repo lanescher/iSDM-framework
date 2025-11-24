@@ -1,5 +1,5 @@
 number,sp.code,model,mem.nim,mem.sum,year.start,year.end,buffer,sp.auto,zero_mean,tau,coarse.grid,cont.grid,covs.PO,covs.inat,covs.lin,covs.quad,check.covs,Bprior,filter.region,spat.bal,coordunc,coordunc_na.rm,block.rows,block.cols,block.folds,iter,thin,region.sub,lon.hi,lon.lo,lat.hi,lat.lo,project,exclude.dataset
-1,RACA,iSDM,30000,40000,1994,2025,50000,T,T,1,F,F,traveltime,NA,"sqrtarea_small, sqrtarea_medium, footprint","TRI, tmin",F,"dnorm(0,1)",T,T,1000,T,5,5,3,1000,5,F,,,,,,
-2,GPOR,iSDM,30000,60000,1994,2025,50000,T,T,1,T,F,traveltime,ORM,"streamLength.km, prec, forest",elevation,F,"dnorm(0,1)",T,T,1000,T,5,5,3,1000,5,F,,,,,,
+1,RACA,iSDM,30000,40000,1994,2025,50000,T,T,1,F,F,traveltime,NA,"sqrtarea_small, sqrtarea_medium, footprint","TRI, tmin",F,"dnorm(0,1)",T,T,1000,T,5,5,3,100000,5,F,,,,,,
+2,GPOR,iSDM,30000,60000,1994,2025,50000,T,T,1,T,F,traveltime,ORM,"streamLength.km, prec, forest",elevation,F,"dnorm(0,1)",T,T,1000,T,5,5,3,100000,5,F,,,,,,
 3,GPOR,subrange,30000,60000,1994,2025,50000,T,T,1,T,F,traveltime,ORM,"streamLength.km, prec, forest",elevation,F,"dnorm(0,1)",T,T,1000,T,5,5,3,100000,5,T,,,,,,
 4,RACA,subrange,30000,40000,1994,2025,50000,T,T,1,F,F,traveltime,NA,"sqrtarea_small, sqrtarea_medium, footprint","TRI, tmin",F,"dnorm(0,1)",T,T,1000,T,5,5,3,100000,5,T,,,,,,
