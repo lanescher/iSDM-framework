@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 1
+nums.do <- 2
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -57,6 +57,7 @@ library(sf)
 library(nimble)
 library(SpFut.flexiSDM)
 library(SpFut.covariates)
+library(SpFut.processGBIF)
 
 
 # Set up model variables ----
@@ -455,7 +456,7 @@ if (sp.code == "GPOR") {
       full_join(landcover, by = "conus.grid.id") %>%
       full_join(climate, by = "conus.grid.id") %>%
       full_join(traveltime, by = "conus.grid.id") %>%
-      full_join(dat.grid, by = "conus.grid.id")
+      full_join(dat.grid, by = "conus.grid.id") %>%
       select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime, ORM)
     covar$ORM[which(is.na(covar$ORM))] <- 0
     
