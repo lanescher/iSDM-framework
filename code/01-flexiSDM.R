@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 2
+nums.do <- 3
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -116,7 +116,7 @@ covs.lin <- unlist(str_split(mods$covs.lin[a], pattern = ", "))
 covs.quad <- unlist(str_split(mods$covs.quad[a], pattern = ", "))
 check.covs <- mods$check.covs[a]
 
-Bpriordist <- mods$Bprior[a]
+Bprior <- mods$Bprior[a]
 
 covs.z <- c(covs.lin, covs.quad)
 if ("" %in% covs.z) {
@@ -185,6 +185,18 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
 
+# Define coarse grid
+if (coarse.grid == T) {
+  spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
+  
+  # Print spatial grid
+  if (block.out == 'none') {
+    pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
+    ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
+  }
+} else {
+  spatRegion <- NULL
+}
 
 
 # Set up cross validation blocks ----
@@ -196,16 +208,14 @@ if (block.out == "none") {
   train.i <- region$sp.grid$conus.grid.id
   
 } else {
-  block1 <- spatblocks %>%
-    filter(folds == block.out)
+  block1 <- filter(spatblocks, folds == block.out)
   
   # find grid.ids for test block, everything else is train
-  test.i1 <- st_intersection(region$sp.grid, block1)
   test.i <- st_intersection(region$sp.grid, block1) %>%
-    pull(conus.grid.id) %>%
-    unique()
+            pull(conus.grid.id) %>%
+            unique()
   train.i <- filter(region$sp.grid, conus.grid.id %in% test.i == F) %>%
-    pull(conus.grid.id)
+              pull(conus.grid.id)
   
 }
 
@@ -218,17 +228,7 @@ gridkey <- select(region$sp.grid, conus.grid.id) %>%
          group = case_when(conus.grid.id %in% train.i ~ "train",
                            conus.grid.id %in% test.i ~ "test"))
 
-if (coarse.grid == T) {
-  spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
-  
-  # Print spatial grid
-  if (block.out == 'none') {
-    pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
-    ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
-  }
-} else {
-  spatRegion <- NULL
-}
+
 
 
 
@@ -481,7 +481,13 @@ numcols <- sapply(covar, is.numeric)
 numcols <- which(numcols)
 covar[,numcols] <- sapply(covar[,numcols], scale_this)
 
-
+### Add quadratic covariates ----
+if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
+  for (c in 1:length(covs.quad)) {
+    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
+    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
+  }
+}
 
 ### Plot covariates ----
 if (block.out == "none") {
@@ -561,15 +567,6 @@ if (block.out == "none") {
 
 
 
-### Add quadratic covariates ----
-if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
-  for (c in 1:length(covs.quad)) {
-    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
-    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
-  }
-}
-
-
 
 # NIMBLE ----
 
@@ -613,7 +610,7 @@ code <- nimble_code(data,
                     path = out.dir,
                     sp.auto = sp.auto, 
                     coarse.grid = coarse.grid,
-                    Bprior = Bpriordist,
+                    Bprior = Bprior,
                     block.out = block.out,
                     min.visits.incl = 3, 
                     zero_mean = zero_mean,

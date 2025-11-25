@@ -22,7 +22,7 @@ library(SpFut.flexiSDM)
 
 
 # EDIT THIS SECTION ----
-num <- 1
+num <- 3
 block <- "none"
 maxchain <- 3
 local <- 1
@@ -50,7 +50,7 @@ if (block == 4) {
 }
 
 
-mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% num)
+mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num)
 
 sp.code <- mods$sp.code[1]
 model <- mods$model[1]

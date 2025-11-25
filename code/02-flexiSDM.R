@@ -15,7 +15,7 @@ print(paste0('Beginning 02-MVPv1.1 script at ', start2))
 
 
 # EDIT THIS SECTION ----
-num <- 1
+num <- 3
 block <- "none"
 chain <- 1
 local <- 1
@@ -43,12 +43,12 @@ if (block == 4) {
 
 
 # Load functions and packages
-suppressMessages(source("../species-futures/functions/FXN-nimbleParallel.R"))
+suppressMessages(source("code/FXN-nimbleParallel.R"))
 library(SpFut.flexiSDM)
 library(tidyverse)
 
 
-mods <- read.csv("code/MVPv1.csv") %>% filter(number %in% num)
+mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num)
 
 sp.code <- mods$sp.code[1]
 model <- mods$model[1]
