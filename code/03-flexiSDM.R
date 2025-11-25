@@ -417,10 +417,8 @@ load(paste0(out.dir, "data", blockname, ".rdata"))
 # Get all data
 species.data <- load_species_data(sp.code = sp.code,
                                   sp.code.all = sp.code.all,
-                                  file.name = allfiles$file,
-                                  file.label = allfiles$name,
+                                  file.info = allfiles,
                                   file.path = "data/data-ready/",
-                                  keep.cols = covariates,
                                   region = region, 
                                   filter.region = filter.region,
                                   year.start = year.start,
