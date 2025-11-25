@@ -24,6 +24,7 @@ knitr::opts_chunk$set(echo = TRUE, messages = FALSE, warning = FALSE, cache = TR
 <!-- ## -->
 <!-- ## --------------------------- -->
 
+\newpage
 So you wanna fit an integrated species distribution model? You've come to the right place!
 
 # NEED SOME SORT OF INTRO HERE.
@@ -35,7 +36,7 @@ So you wanna fit an integrated species distribution model? You've come to the ri
 
 Let's first load the libraries we'll need to set up, visualize, fit, and summarize our data.
 
-```{r libraries, results = 'hide'}
+```{r libraries, results = 'hide', message = F}
 # Load libraries ----
 library(tidyverse)
 library(sf)
@@ -45,8 +46,12 @@ library(nimble)
 # remotes::install_github("rileymummah/SpFut.flexiSDM", build_vignettes = T)
 library(SpFut.flexiSDM)
 library(SpFut.covariates)
+
+## There are two custom functions that are needed to fit the data in NIMBLE
+source("code/FXN-nimbleParallel.R")
 ```
 
+# 01-flexiSDM.R
 
 ## Model specifications
 
@@ -55,7 +60,7 @@ To load data or fit a model, you must first create a .csv file that outlines the
 ```{r model-specs}
 mods <- read.csv("code/model-specs.csv")
 
-head(mods, n=2)
+head(mods)
 ```
 
 The following table describes the column names, data type, and description found in `model-specs.csv`. Not all columns are required depending how you intend to fit the model (i.e., local computer vs. high performance computing cluster).
@@ -301,9 +306,10 @@ MOVE THIS TO NIMBLE CODE AREA?
 ```{r gridkey}
 # Make gridkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
-  st_drop_geometry() %>%
-  mutate(group = case_when(conus.grid.id %in% train.i ~ "train",
-                           conus.grid.id %in% test.i ~ "test"))
+            st_drop_geometry() %>%
+            mutate(grid.id = 1:nrow(.),
+                   group = case_when(conus.grid.id %in% train.i ~ "train",
+                                     conus.grid.id %in% test.i ~ "test"))
 ```
 
 
@@ -512,7 +518,7 @@ if (length(rm) > 0) {
 }
 ```
 
-Finally we scale all covariates to have a mean of 1 and a standard deviation of 0.
+Then we scale all covariates to have a mean of 1 and a standard deviation of 0.
 
 ```{r scale-covs}
 ## Scale covariates 
@@ -521,6 +527,18 @@ numcols <- sapply(covar, is.numeric)
 numcols <- which(numcols)
 covar[,numcols] <- sapply(covar[,numcols], scale_this)
 ```
+
+Finally we create the quadratic covariates.
+
+```{r quad-covs}
+if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
+  for (c in 1:length(covs.quad)) {
+    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
+    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
+  }
+}
+```
+
 
 There's one additional step that could be done here. If removing collinearity is desired, the following piece of code would check and remove covariates that violate the 0.4 correlation threshold. If there are fewer than 3 covariates remaining after the procedure, then message will alert you.
 
@@ -614,355 +632,107 @@ if (block.out == "none") {
 }
 ```
 
-![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
 
 ![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
 
 ![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
 
+![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg)
+
+## Step 7: NIMBLE
+
+```{r spdata}
+sp.data <- sppdata_for_nimble(species.data,
+                              region,
+                              file.info = allfiles,
+                              covar = covar,
+                              covs.inat = covs.inat,
+                              covs.PO = covs.PO,
+                              DND.maybe = 1,
+                              # Get rid of PO cells that are in the wrong grid cells
+                              keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) 
+```
+
+
+### Data/constants
+
+```{r data-constants}
+tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
+                       sp.auto = sp.auto, coarse.grid = coarse.grid, region = region,
+                       process.intercept = F,
+                       gridkey = gridkey, spatRegion = spatRegion)
+
+data <- tmp$data
+constants <- tmp$constants
+```
+
+STATE INDICATOR FOR GPOR
+
+```{r state-indicator}
+# Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
+# Add state indicator for multi-state PO to indicate which states have data
+if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
+constants <- add_state_ind(species.data,
+                           region,
+                           gridkey,
+                           constants,
+                           covs.inat = covs.inat,
+                           obsc.state = obsc.state,
+                           keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+```
+
+
+### Code
+
+```{r code}
+code <- nimble_code(data,
+                    constants, 
+                    path = out.dir,
+                    sp.auto = sp.auto, 
+                    coarse.grid = coarse.grid,
+                    Bprior = Bprior,
+                    block.out = block.out,
+                    min.visits.incl = 3, 
+                    zero_mean = zero_mean,
+                    rm.state = F,
+                    tau = tau)
+```
+
+### Initial values
+
+```{r inits}
+inits <- function(x){nimble_inits(data,
+                                  constants,
+                                  sp.auto = sp.auto,
+                                  seed = x)}
+```
+
+
+### Parameters
+
+```{r params}
+params <- nimble_params(data,
+                        constants,
+                        lambda = T,
+                        XB = T,
+                        sp.auto = sp.auto,
+                        effort = T)
+```
+
+
+## Step 8: Clean up and save
+
+```{r clean-up}
+# Remove local and block in case the setup is run locally but the model is fit on the HPC.
+# Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
+rm(list=c('local','block','args','conus.covar.grid','conus.grid','usa','conus',
+          'pl','centroid'))
+
+
+# Save environment and full set up
+save.image(paste0(out.dir, "setup_",block.out,".Rdata"))
+```
 
-
-<!-- # add centroid lat and lon of each grid cell to covar -->
-<!-- centroid <- sf::st_centroid(region$sp.grid) %>% -->
-<!--               sf::st_coordinates() %>% -->
-<!--               as.data.frame() %>% -->
-<!--               dplyr::mutate(conus.grid.id = region$sp.grid$conus.grid.id) -->
-
-<!-- colnames(centroid)[1:2] <- c("lon", "lat") -->
-<!-- covar <- dplyr::left_join(covar, centroid, by = "conus.grid.id") -->
-
-
-
-<!-- ### Read in process covariates ---- -->
-<!-- covs.z <- c(covs.lin, covs.quad, covs.int.factor) -->
-<!-- if ("" %in% covs.z) { -->
-<!--   covs.z <- covs.z[-which(covs.z == "")]   -->
-<!-- } -->
-<!-- if (NA %in% covs.z) { -->
-<!--   covs.z <- covs.z[-which(is.na(covs.z))] -->
-<!-- } -->
-
-
-
-<!--   if (sp.code == "RACA") { -->
-
-<!--   rain <- read_rds("data/species/RACA/rain-grid.rds") -->
-
-<!--   covar <- left_join(covar, select(rain, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             mutate(sqrtarea_small = sqrt(area_small), -->
-<!--                    sqrtarea_medium = sqrt(area_medium)) -->
-
-
-
-<!-- } else if (sp.code == "GPOR") { -->
-
-<!--   cwd <- read_rds("data/species/GPOR/cwd-grid.rds") -->
-<!--   rain <- read_rds("data/species/GPOR/rain-grid.rds") -->
-<!--   soilwater <- read_rds("data/species/GPOR/soilwater-grid.rds") -->
-<!--   climate_velocity <- read_rds("data/species/GPOR/climate_velocity.rds") -->
-
-<!--   covar <- left_join(covar, select(cwd, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(rain, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(soilwater, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(climate_velocity, !sp.grid.id), by = c("conus.grid.id")) -->
-
-
-<!-- } else if (sp.code == "PLSE") { -->
-
-<!--   if (buffer == 1) regs <- c("east", "west", "west", "west", "west") -->
-<!--   if (buffer == 100000) regs <- c("east", "west", "west") -->
-<!--   reg <- region$region %>% -->
-<!--           st_cast("POLYGON") %>% -->
-<!--           mutate(region = regs) -->
-
-<!--   grid <- region$sp.grid %>% -->
-<!--           st_intersection(reg) %>% -->
-<!--           st_drop_geometry() -->
-
-<!--   covar <- covar %>% -->
-<!--             mutate(N_all = N + NW + NE) %>% -->
-<!--             full_join(grid, by = c("conus.grid.id")) -->
-
-
-
-<!-- } -->
-
-
-
-
-
-
-<!-- ### Clean up PO covariates ---- -->
-<!-- if (length(covs.inat) == 1) { -->
-<!--   if (covs.inat == "" | is.na(covs.inat)) covs.inat <- NULL -->
-<!-- } -->
-<!-- if (length(covs.PO) == 1) { -->
-<!--   if (covs.PO == "" | is.na(covs.PO)) covs.PO <- NULL -->
-<!-- } -->
-
-
-<!-- ### Plot covariates ---- -->
-<!-- if (block.out == "none") { -->
-
-
-<!--   # Process covs -->
-
-<!--   # get covariate labels -->
-<!--   covlabs <- read.csv("data/covariate-labels.csv") %>% filter(covariate %in% covs.z) -->
-
-<!--   plot_covar(covar, -->
-<!--              region, -->
-<!--              cov.names = covlabs$covariate, -->
-<!--              cov.labels = covlabs$Label, -->
-<!--              out.path = out.dir, -->
-<!--              out.name = "1_covariates-a_process-map") -->
-
-<!--   cor_covar(covar,  -->
-<!--             cov.names = covlabs$covariate, -->
-<!--             cov.labels = covlabs$Label, -->
-<!--             out.path = out.dir, -->
-<!--             out.name = "1_covariates-a_process-correlations",  -->
-<!--             color.threshold = 0.25) -->
-
-
-
-<!--   # iNat covs -->
-
-<!--   # get covariate labels -->
-
-<!--   covlabs <- read.csv("data/covariate-labels.csv") %>% -->
-<!--     filter(covariate %in% covs.inat) -->
-
-<!--   if (length(covs.inat) > 0) { -->
-<!--     plot_covar(covar, -->
-<!--                region, -->
-<!--                cov.names = covlabs$covariate, -->
-<!--                cov.labels = covlabs$Label, -->
-<!--                out.path = out.dir, -->
-<!--                out.name = "1_covariates-b_iNat-map") -->
-
-<!--     if (length(covs.inat) > 1) { -->
-<!--       cor_covar(covar,  -->
-<!--                 cov.names = covlabs$covariate, -->
-<!--                 cov.labels = covlabs$Label, -->
-<!--                 out.path = out.dir, -->
-<!--                 out.name = "1_covariates-b_iNat-correlations",  -->
-<!--                 color.threshold = 0.25) -->
-<!--     } -->
-<!--   } -->
-
-
-
-<!--   # PO covs -->
-
-<!--   # get covariate labels -->
-<!--   covlabs <- read.csv("data/covariate-labels.csv") %>% -->
-<!--     filter(covariate %in% covs.PO) -->
-
-<!--   if (length(covs.PO)) { -->
-<!--     plot_covar(covar, -->
-<!--                region, -->
-<!--                cov.names = covlabs$covariate, -->
-<!--                cov.labels = covlabs$Label, -->
-<!--                out.path = out.dir, -->
-<!--                out.name = "1_covariates-c_PO-map") -->
-
-<!--     if (length(covs.PO) > 1) { -->
-<!--       cor_covar(covar,  -->
-<!--                 cov.names = covlabs$covariate, -->
-<!--                 cov.labels = covlabs$Label, -->
-<!--                 out.path = out.dir, -->
-<!--                 out.name = "1_covariates-c_PO-correlations",  -->
-<!--                 color.threshold = 0.25) -->
-<!--     } -->
-<!--   } -->
-
-<!-- } -->
-
-
-
-<!-- ### Add quadratic covariates and interactions ---- -->
-<!-- if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") { -->
-<!--   for (c in 1:length(covs.quad)) { -->
-<!--     covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]] -->
-<!--     covs.z <- c(covs.z, paste0(covs.quad[c], "2")) -->
-<!--   } -->
-<!-- } -->
-
-<!-- # and interactions -->
-<!-- if (length(covs.int.factor) == 1 & is.na(covs.int.factor) == F) { -->
-
-<!--   # pivot factor wider to get dummy cols -->
-<!--   covar[,covs.int.factor] <- paste0(covs.int.factor, ".", covar[,covs.int.factor]) -->
-<!--   covar <- covar %>% -->
-<!--             mutate(fact = 1) %>% -->
-<!--             pivot_wider(names_from = all_of(covs.int.factor), values_from = fact, values_fill = 0) -->
-
-<!--   covs.z <- c(covs.z, colnames(covar)[grep(paste0(covs.int.factor, "."), colnames(covar))]) -->
-
-<!--   for (j in 1:length(covs.int.cont)) { -->
-<!--     # add interaction -->
-<!--     tmp <- add_int_cols(covar, int.factor = covs.int.factor, int.cont = covs.int.cont[j]) -->
-<!--     covar <- tmp$covar -->
-<!--     covs.z <- c(covs.z, tmp$names) -->
-<!--   } -->
-
-<!--   # remove reference level -->
-<!--   rm <- grep(reference, covs.z) -->
-<!--   covs.z <- covs.z[-rm] -->
-
-<!--   # remove original column name -->
-<!--   rm <- grep(covs.int.factor, covs.z)[1] -->
-<!--   covs.z <- covs.z[-rm] -->
-<!-- } -->
-
-
-
-
-<!-- # Make spatkey ---- -->
-
-<!-- if (coarse.grid == T) { -->
-<!--   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid)) -->
-
-<!--   # Print spatial grid -->
-<!--   if (block.out == 'none') { -->
-<!--     pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw() -->
-<!--     ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10) -->
-<!--   } -->
-<!-- } else { -->
-<!--   spatRegion <- NULL -->
-<!-- } -->
-
-
-
-
-
-
-<!-- # NIMBLE ---- -->
-
-<!-- # add grid.id to gridkey -->
-<!-- gridkey$grid.id <- 1:nrow(gridkey) -->
-
-
-
-
-<!-- summary <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>% -->
-<!--             filter(Data.Swamp.file.name %in% allfiles$file, -->
-<!--                    Name %in% names(species.data$obs)) %>% -->
-<!--   select(-Data.Swamp.file.name) %>% -->
-<!--   distinct() -->
-<!-- summary <- summary[order(match(summary$Name, names(species.data$obs))),] %>% distinct() -->
-
-<!-- sp.data <- sppdata_for_nimble(species.data, -->
-<!--                               region, -->
-<!--                               data.type = summary$Type.true, -->
-<!--                               PO.extent = summary$PO.extent, -->
-<!--                               covar = covar, -->
-<!--                               covs.inat = covs.inat, -->
-<!--                               covs.PO = covs.PO, -->
-<!--                               covs.mean = summary$Covar.mean, -->
-<!--                               covs.sum = summary$Covar.sum, -->
-<!--                               offset.area = rep("", nrow(summary)), -->
-<!--                               DND.maybe = 1, -->
-<!--                               keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) # get rid of PO cells that are in the wrong grid cells -->
-
-
-<!-- ### Data/constants ---- -->
-<!-- tmp <- data_for_nimble(sp.data, covar = covar, covs.z, -->
-<!--                        sp.auto = sp.auto, coarse.grid = coarse.grid, region = region, -->
-<!--                        process.intercept = process.intercept, -->
-<!--                        gridkey = gridkey, spatRegion= spatRegion) -->
-
-<!-- data <- tmp$data -->
-<!-- constants <- tmp$constants -->
-
-
-<!-- # Add state indicator variable for iNat data to indicate which states have taxon geoprivacy -->
-<!-- # Add state indicator for multi-state PO to indicate which states have data -->
-<!-- constants <- add_state_ind(species.data, -->
-<!--                            region, -->
-<!--                            gridkey, -->
-<!--                            constants, -->
-<!--                            covs.inat = covs.inat, -->
-<!--                            obsc.state = obsc.state, -->
-<!--                            keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) -->
-
-
-<!-- if (sp.code == "ANMI") { -->
-
-<!--   # Need to replace NMGFD datasets with Bernoulli instead of occupancy -->
-<!--   for (s in 1:length(species.data$obs)) { -->
-<!--     nm <- constants[[paste0("name", s)]] -->
-<!--     nm <- gsub(" .*", "", nm) -->
-
-<!--     if (nm %in% c("NMGFD", "AZGFD")) { -->
-<!--       constants[[paste0("nVisitsV", s)]] <- 1 -->
-<!--     } -->
-<!--   } -->
-
-<!-- } -->
-
-
-
-<!-- if (model == "proj08nostate") { -->
-<!--   if (sp.code == "EBIS") { -->
-<!--     data$Xw3$WV <- NULL -->
-<!--     data$Xw3$VT <- NULL -->
-<!--     data$S3 <- NULL -->
-
-<!--     constants$nCovW3 <- ncol(data$Xw3) -->
-<!--   } else { -->
-<!--     stop("Don't know which states to remove") -->
-<!--   } -->
-
-<!--   rm.state <- T -->
-<!-- } else { -->
-<!--   rm.state <- F -->
-<!-- } -->
-
-
-
-<!-- ### Code ---- -->
-<!-- code <- nimble_code(data, -->
-<!--                     constants,  -->
-<!--                     path = out.dir, -->
-<!--                     sp.auto = sp.auto,  -->
-<!--                     coarse.grid = coarse.grid, -->
-<!--                     Bpriordist = Bpriordist, Bpriorvar1 = Bpriorvar1, Bpriorvar2 = Bpriorvar2, -->
-<!--                     block.out = block.out, -->
-<!--                     min.visits.incl = 3,  -->
-<!--                     zero_mean = zero_mean, -->
-<!--                     tau = tau, -->
-<!--                     rm.state = rm.state) -->
-
-<!-- ### Initial values ---- -->
-<!-- inits <- function(x){nimble_inits(data, -->
-<!--                                   constants, -->
-<!--                                   sp.auto = sp.auto, -->
-<!--                                   seed = x)} -->
-
-<!-- ### Parameters ---- -->
-<!-- params <- nimble_params(data, -->
-<!--                         constants, -->
-<!--                         lambda = T, -->
-<!--                         XB = T, -->
-<!--                         sp.auto = sp.auto, -->
-<!--                         effort = T) -->
-
-
-<!-- source("code/03-species-models/xx-flexiSDM-setuptests.R") -->
-
-
-<!-- end1 <- Sys.time() - start1 -->
-
-<!-- # Remove local and block in case the setup is run locally but the model is fit on the HPC. -->
-<!-- # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata -->
-<!-- rm(list=c('local','block','args','conus.covar.grid','conus.grid','usa','conus', -->
-<!--           'pl','centroid')) -->
-
-
-<!-- # Save environment and full set up -->
-<!-- save.image(paste0(out.dir, "setup_",block.out,".Rdata")) -->
 
 
 <!-- # End script - proceed to 02-flexiSDM.R -->
@@ -979,193 +749,132 @@ if (block.out == "none") {
 <!-- ## -->
 <!-- ## --------------------------- -->
 
-<!-- start2 <- Sys.time()  -->
-<!-- print(paste0('Beginning 02-MVPv1.1 script at ', start2)) -->
+# 02-flexiSDM.R
+
+```{r param.edit2, eval = F}
+num <- 3
+block <- "none"
+sp.code <- "RACA"
+model <- "subrange"
+chain <- 1
+local <- 1
+```
 
 
-<!-- # EDIT THIS SECTION ---- -->
-<!-- num <- 1 -->
-<!-- block <- "none" -->
-<!-- sp.code <- "RACA" -->
-<!-- model <- "WIPtest" -->
-<!-- chain <- 1 -->
-<!-- local <- 1 -->
-<!-- # --- -->
+```{r load-packages2, results = 'hide', eval=F}
+# Load functions and packages
+source("functions/FXN-nimbleParallel.R") # HOW DO YOU RUN THIS IN ISDM-FRAMEWORK?
+library(SpFut.flexiSDM)
+```
 
 
-<!-- args = commandArgs(trailingOnly = TRUE) -->
+```{r output-dir2, eval = F}
+# Set output directory and load setup file
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 
-<!-- if (length(args) > 0) { -->
-<!--   num = as.numeric(args[1]) -->
-<!--   sp.code = as.character(args[2]) -->
-<!--   model = as.character(args[3]) -->
-<!--   block = as.numeric(args[4]) -->
-<!--   chain = as.numeric(args[5]) -->
-<!--   local = as.numeric(args[6])  -->
+load(paste0(out.dir,'setup_',block,'.Rdata'))
+```
 
-<!--   # If running on HPC, set working directory -->
-<!--   if (local == 0) { -->
-<!--     setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/') -->
-<!--   }  -->
-<!-- } -->
+## Fit NIMBLE model
 
-<!-- # Ensure block is coded correctly -->
-<!-- if (block == 4) { -->
-<!--   block <- 'none' -->
-<!-- } -->
+```{r fit-nimble, eval=F}
+if (local == 1) {
+  start.nim <- Sys.time()
+  samples <- nimbleParallel(code = code,
+                            data = data,
+                            constants = constants,
+                            inits = inits,
+                            param = params,
+                            iter = iter,
+                            burnin = burnin,
+                            thin = thin)
 
+  end.nim <- Sys.time() - start.nim
+  print(end.nim)
 
-<!-- # Load functions and packages -->
-<!-- suppressMessages(source("functions/FXN-nimbleParallel.R")) -->
-<!-- library(SpFut.flexiSDM) -->
+  saveRDS(samples, paste0(out.dir,'samples_',block,'.rds'))
+} else {
 
+  info <- list(seed = chain,
+               inits = inits(chain))
 
-<!-- # Set output directory and load setup file -->
-<!-- out.dir = paste0('outputs/03-species-models/MVPv1/',num,'_',sp.code,'_',model,'/') -->
-<!-- load(paste0(out.dir,'setup_',block,'.Rdata')) -->
+  start.nim <- Sys.time()
+  samples <- run_nimbleMCMC(info = info,
+                            code = code,
+                            constants = constants,
+                            data = data,
+                            param = params,
+                            iter = iter,
+                            burnin = burnin,
+                            thin = thin)
 
+  end.nim <- Sys.time() - start.nim
+  print(end.nim)
 
-<!-- # Fit NIMBLE model ---- -->
-<!-- if (local == 1) { -->
-<!--   start.nim <- Sys.time() -->
-<!--   samples <- nimbleParallel(code = code, -->
-<!--                             data = data, -->
-<!--                             constants = constants, -->
-<!--                             inits = inits, -->
-<!--                             param = params, -->
-<!--                             iter = iter, -->
-<!--                             burnin = burnin, -->
-<!--                             thin = thin) -->
-
-<!--   end.nim <- Sys.time() - start.nim -->
-<!--   print(end.nim) -->
-
-<!--   saveRDS(samples, paste0(out.dir,'samples_',block,'.rds')) -->
-<!-- } else { -->
-
-<!--   info <- list(seed = chain, -->
-<!--                inits = inits(chain)) -->
-
-<!--   start.nim <- Sys.time() -->
-<!--   samples <- run_nimbleMCMC(info = info,  -->
-<!--                             code = code,  -->
-<!--                             constants = constants,  -->
-<!--                             data = data,  -->
-<!--                             param = params,  -->
-<!--                             iter = iter,  -->
-<!--                             burnin = burnin,  -->
-<!--                             thin = thin) -->
-
-<!--   end.nim <- Sys.time() - start.nim -->
-<!--   print(end.nim) -->
-
-<!--   saveRDS(samples, paste0(out.dir,'samples_',block,'_',chain,'.rds')) -->
-<!-- } -->
+  saveRDS(samples, paste0(out.dir,'samples_',block,'_',chain,'.rds'))
+}
+```
 
 
-<!-- end2 <- Sys.time() - start2 -->
-<!-- saveRDS(end2, paste0(out.dir,'time2_',block,'.rds')) -->
-<!-- print(end2) -->
 
-<!-- # End script - proceed to 03-flexiSDM.R -->
+<!-- # 03-flexiSDM.R -->
 
-<!-- ## --------------------------- -->
-<!-- ## Objective:  -->
-<!-- ##    - Fit NIMBLE model using setup_BLOCK.rdata file -->
-<!-- ##  -->
-<!-- ## Input: -->
-<!-- ##    - setup_BLOCK.rdata -->
-<!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds -->
-<!-- ## -->
-<!-- ## Output:  -->
-<!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds -->
-<!-- ## -->
-<!-- ## --------------------------- -->
-
-<!-- start3 <- Sys.time() -->
+<!-- <!-- ## --------------------------- --> -->
+<!-- <!-- ## Objective:  --> -->
+<!-- <!-- ##    - Fit NIMBLE model using setup_BLOCK.rdata file --> -->
+<!-- <!-- ##  --> -->
+<!-- <!-- ## Input: --> -->
+<!-- <!-- ##    - setup_BLOCK.rdata --> -->
+<!-- <!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds --> -->
+<!-- <!-- ## --> -->
+<!-- <!-- ## Output:  --> -->
+<!-- <!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds --> -->
+<!-- <!-- ## --> -->
+<!-- <!-- ## --------------------------- --> -->
 
 
+<!-- ```{r load-packages3, results = 'hide'} -->
 <!-- ## load packages ---- -->
 <!-- library(tidyverse, quietly = T) -->
 <!-- library(magrittr, quietly = T) -->
 <!-- library(sf, quietly = T) -->
 <!-- library(SpFut.flexiSDM) -->
+<!-- ``` -->
 
 
-
-<!-- # EDIT THIS SECTION ---- -->
-<!-- num <- 108 -->
+<!-- ```{r params.edit3, eval = F} -->
+<!-- num <- 3 -->
 <!-- block <- "none" -->
 <!-- sp.code <- "RACA" -->
-<!-- model <- "tau1" -->
+<!-- model <- "subrange" -->
 <!-- maxchain <- 3 -->
 <!-- local <- 1 -->
-<!-- # --- -->
+<!-- ``` -->
 
 
-<!-- # Setup ---- -->
-<!-- args = commandArgs(trailingOnly = TRUE) -->
 
-<!-- if (length(args) > 0) { -->
-<!--   num = as.numeric(args[1]) -->
-<!--   sp.code = as.character(args[2]) -->
-<!--   model = as.character(args[3]) -->
-<!--   block = as.numeric(args[4]) -->
-<!--   maxchain = as.numeric(args[5]) -->
-<!--   local = as.numeric(args[6]) -->
-
-<!--   if (local == 0) { -->
-<!--     setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/') -->
-<!--   }  -->
-
-<!-- } -->
-
-<!-- # Ensure block is coded correctly -->
-<!-- if (block == 4) { -->
-<!--   block <- 'none' -->
-<!-- } -->
-
+<!-- ```{r out.dir3} -->
 <!-- # load output directory, setup, and functions -->
-<!-- out.dir = paste0('outputs/03-species-models/MVPv1/',num,'_',sp.code,'_',model,'/') -->
+<!-- out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/') -->
+
 <!-- load(paste0(out.dir,'setup_',block,'.Rdata')) -->
+<!-- ``` -->
 
 
 
 
+<!-- ```{r load-chains} -->
 <!-- # Load chains (samples) ---- -->
-
-<!-- if (file.exists(paste0(out.dir,'samples_',block,'.rds'))) { # If it was run locally, this file should exist -->
-<!--   samples <- readRDS(paste0(out.dir,'samples_',block,'.rds')) -->
-<!-- } else { -->
-<!--   # Load individual sample files and save as a list -->
-<!--   samples <- lapply(1:maxchain,  -->
-<!--                     FUN = function(x) { -->
-<!--                       readRDS(paste0(out.dir,'samples_',block,'_',x,'.rds')) -->
-<!--                     }) -->
-<!-- } -->
-
-
+<!-- samples <- readRDS(paste0(out.dir,'samples_',block,'.rds')) -->
 
 <!-- ## Calculate derived quantities ---- -->
 <!-- # This takes longer with the coarse grid. -->
-<!-- samples <- lapply(samples, get_derived, data = data, project = project,  -->
+<!-- samples <- lapply(samples, get_derived, data = data, project = project, -->
 <!--                   coarse.grid = coarse.grid, spatRegion = spatRegion, -->
 <!--                   pathToProj = 'code/03-species-models/setup-projections.R') -->
+<!-- ``` -->
 
-
-<!-- # Plot chains before summarizing -->
-<!-- cov.labs <- read.csv("data/covariate-labels.csv") -->
-
-<!-- ### Chains ---- -->
-<!-- ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), file = paste0(out.dir, "3_parameters-a1_chains-B-",block,".jpg"), height = 6, width = 8) -->
-<!-- ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), file = paste0(out.dir, "3_parameters-b1_chains-alpha-",block,".jpg"), height = 6, width = 8) -->
-<!-- ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "tau", cutoff = 0), file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"), height = 6, width = 8) -->
-
-<!-- # Posteriors ---- -->
-<!-- ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"), height = 6, width = 8) -->
-<!-- ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"), height = 6, width = 8) -->
-
-
+<!-- ```{r summarize-chains} -->
 <!-- ## Summarize chains ---- -->
 <!-- out <- summarize_samples(samples,  -->
 <!--                          data,  -->
@@ -1174,21 +883,50 @@ if (block.out == "none") {
 <!--                          coarse.grid = coarse.grid, -->
 <!--                          block.out = block.out, -->
 <!--                          gridkey = gridkey,  -->
-<!--                          spatkey = spatRegion$spatkey, -->
+<!--                          spatkey = spatRegion$spatkey,  -->
 <!--                          effort = T, -->
 <!--                          SLURM = ifelse(local == 1, F, T)) -->
 
 <!-- save(out, file = paste0(out.dir, "data", blockname, ".rdata")) -->
+<!-- ``` -->
 
 
-
+<!-- ```{r plot-output, eval=F} -->
 <!-- # Plot output ---- -->
 
 <!-- # Convergence -->
-<!-- ggsave(plot_convergence(out), file = paste0(out.dir, "3_parameters-0_convergence-", block, ".jpg"), -->
+<!-- ggsave(plot_convergence(out),  -->
+<!--        file = paste0(out.dir, "3_parameters-0_convergence-", block, ".jpg"), -->
 <!--        height = 5, width = 12) -->
 
 <!-- if (block.out == "none") { -->
+<!--   cov.labs <- read.csv("data/covariate-labels.csv") -->
+
+<!--   ### Chains ---- -->
+<!--   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,  -->
+<!--                      plot = "B", cutoff = 0),  -->
+<!--          file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"),  -->
+<!--          height = 6, width = 8) -->
+<!--   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,  -->
+<!--                      plot = "alpha", cutoff = 0),  -->
+<!--          file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"),  -->
+<!--          height = 6, width = 8) -->
+<!--   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,  -->
+<!--                      plot = "tau", cutoff = 0),  -->
+<!--          file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"),  -->
+<!--          height = 6, width = 8) -->
+
+<!--   # Posteriors ---- -->
+<!--   ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,  -->
+<!--                          plot = "B", cutoff = 0),  -->
+<!--          file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"),  -->
+<!--          height = 6, width = 8) -->
+<!--   ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,  -->
+<!--                          plot = "alpha", cutoff = 0),  -->
+<!--          file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"),  -->
+<!--          height = 6, width = 8) -->
+
+
 
 <!--   ### Parameter estimates ---- -->
 <!--   ggsave(plot_pars(out,  -->
@@ -1196,72 +934,35 @@ if (block.out == "none") {
 <!--                    plot.group = "process",  -->
 <!--                    title = "Process parameter estimates", -->
 <!--                    cov.labs = cov.labs), -->
-<!--          file = paste0(out.dir, "3_parameters-a3_B.jpg"), height = 6, width = 10) -->
-
-<!--   ggsave(plot_pars(out,  -->
-<!--                    plot.type = "full",  -->
-<!--                    plot.group = "observation",  -->
-<!--                    title = "Observation parameter estimates", -->
-<!--                    cov.labs = cov.labs), -->
-<!--          file = paste0(out.dir, "3_parameters-b3_alpha.jpg"), height = 6, width = 10) -->
+<!--          file = paste0(out.dir, "3_parameters-a3_B.jpg"),  -->
+<!--          height = 6, width = 10) -->
 
 <!--   ggsave(plot_pars(out,  -->
 <!--                    plot.type = "full",  -->
 <!--                    plot.group = "dataset",  -->
-<!--                    title = "Dataset intercept estimates"), -->
-<!--          file = paste0(out.dir, "3_parameters-c3_observation.jpg"), height = 6, width = 10) -->
+<!--                    title = "Dataset parameter estimates"), -->
+<!--          file = paste0(out.dir, "3_parameters-b3_alpha.jpg"),  -->
+<!--          height = 6, width = 10) -->
+
+<!--   ggsave(plot_pars(out,  -->
+<!--                    plot.type = "full",  -->
+<!--                    plot.group = "observation",  -->
+<!--                    title = "Observation intercept estimates", -->
+<!--                    cov.labs = cov.labs), -->
+<!--          file = paste0(out.dir, "3_parameters-c3_observation.jpg"),  -->
+<!--          height = 6, width = 10) -->
 
 <!--   ggsave(plot_pars(out,  -->
 <!--                    plot.type = "full",  -->
 <!--                    plot.group = "tau",  -->
 <!--                    title = "Tau estimate"), -->
-<!--          file = paste0(out.dir, "3_parameters-c3_tau.jpg"), height = 6, width = 10) -->
+<!--          file = paste0(out.dir, "3_parameters-c3_tau.jpg"),  -->
+<!--          height = 6, width = 10) -->
 
 <!--   ### Marginal effects ---- -->
-<!--   ggsave(plot_effects(data, out, breaks = 0.001), file = paste0(out.dir, "/3_parameters-a4-effects.jpg"), height = 7, width = 10) -->
-
-
-
-
-<!--   ### Plot effort and PO records ---- -->
-
-<!--   tmp <- full_join(select(out$effort, conus.grid.id, PO.dataset.name, mean), select(out$lambda0, conus.grid.id, mean), by = "conus.grid.id") %>% -->
-<!--     rename(mean.effort = mean.x, -->
-<!--            mean.lambda = mean.y) -->
-
-<!--   ind <- grep("nW", names(constants)) -->
-<!--   nums <- gsub("nW", "", names(constants)[ind]) -->
-
-<!--   dat <- c() -->
-<!--   for (i in 1:length(nums)) { -->
-<!--     dat1 <- data.frame(W = data[[paste0("W", nums[i])]], -->
-<!--                        grid.id = constants[[paste0("Wcells", nums[i])]], -->
-<!--                        PO.dataset.name = constants[[paste0("name", nums[i])]]) -->
-
-<!--     dat <- bind_rows(dat, dat1) -->
-<!--   } -->
-<!--   dat <- dat %>% -->
-<!--     full_join(gridkey, by = "grid.id") -->
-
-<!--   tmp1 <- full_join(tmp, dat, by = c("conus.grid.id", "PO.dataset.name")) %>% -->
-<!--     mutate(recpereff = W / mean.effort, -->
-<!--            adjlambda = mean.effort * mean.lambda) -->
-
-<!--   pl <- ggplot(tmp1) + -->
-<!--     geom_point(aes(x = recpereff, y = mean.lambda), alpha = 0.5) + -->
-<!--     geom_smooth(aes(x = recpereff, y = mean.lambda), method = "lm") + -->
-<!--     facet_wrap(~ PO.dataset.name, scales = "free") + -->
-<!--     theme_bw() + -->
-<!--     labs(x = "Number of records per unit of effort", y = "Estimated lambda") -->
-<!--   ggsave(pl, file = paste0(out.dir, "/X_recordspereffort.jpg"), height = 8, width = 8) -->
-
-<!--   pl <- ggplot(tmp1) + -->
-<!--     geom_point(aes(x = mean.effort, y = W), alpha = 0.5) + -->
-<!--     geom_smooth(aes(x = mean.effort, y = W), method = "lm") + -->
-<!--     facet_wrap(~ PO.dataset.name, scales = "free") + -->
-<!--     theme_bw() + -->
-<!--     labs(x = "Estimated effort", y = "Number of records") -->
-<!--   ggsave(pl, file = paste0(out.dir, "/X_recordsvseffort.jpg"), height = 8, width = 8) -->
+<!--   ggsave(plot_effects(data, out, breaks = 0.001),  -->
+<!--          file = paste0(out.dir, "/3_parameters-a4-effects.jpg"),  -->
+<!--          height = 7, width = 10) -->
 
 
 <!--   ### Maps ---- -->
@@ -1270,86 +971,96 @@ if (block.out == "none") {
 <!--                          region,  -->
 <!--                          plot = "lambda", -->
 <!--                          out = out) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region,  -->
 <!--                          plot = "lambda", -->
 <!--                          out = out,  -->
 <!--                          plot.uncertainty = "unc.range") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncabs.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncabs.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "lambda", -->
 <!--                          out = out,  -->
 <!--                          plot.uncertainty = "unc.rel") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncrel.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncrel.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "psi", -->
 <!--                          out = out) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "psi", -->
 <!--                          out = out,  -->
 <!--                          plot.uncertainty = "unc.range") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncabs.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncabs.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "psi", -->
 <!--                          out = out,  -->
 <!--                          plot.uncertainty = "unc.rel") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncrel.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncrel.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "boundary", -->
 <!--                          out = out,  -->
 <!--                          threshold = 0.25) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c1_boundary-0.25.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c1_boundary-0.25.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "boundary", -->
 <!--                          out = out,  -->
 <!--                          threshold = 0.5) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c2_boundary-0.5.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c2_boundary-0.5.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "boundary", -->
 <!--                          out = out,  -->
 <!--                          threshold = 0.75) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c3_boundary-0.75.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c3_boundary-0.75.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
-<!--   if (sp.auto == T) { -->
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "spat", -->
-<!--                            out = out, -->
-<!--                            coarse.grid = coarse.grid, -->
-<!--                            spatRegion = spatRegion) -->
-<!--     ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"), height = 7, width = 9) -->
-<!--   } -->
+<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
+<!--                          region, -->
+<!--                          plot = "spat", -->
+<!--                          out = out, -->
+<!--                          coarse.grid = coarse.grid, -->
+<!--                          spatRegion = spatRegion) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                          region, -->
 <!--                          plot = "XB", -->
 <!--                          out = out, -->
 <!--                          plot.exp = T) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"), height = 7, width = 9) -->
-
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"),  -->
+<!--          height = 7, width = 9) -->
 
 <!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
 <!--                          region,  -->
 <!--                          plot = "effort", -->
 <!--                          out = out) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"), height = 7, width = 9) -->
+<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"),  -->
+<!--          height = 7, width = 9) -->
+
 
 <!--   ### Future projections ---- -->
 <!--   if (project > 0) { -->
@@ -1360,7 +1071,8 @@ if (block.out == "none") {
 <!--                            plot.current = F,  -->
 <!--                            plot.change = F, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1370,7 +1082,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            plot.uncertainty = "unc.range", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncabs.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncabs.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1380,7 +1093,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            plot.uncertainty = "unc.rel", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncrel.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncrel.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region,  -->
@@ -1389,7 +1103,8 @@ if (block.out == "none") {
 <!--                            plot.current = F,  -->
 <!--                            plot.change = F, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1399,7 +1114,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            plot.uncertainty = "unc.range", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncabs.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncabs.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1409,7 +1125,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            plot.uncertainty = "unc.rel", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncrel.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncrel.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1419,7 +1136,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            threshold = 0.25, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c1_boundary-0.25.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c1_boundary-0.25.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1429,7 +1147,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            threshold = 0.5, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c2_boundary-0.5.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c2_boundary-0.5.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1439,7 +1158,8 @@ if (block.out == "none") {
 <!--                            plot.change = F,  -->
 <!--                            threshold = 0.75, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c3_boundary-0.75.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c3_boundary-0.75.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1448,7 +1168,8 @@ if (block.out == "none") {
 <!--                            plot.exp = T, -->
 <!--                            plot.current = F, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-d_expXB-future.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-d_expXB-future.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 
 <!--     ### Future absolute change ---- -->
@@ -1459,7 +1180,8 @@ if (block.out == "none") {
 <!--                            plot.current = F,  -->
 <!--                            plot.change = "absolute", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-a1_lambda-abs.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-a1_lambda-abs.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
 <!--                            region, -->
@@ -1468,7 +1190,8 @@ if (block.out == "none") {
 <!--                            plot.current = F,  -->
 <!--                            plot.change = "absolute", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-b1_psi-abs.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-b1_psi-abs.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
 <!--                            region, -->
@@ -1478,7 +1201,8 @@ if (block.out == "none") {
 <!--                            plot.change = "absolute",  -->
 <!--                            threshold = 0.25, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c1_boundary-abs-0.25.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c1_boundary-abs-0.25.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
 <!--                            region, -->
@@ -1488,7 +1212,8 @@ if (block.out == "none") {
 <!--                            plot.change = "absolute",  -->
 <!--                            threshold = 0.5, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c2_boundary-abs-0.5.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c2_boundary-abs-0.5.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
 <!--                            region, -->
@@ -1498,7 +1223,8 @@ if (block.out == "none") {
 <!--                            plot.change = "absolute",  -->
 <!--                            threshold = 0.75, -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c3_boundary-abs-0.75.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c3_boundary-abs-0.75.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     ### Future relative change ---- -->
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
@@ -1508,7 +1234,8 @@ if (block.out == "none") {
 <!--                            plot.current = F,  -->
 <!--                            plot.change = "relative", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-a2_lambda-rel.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-a2_lambda-rel.jpg"),  -->
+<!--            height = 7, width = 9) -->
 
 <!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
 <!--                            region, -->
@@ -1517,177 +1244,43 @@ if (block.out == "none") {
 <!--                            plot.current = F, -->
 <!--                            plot.change = "relative", -->
 <!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-b2_psi-rel.jpg"), height = 7, width = 9) -->
+<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-b2_psi-rel.jpg"),  -->
+<!--            height = 7, width = 9) -->
 <!--   } -->
 <!-- } -->
+<!-- ``` -->
 
 
 
 
 
-<!-- # Validate ---- -->
-
-<!-- # Get all data -->
-<!-- species.data <- load_species_data(sp.code, -->
-<!--                                   sp.code.all, -->
-<!--                                   file.name = allfiles$file, -->
-<!--                                   file.label = allfiles$name, -->
-<!--                                   file.path = "DATA SWAMP/data-ready/", -->
-<!--                                   keep.cols = covariates, -->
-<!--                                   region = region,  -->
-<!--                                   filter.region = filter.region, -->
-<!--                                   year.start = year.start, -->
-<!--                                   year.end = year.end, -->
-<!--                                   coordunc = coordunc, -->
-<!--                                   coordunc_na.rm = coordunc_na.rm, -->
-<!--                                   spat.thin = spat.bal, -->
-<!--                                   keep.conus.grid.id = gridkey$conus.grid.id) -->
 
 
 
-<!-- all.auc <- get_AUC(species.data, out) -->
 
 
 
-<!-- # Save everything ---- -->
-<!-- if (block.out == "none") { -->
-<!--   blockname <- "full" -->
-<!--   save(region, file = paste0(out.dir, "region.rdata")) -->
-<!-- } else {blockname <- block.out} -->
-
-<!-- save(species.data, covar, covar_unscaled, data, constants, gridkey, all.auc, block.out, -->
-<!--      file = paste0(out.dir, "data", blockname, "-info.rdata")) -->
 
 
-<!-- # Final CV Figures ---- -->
-<!-- # Make final cross validation figs if all blocks have been done -->
-
-<!-- done <- list.files(path = out.dir) -->
-
-<!-- mod.name <- c('data1','data2','data3','datafull') -->
 
 
-<!-- if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done)) { -->
-
-<!--   # Load data from all model runs -->
-<!--   auc <- c() -->
-<!--   proc <- c() -->
-<!--   obs <- c() -->
-<!--   alpha <- c() -->
-<!--   for (i in 1:3) { -->
-<!--     load(paste0(out.dir, "data", i, "-info.rdata")) -->
-<!--     load(paste0(out.dir, "data", i, ".rdata")) -->
-
-<!--     # If validation data is missing, skip -->
-<!--     if (length(all.auc) == 1) next -->
-
-<!--     out$process.coef$block.out <- as.character(out$process.coef$block.out) -->
-<!--     out$obs.coef$block.out <- as.character(out$obs.coef$block.out) -->
-<!--     out$alpha$block.out <- as.character(out$alpha$block.out) -->
-
-<!--     auc <- bind_rows(auc, all.auc) -->
-<!--     proc <- bind_rows(proc, out$process.coef) -->
-<!--     obs <- bind_rows(obs, out$obs.coef) -->
-<!--     alpha <- bind_rows(alpha, out$alpha) -->
-
-<!--   } -->
-
-<!--   # If validation data exists... -->
-<!--   if (!is.null(auc)) { -->
-
-<!--     # now add full model -->
-<!--     load(paste0(out.dir, "datafull.rdata")) -->
-
-<!--     out$process.coef$block.out <- as.character(out$process.coef$block.out) -->
-<!--     out$obs.coef$block.out <- as.character(out$obs.coef$block.out) -->
-<!--     out$alpha$block.out <- as.character(out$alpha$block.out) -->
-
-<!--     proc <- bind_rows(proc, out$process.coef) -->
-<!--     obs <- bind_rows(obs, out$obs.coef) -->
-<!--     alpha <- bind_rows(alpha, out$alpha) -->
 
 
-<!--     load(paste0(out.dir, "datafull-info.rdata")) -->
-<!--     auc$block <- as.character(auc$block) -->
-<!--     auc <- bind_rows(auc, all.auc) -->
 
 
-<!--     ggsave(plot_pars(out = proc,  -->
-<!--                      plot.type = "cv",  -->
-<!--                      plot.group = "process",  -->
-<!--                      title = "Process parameter estimates", -->
-<!--                      cov.labs = cov.labs), -->
-<!--            file = paste0(out.dir, "7_CV-a-parameters-process.jpg"), height = 6, width = 10) -->
-
-<!--     ggsave(plot_pars(out = alpha,  -->
-<!--                      plot.type = "cv",  -->
-<!--                      plot.group = "dataset",  -->
-<!--                      title = "Dataset parameter estimates", -->
-<!--                      cov.labs = cov.labs), -->
-<!--            file = paste0(out.dir, "7_CV-b-parameters-dataset.jpg"), height = 6, width = 10) -->
-
-<!--     ggsave(plot_pars(out = obs,  -->
-<!--                      plot.type = "cv",  -->
-<!--                      plot.group = "observation",  -->
-<!--                      title = "Observation parameter estimates", -->
-<!--                      cov.labs = cov.labs), -->
-<!--            file = paste0(out.dir, "7_CV-a-parameters-observation.jpg"), height = 6, width = 10) -->
 
 
-<!--     # Plot AUC -->
-<!--     ggsave(plot_auc(auc, lines = T), file = paste0(out.dir, "7_CV-d_AUClines.jpg"), height = 7, width = 10) -->
-<!--     ggsave(plot_auc(auc, lines = F), file = paste0(out.dir, "7_CV-d_AUCnolines.jpg"), height = 7, width = 10) -->
-<!--   } -->
-<!-- } -->
 
 
-<!-- # Create time-summary output file ---- -->
-<!-- cat("Summarization and visualization complete \n\n") -->
-
-<!-- end3 <- Sys.time() - start3 -->
-
-<!-- # Start output file -->
-<!-- sink(paste0(out.dir,'time-summary_',block,'.txt')) -->
-
-<!-- cat(paste0("Time summary for: ", nums.do,' ',sp.code,' ',model,'\n\n')) -->
-
-<!-- cat(paste0('The model was run on ', format(Sys.time(), "%a %b %Y %d %X"),'\n\n')) -->
 
 
-<!-- # Print total time to output file -->
-<!-- cat('Total time for setup:\n') -->
-<!-- print(end1) -->
-<!-- cat('\n') -->
-
-<!-- end2 <- readRDS(paste0(out.dir, 'time2_',block,'.rds')) -->
-<!-- cat('Total time for fitting NIMBLE model: \n') -->
-<!-- print(end2) -->
-<!-- cat('\n') -->
-
-<!-- cat('Total time for summarization: \n') -->
-<!-- print(end3) -->
-<!-- cat('\n') -->
-
-<!-- cat('Start to finish time (code): \n') -->
-<!-- print(end1 + end2 + end3) -->
-<!-- cat('\n') -->
-
-<!-- cat('Start to finish time (user delay): \n') -->
-<!-- print(Sys.time() - start1) -->
-<!-- cat('\n\n') -->
-
-<!-- # Close output file -->
-<!-- sink() -->
-
-<!-- cat("Removing intermediate files...\n") -->
-<!-- # system(paste0("rm ./outputs/03-species-models/MVPv1/",number,'_',sp.code,'_',model,"/setup_",block,"*")) -->
-<!-- # system(paste0("rm ./outputs/03-species-models/MVPv1/",number,'_',sp.code,'_',model,"/samples_",block,"*")) -->
-<!-- # system(paste0("rm ./outputs/03-species-models/MVPv1/",number,'_',sp.code,'_',model,"/time2_",block,".rds")) -->
-
-<!-- cat(paste0("Model ",number,' ',sp.code,' ',model," complete!!\n")) -->
 
 
-<!-- # End script -->
+
+
+
+
+
 
 
 ## High performance computing
@@ -1730,3 +1323,52 @@ if (length(args) > 0) {
   }
 }
 ```
+
+
+
+
+<!-- args = commandArgs(trailingOnly = TRUE) -->
+
+<!-- if (length(args) > 0) { -->
+<!--   num = as.numeric(args[1]) -->
+<!--   sp.code = as.character(args[2]) -->
+<!--   model = as.character(args[3]) -->
+<!--   block = as.numeric(args[4]) -->
+<!--   chain = as.numeric(args[5]) -->
+<!--   local = as.numeric(args[6])  -->
+
+<!--   # If running on HPC, set working directory -->
+<!--   if (local == 0) { -->
+<!--     setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/') -->
+<!--   }  -->
+<!-- } -->
+
+<!-- # Ensure block is coded correctly -->
+<!-- if (block == 4) { -->
+<!--   block <- 'none' -->
+<!-- } -->
+
+
+
+
+<!-- # Setup ---- -->
+<!-- args = commandArgs(trailingOnly = TRUE) -->
+
+<!-- if (length(args) > 0) { -->
+<!--   num = as.numeric(args[1]) -->
+<!--   sp.code = as.character(args[2]) -->
+<!--   model = as.character(args[3]) -->
+<!--   block = as.numeric(args[4]) -->
+<!--   maxchain = as.numeric(args[5]) -->
+<!--   local = as.numeric(args[6]) -->
+
+<!--   if (local == 0) { -->
+<!--     setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/rmummah/species-futures/') -->
+<!--   }  -->
+
+<!-- } -->
+
+<!-- # Ensure block is coded correctly -->
+<!-- if (block == 4) { -->
+<!--   block <- 'none' -->
+<!-- } -->
