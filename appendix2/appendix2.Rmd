@@ -1,18 +1,12 @@
 ---
 title: "Appendix 2"
 output: pdf_document
-date: "2025-11-18"
+date: "Last updated: `r Sys.Date()`"
 toc: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, messages = FALSE, warning = FALSE)
-
-library(tidyverse)
-library(sf)
-library(nimble)
-# remotes::install_github("rileymummah/SpFut.flexiSDM", build_vignettes = T)
-library(SpFut.flexiSDM)
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE, warning = FALSE, cache = TRUE)
 ```
 
 <!-- ## --------------------------- -->
@@ -41,7 +35,7 @@ So you wanna fit an integrated species distribution model? You've come to the ri
 
 Let's first load the libraries we'll need to set up, visualize, fit, and summarize our data.
 
-```{r libraries, eval = F}
+```{r libraries, results = 'hide'}
 # Load libraries ----
 library(tidyverse)
 library(sf)
@@ -50,6 +44,7 @@ library(nimble)
 ## To install SpFut.flexiSDM or check for updates, use the commented code below:
 # remotes::install_github("rileymummah/SpFut.flexiSDM", build_vignettes = T)
 library(SpFut.flexiSDM)
+library(SpFut.covariates)
 ```
 
 
@@ -63,7 +58,7 @@ mods <- read.csv("code/model-specs.csv")
 head(mods, n=2)
 ```
 
-The following table describes the column names, data type, and description found in `model-specs.csv`.
+The following table describes the column names, data type, and description found in `model-specs.csv`. Not all columns are required depending how you intend to fit the model (i.e., local computer vs. high performance computing cluster).
 
 | Column Name     | Type      | Description                              |
 |-----------------|-----------|------------------------------------------|
@@ -76,7 +71,7 @@ The following table describes the column names, data type, and description found
 | year.end        | numeric   | Ending year of data inclusion            |
 | buffer          | numeric   | Size of buffer around range edge (in km) |
 | sp.auto         | logical   | Should a spatial model be included?      |
-| zero_mean       | logical   | Should a zero mean assumption be included in the spatial model |
+| zero_mean       | logical   | Should a zero mean assumption be included in the spatial model? |
 | tau             | numeric/character | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
 | coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
 | cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
@@ -112,14 +107,13 @@ block <- 'none' # block to run ('none', 1, 2, or 3)
 local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
-For the purposes of this demonstration, we're going TO FIT X MODEL WITH THESE ASSUMPTIONS
-
+For the purposes of this demonstration, we're going to fit a model to the centroid of the Cascades frog (RACA) range with a 50,000km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. 
 
 
 
 ### Load model specifications
 
-Then we can use our model specifications to define a series of inputs for the setup script (found in `01-flexiSDM.R`).
+Now that we have loaded our model specifications, we can use them to define a series of inputs for the setup script (found in `01-flexiSDM.R`).
 
 ```{r mods}
 ## Set up model variables
@@ -184,56 +178,81 @@ covs.lin <- unlist(str_split(mods$covs.lin[1], pattern = ", "))
 covs.quad <- unlist(str_split(mods$covs.quad[1], pattern = ", "))
 check.covs <- mods$check.covs[1] # covariate selection to remove multicollinearity?
 
-# Define the prior for the state model coefficients
+## Define the prior for the state model coefficients
 Bprior <- mods$Bprior[1]
+
+## Combine linear and quadratic distribution covariates into covs.z
+covs.z <- c(covs.lin, covs.quad)
+if ("" %in% covs.z) {
+  covs.z <- covs.z[-which(covs.z == "")]  
+}
+if (NA %in% covs.z) {
+  covs.z <- covs.z[-which(is.na(covs.z))]
+}
 ```
 
 
-Now that we have our model specifications loaded, we're ready to set up the region and load data and covariates. First, let's ensure that we have an output folder specific to the model we are fitting.
+Now we're ready to set up the region and load data and covariates. First, let's ensure that we have output and data folders specific to the model we are fitting.
 
 ```{r output-folder}
-# Make output folder ----
+## Make output folder
 out.dir <- paste0("outputs/", number, "_", sp.code, "_", model, "/")
 if (dir.exists(out.dir) == F) {
   dir.create(out.dir)
 }
+
+## Make data folder
+data.dir <- paste0("data/", number, "_", sp.code, "_", model, "/")
+if (dir.exists(data.dir) == F) {
+  dir.create(data.dir)
+}
 ```
+
+
+
 
 ## Step 1: Define the region
 
-We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. 
+We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid and associated covariates to grid cells (`grid-covar`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we create the region and provide the file in `data.dir/region.rds` to bypass this step.
 
 ```{r ranges, results = 'hide'}
-## Load ranges
-range.path <- c(paste0("data/", sp.code, "/GAP/"),
-                paste0("data/", sp.code, "/IUCN/"))
-range.name <- c("GAP", "IUCN")
-rangelist <- get_range(range.path,
-                       range.name,
-                       crs = 4326)
+## Generating the region requires files that are too big for GitHub just read it in
+if (file.exists(paste0(data.dir, "region.rds"))) {
+  region <- read_rds(file = paste0(data.dir, "region.rds"))
+} else {
+  ## Load ranges
+  range.path <- c(paste0("data/", sp.code, "/GAP/"),
+                  paste0("data/", sp.code, "/IUCN/"))
+  range.name <- c("GAP", "IUCN")
+  rangelist <- get_range(range.path,
+                         range.name,
+                         crs = 4326)
+  ## USA boundary
+  exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
+               "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
+  usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
+          filter((NAME %in% exclude) == F) %>%
+          st_union()
+  ## CONUS grid
+  load("../species-futures/data/USA/grid-covar.rdata") # Too big for GitHub
 
-## Load USA boundary
-exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
-             "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
+  ## Region
+  region <- make_region(rangelist,
+                        buffer = buffer,
+                        crs = 3857,
+                        sub = region.sub,
+                        boundary = usa,
+                        grid = conus.grid,
+                        rm.clumps = T,
+                        clump.size = 50)
+  
+  write_rds(region, file = paste0(data.dir, "region.rds"))
+}
+```
 
-usa <- st_read("data/USA/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
-        filter((NAME %in% exclude) == F) %>%
-        st_union()
+There is one additional step here if you intend to use the coarse spatial grid. We must redefine the spatial grid by grouping hexbins together in sets of seven via the `make_spatkey` function. Otherwise, `spatRegion` is set to NULL.
 
-## Load CONUS grid covariates
-load("data/USA/grid-covar.rdata")
-
-## Generate the region for inference and plotting
-region <- make_region(rangelist,
-                      buffer = buffer,
-                      crs = 3857,
-                      sub = region.sub,
-                      boundary = usa,
-                      grid = conus.grid,
-                      rm.clumps = T,
-                      clump.size = 50,
-                      continuous = cont.grid)
-
+```{r spatRegion}
 ## If using the coarse spatial grid, redefine the grid and plot the resulting grid.
 if (coarse.grid == T) {
   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
@@ -250,9 +269,9 @@ if (coarse.grid == T) {
 
 
 
-## Step 2: Set up cross-validation blocks (if using)
+## Step 2: Set up cross-validation blocks
 
-ADD SHORT EXPLANATION HERE
+We have set up the code so that this section needs to be run even if you do not intend to use cross-validation blocks. If you do not desire, cross-validation blocks, all of the data are considered "training data". Otherwise, the data are split into "test" and "training" data depending on the cross-validation fold (1, 2, or 3) that is selected to run.
 
 ```{r cv-blocks}
 ## Set up cross validation blocks
@@ -276,11 +295,8 @@ if (block.out == "none") { # If fitting the full model, then there are
 ```
 
 
-
-
-
-LEAVE HERE WITH CONTEXT FOR CREATION AND USE
-NEEDED FOR INDEXING IN NIMBLE CODE
+After the cross-validation blocks are assembled and the data are assigned to "training" and "test" sets, we make a `gridkey` that allows us to index the data in NIMBLE by assigning the data to one of two groups.
+MOVE THIS TO NIMBLE CODE AREA?
 
 ```{r gridkey}
 # Make gridkey ----
@@ -293,10 +309,9 @@ gridkey <- select(region$sp.grid, conus.grid.id) %>%
 
 
 
-
 ## Step 3: Load species data
 
-TEXT AND CONTEXT HERE
+We're now ready to load the species data. We have assembled a full amphibian species list (`model-specieslist.csv`) from which we pull out the common name, any species code that could refer to the species of interest, and the scientific name. We demonstrate how we did this process, but these values could be set manually or pulled from a list. We additionally define the species type (e.g., Frog/Toad or Salamander) based off the genus name. This delineation is used later for covariate data.
 
 ```{r spp-codes}
 ## Define species codes
@@ -342,52 +357,30 @@ gen; spp.type
 
 
 
+```{r species-data}
+# get all files that have data for that species
+allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
+  filter(Species == sp.code) %>%
+  rename(file.name = Data.Swamp.file.name,
+         file.label = Name,
+         covar.mean = Covar.mean,
+         covar.sum = Covar.sum,
+         data.type = Type.true) %>%
+  select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
 
-<!-- # summarize datasets to get up-to-date available datasets -->
-<!-- # this script also prints messages from QC functions -->
-<!-- # source("DATA SWAMP/00-summarize-datasets.R") -- needed load_species_data() -->
-
-
-```{r species-data, eval=F}
-## Compile the name of all files that have data for the species of interest
-allfiles <- read.csv("data/dataset-summary-full.csv")
-# oNLY NEED VECTOR OF FILE NAMES AND FILE VECTORS
-head(allfiles, 2)
-
-tmp1 <- gsub("[|]", "$|^", sp.code.all) # THIS LINE WON'T RUN UNTIL THE SP.CODE.ALL IS CREATED
-tmp2 <- paste0("^", tmp1, "$")
-allfiles <- allfiles[grep(tmp2, allfiles$species),] %>%
-            select(name, file) %>%
-            distinct() %>%
-            filter(name %in% exclude.dataset == F)
+head(allfiles)
 ```
 
 
 NEED THESE TO LOAD SPECIES DATA
 NEED A LIST SAME LENGTH AS FILE VECTOR WHERE EACH ELEMENT IS A DETECTION COVARIATE
 
-```{r load-species-data, eval=F}
-# detection covariates for each of these datasets
-covs <- read.csv("DATA SWAMP/00-data-summary-flexiSDM.csv") %>%
-  filter(Data.Swamp.file.name %in% allfiles$file) %>%
-  select(Name, Covar.mean, Covar.sum, Area)
-covariates <- list()
-for (i in 1:nrow(covs)) {
-  covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
-  covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
-  #area <- unlist(strsplit(covs$Area[i], split = ","))
-  covs1 <- c(covs.mean, covs.sum)
-  covs1 <- covs1[which(is.na(covs1) == F)]
-  covariates[[i]] <- covs1
-}
-
+```{r load-species-data}
 species.data <- load_species_data(sp.code,
                                   sp.code.all,
-                                  file.name = allfiles$file,
-                                  file.label = allfiles$name,
-                                  file.path = "DATA SWAMP/data-ready/",
-                                  keep.cols = covariates,
-                                  region = region,
+                                  file.info = allfiles,
+                                  file.path = "data/data-ready/",
+                                  region = region, 
                                   filter.region = filter.region,
                                   year.start = year.start,
                                   year.end = year.end,
@@ -395,6 +388,7 @@ species.data <- load_species_data(sp.code,
                                   coordunc_na.rm = coordunc_na.rm,
                                   spat.thin = spat.bal,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+
 ```
 
 
@@ -405,7 +399,7 @@ species.data <- load_species_data(sp.code,
 
 WE PROBABLY DON'T NEED TO INCLUDE ALL OF THE FIGURES THAT WE MAKE, SO LET'S CHOOSE A FEW TO HIGHLIGHT
 
-```{r plot-species-data, eval=F}
+```{r plot-species-data-samples}
 ## Quick title to be used across figures
 if (block == "none") {
   title <- ", full model"
@@ -420,182 +414,211 @@ pl <- map_species_data(region = region,
                        year.end = year.end,
                        plot = "samples",
                        plot.region = T,
-                       details = T,
+                       details = F,
                        title = paste0(common, " (", sp.code, ")", title))
 ## Save plot
-# ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
-pl
+ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"),
+       height = 8, width = 10)
 ```
 
-<!-- pl <- map_species_data(region = region, -->
-<!--                        species.data = species.data, -->
-<!--                        year.start = year.start, -->
-<!--                        year.end = year.end, -->
-<!--                        plot = "samples", -->
-<!--                        plot.region = T, -->
-<!--                        details = F, -->
-<!--                        title = paste0(common, " (", sp.code, ")", title)) -->
-<!-- ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10) -->
+![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
 
+```{r cv-plots}
+## Cross-validation block-specific plots
+if (block.out != "none") {
 
-<!-- if (block.out != "none") { -->
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = spatblocks[which(spatblocks$folds == block),],
+                         plot.region = T,
+                         details = F,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"),
+         height = 8, width = 10)
+} else {
+  # Plot
+  pl <- map_species_data(region = region,
+                         species.data = species.data,
+                         year.start = year.start,
+                         year.end = year.end,
+                         plot = "samples",
+                         plot.blocks = T,
+                         blocks = spatblocks,
+                         plot.region = T,
+                         details = F,
+                         title = paste0(common, " (", sp.code, ")", title))
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"),
+         height = 8, width = 10)
+}
+```
 
-<!--   pl <- map_species_data(region = region, -->
-<!--                          species.data = species.data, -->
-<!--                          year.start = year.start, -->
-<!--                          year.end = year.end, -->
-<!--                          plot = "samples", -->
-<!--                          plot.blocks = T, -->
-<!--                          blocks = spatblocks[which(spatblocks$folds == block),], -->
-<!--                          plot.region = T, -->
-<!--                          details = T, -->
-<!--                          title = paste0(common, " (", sp.code, ")", title)) -->
-<!--   ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10) -->
+![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
 
-<!--   pl <- map_species_data(region = region, -->
-<!--                          species.data = species.data, -->
-<!--                          year.start = year.start, -->
-<!--                          year.end = year.end, -->
-<!--                          plot = "samples", -->
-<!--                          plot.blocks = T, -->
-<!--                          blocks = spatblocks[which(spatblocks$folds == block),], -->
-<!--                          plot.region = T, -->
-<!--                          details = F, -->
-<!--                          title = paste0(common, " (", sp.code, ")", title)) -->
-<!--   ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10) -->
+## Step 5: Load covariate data
 
+ONLY GOING TO SHOW COVARIATE DATA LOADING FOR RACA
+ADD INAT DATA FOR SIMILAR SPECIES
+Downloading and assembling the covariate data takes some time but should be 
+This step takes awhile depending on the size of the range. 
 
-<!-- } else { -->
-<!--   pl <- map_species_data(region = region, -->
-<!--                          species.data = species.data, -->
-<!--                          year.start = year.start, -->
-<!--                          year.end = year.end, -->
-<!--                          plot = "samples", -->
-<!--                          plot.blocks = T, -->
-<!--                          blocks = spatblocks, -->
-<!--                          plot.region = T, -->
-<!--                          details = T, -->
-<!--                          title = paste0(common, " (", sp.code, ")", title)) -->
-<!--   ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10) -->
+```{r cov-data}
+if (sp.code == "RACA") {
+  
+  if (file.exists(paste0(data.dir, "covariates.rds"))) {
+    covar <- read_rds(paste0(data.dir, "covariates.rds"))
+  } else {
+    
+    # Note that elevation data must be downloaded before running get_elevation()
+    # We have downloaded the elevation and waterbody data outside of this repo
+    # See documentation for details.
+    tri <- get_elevation(locs = region$sp.grid, path = "../species-futures/data/USA/",
+                         id.label = "conus.grid.id")
+    waterbody <- get_waterbodies(locs = region$sp.grid, path = "../species-futures/data/USA/",
+                                 id.label = "conus.grid.id")
+    
+    footprint <- get_footprint(locs = region$sp.grid, id.label = "conus.grid.id")
+    climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
+    traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
+    
+    covar <- full_join(tri, footprint, by = "conus.grid.id") %>%
+              full_join(climate, by = "conus.grid.id") %>%
+              full_join(waterbody, by = "conus.grid.id") %>%
+              full_join(traveltime, by = "conus.grid.id") %>%
+              mutate(sqrtarea_small = sqrt(area_small),
+                     sqrtarea_medium = sqrt(area_medium)) %>%
+              select(conus.grid.id, sqrtarea_small, sqrtarea_medium, 
+                     footprint, TRI, tmin, traveltime)
+    
+    covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
+    write_rds(covar, file = paste0(data.dir, "covariates.rds"))
+    
+  }
+  
+}
+```
 
-<!--   pl <- map_species_data(region = region, -->
-<!--                          species.data = species.data, -->
-<!--                          year.start = year.start, -->
-<!--                          year.end = year.end, -->
-<!--                          plot = "samples", -->
-<!--                          plot.blocks = T, -->
-<!--                          blocks = spatblocks, -->
-<!--                          plot.region = T, -->
-<!--                          details = F, -->
-<!--                          title = paste0(common, " (", sp.code, ")", title)) -->
-<!--   ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10) -->
+Next we remove grid cells which do not have complete covariates
 
-<!-- } -->
+```{r incomplete-covs}
+## Remove incomplete cases
+rm <- which(complete.cases(covar[,covs.z]) == F)
+if (length(rm) > 0) {
+  covar <- covar[-rm,]
+  region$sp.grid <- region$sp.grid[-rm,]
+}
+```
 
+Finally we scale all covariates to have a mean of 1 and a standard deviation of 0.
 
+```{r scale-covs}
+## Scale covariates 
+covar_unscaled <- covar
+numcols <- sapply(covar, is.numeric)
+numcols <- which(numcols)
+covar[,numcols] <- sapply(covar[,numcols], scale_this)
+```
 
-## Load covariate data
-<!-- load("data/USA/grid-covar.rdata") -->
-<!-- covar <- conus.covar.grid %>% filter(conus.grid.id %in% region$sp.grid$conus.grid.id) -->
-<!-- covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),] -->
+There's one additional step that could be done here. If removing collinearity is desired, the following piece of code would check and remove covariates that violate the 0.4 correlation threshold. If there are fewer than 3 covariates remaining after the procedure, then message will alert you.
 
-<!-- # load iNat data for similar species if it exists -->
-<!-- if ("iNaturalist" %in% names(species.data$obs)) { -->
-<!--   cat("loading iNat records of supplemental species\n") -->
+```{r collinearity, eval=F}
+# remove covariates that are correlated > 0.4
+if (check.covs == T){
 
-<!--   inat <- readRDS("data/USA/inateffortcov.rds") %>% -->
-<!--     mutate(conus.grid.id = as.character(conus.grid.id)) -->
+  threshold <- 0.4
+  if (sp.code == "PJOR") threshold <- 0.45
 
-<!--   covar <- dplyr::left_join(covar, inat, by = c("conus.grid.id")) -->
+  covs.rm <- select_covar(covs.z, threshold = threshold)
+  covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
+  covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
 
-<!--   # Assign Frog or Salamander iNat counts -->
-<!--   if (spp.type == 'Frog/Toad') { -->
-<!--     covar$n.inat <- covar$n.frog -->
-<!--   } else { -->
-<!--     covar$n.inat <- covar$n.sal -->
-<!--   } -->
+  covs.z <- c(covs.lin, covs.quad)
+}
 
-<!--   covar <- select(covar, -n.frog, -n.sal) -->
+if (length(covs.z) < 3) {
+  stop("There are fewer than 3 covariates remaining! This probably isn't a good model")
+}
+```
 
+## Step 6: Plot covariates
 
-<!--   # Now check if records for this species need to be added -->
+```{r plot-covs}
+if (block.out == "none") {
+  
+  ## Distribution covariates
+  
+  ## Define covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>% filter(covariate %in% covs.z)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-a_process-map")
+  
+  cor_covar(covar, 
+            cov.names = covlabs$covariate,
+            cov.labels = covlabs$Label,
+            out.path = out.dir,
+            out.name = "1_covariates-a_process-correlations", 
+            color.threshold = 0.25)
+  
+  ## iNat covariates
+  if ("iNaturalist" %in% names(species.data$obs)) {
+    ## Define covariate labels
+    covlabs <- read.csv("data/covariate-labels.csv") %>%
+                filter(covariate %in% covs.inat)
+    
+    plot_covar(covar,
+               region,
+               cov.names = covlabs$covariate,
+               cov.labels = covlabs$Label,
+               out.path = out.dir,
+               out.name = "1_covariates-b_iNat-map")
+    
+    if (length(covs.inat) > 1) {
+      cor_covar(covar, 
+                cov.names = covlabs$covariate,
+                cov.labels = covlabs$Label,
+                out.path = out.dir,
+                out.name = "1_covariates-b_iNat-correlations", 
+                color.threshold = 0.25)
+    }
+  }
+  
+  ## PO covs
+  
+  ## Define covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+              filter(covariate %in% covs.PO)
+  
+  plot_covar(covar,
+             region,
+             cov.names = covlabs$covariate,
+             cov.labels = covlabs$Label,
+             out.path = out.dir,
+             out.name = "1_covariates-c_PO-map")
+  
+  if (length(covs.PO) > 1) {
+    cor_covar(covar, 
+              cov.names = covlabs$covariate,
+              cov.labels = covlabs$Label,
+              out.path = out.dir,
+              out.name = "1_covariates-c_PO-correlations", 
+              color.threshold = 0.25)
+  }
+}
+```
 
-<!--   # read in all inat data for this species -->
-<!--   dat <- read.csv(paste0("DATA SWAMP/data-ready/", gen, "_iNat_PO.csv")) %>% -->
-<!--     filter(year >= 1994, year <= 2025) -->
-<!--   tmp1 <- gsub("[|]", "$|^", sp.code.all) -->
-<!--   tmp2 <- paste0("^", tmp1, "$") -->
-<!--   dat <- dat[grep(tmp2, dat$species),] -->
+![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
 
+![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
 
-<!--   # files <- list.files("../species-futures/DATA SWAMP/data-ready/", pattern = "_iNat_PO.csv") -->
-<!--   # fs <- files[grep(sp.code.all, files)] -->
-<!--   # if (length(fs) == 0) next -->
-<!--   # inat.dat1 <- c() -->
-<!--   # for (f in 1:length(fs)) { -->
-<!--   #    -->
-<!--   #   dat <- read.csv(paste0("../species-futures/DATA SWAMP/data-ready/", fs[f])) %>% -->
-<!--   #     filter(year >= year.start, year <= year.end) -->
-<!--   #    -->
-<!--   #   # iNaturalist records for subspecies names might be duplicates, remove here -->
-<!--   #   new <- paste0(dat$lat, dat$lon, dat$day, dat$month, dat$year) -->
-<!--   #   old <- paste0(inat.dat1$lat, inat.dat1$lon, inat.dat1$day, inat.dat1$month, inat.dat1$year) -->
-<!--   #    -->
-<!--   #   if (length(old) > 0) { -->
-<!--   #     rm <- which(new %in% old) -->
-<!--   #     dat <- dat[-rm,] -->
-<!--   #      -->
-<!--   #     if (nrow(dat) == 0) { -->
-<!--   #       #cat("All iNaturalist records are potential duplicates\n") -->
-<!--   #       next -->
-<!--   #     } else { -->
-<!--   #       inat.dat1 <- bind_rows(inat.dat1, dat) -->
-<!--   #     } -->
-<!--   #   } else { -->
-<!--   #     inat.dat1 <- bind_rows(inat.dat1, dat) -->
-<!--   #   } -->
-<!--   # } # end loading inat files -->
-
-
-<!--   # if all points in a state are obscured (coord.unc > 25000), species was not included -->
-<!--   tmp <- dat %>% -->
-<!--     group_by(stateProvince) %>% -->
-<!--     summarize(min.unc = min(coord.unc, na.rm = T)) %>% -->
-<!--     mutate(min.unc = case_when(min.unc == Inf ~ NA, -->
-<!--                                T ~ min.unc)) %>% -->
-<!--     filter(min.unc > 25000) -->
-<!--   obsc.state <- tmp$stateProvince -->
-<!--   statecodes <- read.csv("data/statecodes.csv") -->
-<!--   obsc.state <- statecodes$abbrev[which(statecodes$state %in% obsc.state)] -->
-
-
-<!--   # species was already included -->
-<!--   if (nrow(tmp) == 0) { -->
-
-
-<!--     # Need to add species -->
-<!--   } else { -->
-<!--     cat("Adding", sp.code, "to iNat effort covariate\n") -->
-
-<!--     inat.cells <- dat %>% -->
-<!--       st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% -->
-<!--       st_transform(crs = 3857) %>% -->
-<!--       st_intersection(region$sp.grid) %>% -->
-<!--       st_drop_geometry() %>% -->
-<!--       group_by(conus.grid.id) %>% -->
-<!--       summarize(n.inat.sp = n()) %>% -->
-<!--       full_join(region$sp.grid, ., by = "conus.grid.id") %>% -->
-<!--       st_drop_geometry() -->
-<!--     inat.cells$n.inat.sp[is.na(inat.cells$n.inat.sp)] <- 0 -->
-
-<!--     covar <- full_join(covar, select(inat.cells, conus.grid.id, n.inat.sp), by = 'conus.grid.id') %>% -->
-<!--       mutate(n.inat = n.inat + n.inat.sp) -->
-<!--   } -->
-
-<!-- } -->
-
-
-
+![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
 
 
 
@@ -621,39 +644,7 @@ pl
 
 
 
-<!-- ### Add additional/derived covariates ----- -->
-<!-- # If you add a new covariate, add a row to data/covariate-labels.csv with a label -->
-<!-- if (sp.code == "ANMI") { # add in additional ANMI covariates -->
-
-<!--   inv <- read_rds("data/species/ANMI/invsp-grid.rds") %>% -->
-<!--     mutate(CRAY01 = case_when(CRAY_huc10 > 0 ~ 1, -->
-<!--                               CRAY_huc10 == 0 ~ 0), -->
-<!--            BULL01 = BULL_huc10, -->
-<!--            FISH01 = case_when(FISH_huc10 > 0 ~ 1, -->
-<!--                               FISH_huc10 == 0 ~ 0), -->
-<!--            nonnative = CRAY01 + BULL01 + FISH01) -->
-<!--   flow <- read_rds("data/species/ANMI/flow-grid.rds") -->
-<!--   clade <- read_rds("data/species/ANMI/clade-grid.rds") -->
-<!--   cwd <- read_rds("data/species/ANMI/cwd-grid.rds") -->
-<!--   rip <- read_rds("data/species/ANMI/riparian-grid.rds") -->
-<!--   rsvr <- read_rds("data/species/ANMI/rsvr-grid.rds") -->
-<!--   aet <- read_rds("data/species/ANMI/aet-grid.rds") -->
-<!--   perm <- read_rds("data/species/ANMI/waterperm-grid.rds") -->
-
-<!--   covar <- left_join(covar, select(inv, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(flow, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(perm, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(aet, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(cwd, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(rip, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             left_join(select(rsvr, !sp.grid.id), by = c("conus.grid.id")) %>% -->
-<!--             mutate(riparian = stream_forest) %>% -->
-<!--             mutate(sqrt.mean.spring.discharge = sqrt(mean.spring.discharge), -->
-<!--                    curt.mean.spring.discharge = mean.spring.discharge^(1/3)) %>% -->
-<!--             left_join(select(ungroup(clade), !sp.grid.id), by = c("conus.grid.id")) -->
-
-
-<!-- } else if (sp.code == "RACA") { -->
+<!--   if (sp.code == "RACA") { -->
 
 <!--   rain <- read_rds("data/species/RACA/rain-grid.rds") -->
 
@@ -696,98 +687,9 @@ pl
 
 <!-- } -->
 
-<!-- rm <- which(complete.cases(covar[,covs.z]) == F) -->
-<!-- if (length(rm) > 0) { -->
-<!--   covar <- covar[-rm,] -->
-<!--   region$sp.grid <- region$sp.grid[-rm,] -->
-<!--   gridkey <- gridkey[-rm,] -->
-<!-- } -->
-
-<!-- # for 143_DFUS -->
-<!-- if (number == 143) { -->
-
-<!--   tmp <- species.data$locs$disc %>% -->
-<!--     filter(source == "iNaturalist") %>% -->
-<!--     left_join(covar, by = "conus.grid.id") -->
-
-<!--   rm <- which(covar$footprint > 30) -->
-
-<!--   if (length(rm) > 0) { -->
-
-
-<!--     # first remove these from region, then find and remove other island cells -->
-<!--     new.grid <- region$sp.grid[-rm,] -->
-<!--     tmp <- new.grid %>% -->
-<!--       # group neighboring cells -->
-<!--       dplyr::summarize(geometry = sf::st_union(geometry, by_feature = F)) %>% -->
-<!--       sf::st_cast("POLYGON")  -->
-
-<!--     if (cont.grid == T) { -->
-<!--       tmp1 <- tmp %>%  -->
-<!--         mutate(area = as.numeric(sf::st_area(geometry))) %>% -->
-<!--         arrange(desc(area)) %>%  -->
-<!--         slice(1) -->
-<!--     } else { -->
-<!--       tmp1 <- tmp %>%  -->
-<!--         mutate(area = as.numeric(sf::st_area(geometry))) %>% -->
-<!--         dplyr::filter(area > 24999998 * 50) -->
-<!--     } -->
-
-<!--     tmp2 <- st_intersection(new.grid, tmp1)  -->
-<!--     region$sp.grid <- tmp2 -->
 
 
 
-<!--     covar <- filter(covar, conus.grid.id %in% region$sp.grid$conus.grid.id) -->
-<!--     gridkey <- filter(gridkey, conus.grid.id %in% region$sp.grid$conus.grid.id) -->
-
-
-
-<!--     # now put everything back in the correct order -->
-<!--     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),] -->
-<!--     gridkey <- gridkey[order(match(gridkey$conus.grid.id, region$sp.grid$conus.grid.id)),] -->
-
-
-<!--     # # fix spatRegion -->
-<!--     # spatRegion$spatkey <- filter(spatRegion$spatkey, conus.grid.id %in% region$sp.grid$conus.grid.id) -->
-<!--     # spatRegion$spat.grid <- filter(spatRegion$spat.grid, spat.grid.id %in% spatRegion$spatkey$spat.grid.id) -->
-<!--     # spatRegion$spat.grid$spat.grid.id.new <- 1:nrow(spatRegion$spat.grid) -->
-<!--     # spatRegion$spatkey <- full_join(spatRegion$spatkey, spatRegion$spat.grid, by = "spat.grid.id") -->
-
-<!--   } -->
-
-
-
-<!-- } -->
-
-
-
-
-
-<!-- ### Scale covariates ---- -->
-<!-- covar_unscaled <- covar -->
-
-<!-- # scale numeric cols -->
-<!-- numcols <- sapply(covar, is.numeric) -->
-<!-- numcols <- which(numcols) -->
-<!-- covar[,numcols] <- sapply(covar[,numcols], scale_this) -->
-
-<!-- # remove covariates that are correlated > 0.4 -->
-<!-- if (check.covs == T){ -->
-
-<!--   threshold <- 0.4 -->
-<!--   if (sp.code == "PJOR") threshold <- 0.45 -->
-
-<!--   covs.rm <- select_covar(covs.z, threshold = threshold) -->
-<!--   covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)] -->
-<!--   covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)] -->
-
-<!--   covs.z <- c(covs.lin, covs.quad) -->
-<!-- } -->
-
-<!-- if (length(covs.z) < 3) { -->
-<!--   stop("There are fewer than 3 covariates remaining! This probably isn't a good model") -->
-<!-- } -->
 
 
 <!-- ### Clean up PO covariates ---- -->
