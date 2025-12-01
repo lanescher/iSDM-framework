@@ -1,20 +1,20 @@
 Time summary for: 1 RACA iSDM
 
-The model was run on Mon Nov 2025 24 09:58:49 AM
+The model was run on Mon Dec 2025 01 08:46:02 AM
 
 Total time for setup:
-Time difference of 3.330796 mins
+Time difference of 3.479763 mins
 
 Total time for fitting NIMBLE model: 
-Time difference of 1.045152 hours
+Time difference of 3.297007 days
 
 Total time for summarization: 
-Time difference of 19.56141 mins
+Time difference of 51.22767 mins
 
 Start to finish time (code): 
-Time difference of 5136.081 secs
+Time difference of 288143.9 secs
 
 Start to finish time (user delay): 
-Time difference of 2.683614 hours
+Time difference of 6.934382 days
 
 
