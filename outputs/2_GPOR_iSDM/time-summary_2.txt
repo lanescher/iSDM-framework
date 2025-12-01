@@ -1,20 +1,20 @@
 Time summary for: 2 GPOR iSDM
 
-The model was run on Mon Nov 2025 24 11:01:37 AM
+The model was run on Mon Dec 2025 01 10:25:24 AM
 
 Total time for setup:
-Time difference of 22.19222 mins
+Time difference of 23.20467 mins
 
 Total time for fitting NIMBLE model: 
-Time difference of 1.004775 hours
+Time difference of 1.049358 days
 
 Total time for summarization: 
-Time difference of 1.340671 hours
+Time difference of 2.506081 hours
 
 Start to finish time (code): 
-Time difference of 9775.138 secs
+Time difference of 101078.7 secs
 
 Start to finish time (user delay): 
-Time difference of 3.729511 hours
+Time difference of 6.952719 days
 
 
