@@ -263,6 +263,13 @@ for (n in 1:length(covs)) {
                       lo = exp(blo * s),
                       factor = "none")
     
+    # now get unscaled values
+    mn <- mean(covar_unscaled[,cov])
+    sd <- sd(covar_unscaled[,cov])
+    
+    use$x_unscaled <- (use$x * sd) + mn
+    
+    
     all <- bind_rows(all, use)
   }
   
@@ -290,16 +297,16 @@ for (n in 1:length(covs)) {
                       lo = exp(blo1 * s + blo2 * s^2),
                       factor = "none")
     
+    # now get unscaled values
+    mn <- mean(covar_unscaled[,cov])
+    sd <- sd(covar_unscaled[,cov])
+    
+    use$x_unscaled <- (use$x * sd) + mn
+    
+    
     all <- bind_rows(all, use)
   }
   
-  
-  
-  # now get unscaled values
-  mn <- mean(covar_unscaled[,cov])
-  sd <- sd(covar_unscaled[,cov])
-  
-  all$x_unscaled <- (all$x * sd) + mn
 
 }
 
@@ -1153,6 +1160,13 @@ for (n in 1:length(covs)) {
                       lo = exp(blo * s),
                       factor = "none")
     
+    # now get unscaled values
+    mn <- mean(covar_unscaled[,cov])
+    sd <- sd(covar_unscaled[,cov])
+    
+    use$x_unscaled <- (use$x * sd) + mn
+    
+    
     all <- bind_rows(all, use)
   }
   
@@ -1180,14 +1194,17 @@ for (n in 1:length(covs)) {
                       lo = exp(blo1 * s + blo2 * s^2),
                       factor = "none")
     
+    # now get unscaled values
+    mn <- mean(covar_unscaled[,cov])
+    sd <- sd(covar_unscaled[,cov])
+    
+    use$x_unscaled <- (use$x * sd) + mn
+    
+    
     all <- bind_rows(all, use)
   }
   
-  # now get unscaled values
-  mn <- mean(covar_unscaled[,cov])
-  sd <- sd(covar_unscaled[,cov])
   
-  all$x_unscaled <- (all$x * sd) + mn
 }
 
 
