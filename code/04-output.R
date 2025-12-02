@@ -36,7 +36,7 @@ library(SpFut.flexiSDM)
 
 ## Figure 2: RACA- range (a), intensity (b), suitable habitat (c), uncertainty (d) ----
 # load(paste0(out.dir, "datafull.rdata"))
-out.dir <- "outputs/2_RACA_tau1/"
+out.dir <- "outputs/1_RACA_iSDM/"
 load(paste0(out.dir, "datafull-info.rdata"))
 load(paste0(out.dir, "datafull.rdata"))
 load(paste0(out.dir, "region.rdata"))
@@ -187,8 +187,8 @@ ggsave(racamap, file = "outputs/figures/Fig2-racamap.jpg",
 
 
 ## Figure 3: RACA- parameters ----
-load("outputs/2_RACA_tau1/datafull-info.rdata")
-load("outputs/2_RACA_tau1/datafull.rdata")
+load("outputs/1_RACA_iSDM/datafull-info.rdata")
+load("outputs/1_RACA_iSDM/datafull.rdata")
 cov.labs <- read.csv("data/covariate-labels.csv")
 
 dat <- out$process.coef %>%
@@ -294,6 +294,13 @@ for (n in 1:length(covs)) {
   }
   
   
+  
+  # now get unscaled values
+  mn <- mean(covar_unscaled[,cov])
+  sd <- sd(covar_unscaled[,cov])
+  
+  all$x_unscaled <- (all$x * sd) + mn
+
 }
 
 
@@ -303,8 +310,8 @@ all1 <- inner_join(all, cov.labs, by = c("cov" = "covariate")) %>%
 
 effects <- ggplot(filter(all1)) +
   geom_hline(yintercept = 0) +
-  geom_ribbon(aes(x = x, ymax = hi, ymin = lo), alpha = 0.5) +
-  geom_line(aes(x = x, y = mean)) +
+  geom_ribbon(aes(x = x_unscaled, ymax = hi, ymin = lo), alpha = 0.5) +
+  geom_line(aes(x = x_unscaled, y = mean)) +
   facet_wrap(~ cov, scales = "free") +
   theme_bw() +
   theme(strip.background = element_blank())+
@@ -331,9 +338,9 @@ ggsave(covs, file = "outputs/figures/Fig3-racaparameters.jpg",
 
 # Figure 4: GPOR- Process model ----
 
-load("outputs/8_GPOR_tau1/datafull-info.rdata")
-load("outputs/8_GPOR_tau1/datafull.rdata")
-load("outputs/8_GPOR_tau1/region.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.rdata")
+load("outputs/2_GPOR_iSDM/datafull.rdata")
+load("outputs/2_GPOR_iSDM/region.rdata")
 
 na <- rnaturalearth::ne_countries(continent = "North America", 
                                   returnclass = "sf", 
@@ -401,6 +408,7 @@ lam$mean[which(lam$mean > q99)] <- q99
 
 maplam <- base +
   geom_sf(data = lam, aes(fill = mean, color = mean)) +
+  geom_sf(data = region$range, fill = NA, color = "gray35", linewidth = 0.4, aes(linetype = range.name)) +
   #geom_sf(data = st, fill = NA, color= "gray40") +
   coord_sf(xlim = xlim, ylim = ylim) +
   labs(fill = "Relative abundance", color = "Relative abundance") +
@@ -422,7 +430,8 @@ maplam <- base +
   guides(color = guide_colorbar(title.position = "top",
                                 position = "bottom"),
          fill = guide_colorbar(title.position = "top",
-                               position = "bottom"))
+                               position = "bottom"),
+         linetype = "none")
 
 
 xb <- out$XB0 %>%
@@ -497,9 +506,9 @@ ggsave(pl, file = "outputs/figures/Fig4-gporprocess.jpg",
 
 ## Figure 5: GPOR- PO data and effort ----
 
-load("outputs/8_GPOR_tau1/datafull-info.rdata")
-load("outputs/8_GPOR_tau1/datafull.rdata")
-load("outputs/8_GPOR_tau1/region.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.rdata")
+load("outputs/2_GPOR_iSDM/datafull.rdata")
+load("outputs/2_GPOR_iSDM/region.rdata")
 
 
 
@@ -525,31 +534,20 @@ sp.code.all <- codeKey %>%
   filter(DS.code == "GPOR") %>%
   pull(all.codes)
 
-allfiles <- read.csv("data/dataset-summary-full.csv")
-allfiles <- allfiles[grep("GPOR", allfiles$species),] %>%
-  select(-species, -percentdet) %>%
-  distinct()
+allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
+  filter(Species == "GPOR") %>%
+  rename(file.name = Data.Swamp.file.name,
+         file.label = Name,
+         covar.mean = Covar.mean,
+         covar.sum = Covar.sum,
+         data.type = Type.true) %>%
+  select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
 
-# detection covariates for each of these datasets
-covs <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-  filter(Data.Swamp.file.name %in% allfiles$file) %>%
-  select(Data.Swamp.file.name, Covar.mean, Covar.sum)
-covariates <- list()
-for (i in 1:nrow(covs)) {
-  covs.mean <- unlist(strsplit(covs$Covar.mean[i], split = ", "))
-  covs.sum <- unlist(strsplit(covs$Covar.sum[i], split = ", "))
-  #area <- unlist(strsplit(covs$Area[i], split = ","))
-  covs1 <- c(covs.mean, covs.sum)
-  covs1 <- covs1[which(is.na(covs1) == F)]
-  covariates[[covs$Data.Swamp.file.name[i]]] <- covs1
-}
 
 species.data <- load_species_data("GPOR",
                                   sp.code.all,
-                                  file.name = allfiles$file,
-                                  file.label = allfiles$name,
+                                  file.info = allfiles,
                                   file.path = "data/data-ready/",
-                                  keep.cols = covariates,
                                   region = region, 
                                   filter.region = T,
                                   year.start = 1994,
@@ -582,9 +580,9 @@ base <- ggplot() +
 
 
 use1 <- species.data$locs$cont %>%
-  filter(source %in% c("VT PO", "NY Atlas", "WV PO", "MA PO")) %>%
+  filter(source %in% c("VT PO", "NY Atlas", "WV PO", "MA PO", "MD PO", "ME PO")) %>%
   mutate(map = "state")
-use1$source <- factor(use1$source, levels = c("VT PO", "NY Atlas", "WV PO", "MA PO", "iNaturalist"))
+use1$source <- factor(use1$source, levels = c("VT PO", "NY Atlas", "WV PO", "MA PO", "MD PO", "ME PO", "iNaturalist"))
 
 pl1 <- base +
   geom_sf(data = use1, aes(color = source), alpha = 0.5, size = 0.5, show.legend = T) +
@@ -596,6 +594,8 @@ pl1 <- base +
                                 "VT PO" = "#0072B2",
                                 "WV PO" = "#E69F00",
                                 "MA PO" = "#009E73",
+                                "MD PO" = "#E63833FF",
+                                "ME PO" = "#881C00FF",
                                 "iNaturalist" = "#D55E00"),
                      drop = F) +
   theme(legend.key = element_rect(fill = NA),
@@ -608,7 +608,7 @@ pl1 <- base +
 use2 <- species.data$locs$cont %>%
   filter(source %in% c("iNaturalist")) %>%
   mutate(map = "state")
-use2$source <- factor(use2$source, levels = c("VT PO", "NY Atlas", "WV PO", "MA PO", "iNaturalist"))
+use2$source <- factor(use2$source, levels = c("VT PO", "NY Atlas", "WV PO", "MA PO", "MD PO", "ME PO", "iNaturalist"))
 
 pl2 <- base +
   geom_sf(data = use2, aes(color = source), alpha = 0.5, size = 0.5, show.legend = T) +
@@ -620,6 +620,8 @@ pl2 <- base +
                                 "VT PO" = "#0072B2",
                                 "WV PO" = "#E69F00",
                                 "MA PO" = "#009E73",
+                                "MD PO" = "#E63833FF",
+                                "ME PO" = "#881C00FF",
                                 "iNaturalist" = "#D55E00"),
                      drop = F) +
   theme(legend.key = element_rect(fill = NA),
@@ -634,11 +636,12 @@ pl2 <- base +
 
 
 tmp <- out$effort %>%
-  filter(PO.dataset.name %in% c("NY Atlas, WV PO, VT PO, MA PO")) %>%
+  filter(PO.dataset.name %in% c("MA PO, MD PO, ME PO, NY Atlas, VT PO, WV PO")) %>%
   full_join(region$sp.grid, ., by = "conus.grid.id") %>%
   filter(mean != 0)
 
 pl3 <- base +
+  geom_sf(data = tmp, aes(fill = log(mean), color = log(mean))) +
   geom_sf(data = tmp, aes(fill = log(mean), color = log(mean))) +
   geom_sf(data = region$range, color = "black", fill = NA) +
   coord_sf(xlim = xlim, ylim = ylim) +
@@ -661,12 +664,14 @@ pl3 <- base +
   labs(color = "Log(Effort)", fill = "Log(Effort)")
 
 
-tmp <- out$effort %>%
+tmp1 <- out$effort %>%
   filter(PO.dataset.name %in% c("iNaturalist")) %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id") %>%
+  full_join(region$sp.grid, ., by = "conus.grid.id") 
+tmp <- tmp1 %>%
   filter(mean != 0)
 
 pl4 <- base +
+  geom_sf(data = tmp1, fill = "white", color = 'white') +
   geom_sf(data = tmp, aes(fill = log(mean), color = log(mean))) +
   geom_sf(data = region$range, color = "black", fill = NA) +
   coord_sf(xlim = xlim, ylim = ylim) +
@@ -693,10 +698,10 @@ pl4 <- base +
 
 
 pars1 <- out$obs.coef %>%
-  filter(name %in% c("NY Atlas, WV PO, VT PO, MA PO")) %>%
+  filter(name %in% c("MA PO, MD PO, ME PO, NY Atlas, VT PO, WV PO")) %>%
   mutate(covariate = case_when(covariate == "traveltime" ~ "Travel time",
                                T ~ covariate))
-pars1$covariate <- factor(pars1$covariate, levels = c("WV", "MA", "VT", "Travel time"))
+pars1$covariate <- factor(pars1$covariate, levels = c("MD", "ME", "NY", "VT", "WV", "Travel time"))
 
 pl5 <- ggplot(pars1) +
   geom_hline(yintercept = 0) +
@@ -712,7 +717,7 @@ pl5 <- ggplot(pars1) +
 
 pars2 <- out$obs.coef %>%
   filter(name %in% c("iNaturalist")) %>%
-  mutate(covariate = case_when(covariate == "n.inat" ~ "Number of iNaturalist records",
+  mutate(covariate = case_when(covariate == "ORM" ~ "ORM",
                                covariate == "intercept" ~ "Intercept"))
 
 pl6 <- ggplot(pars2) +
@@ -801,8 +806,8 @@ base <- ggplot() +
 
 
 # RACA
-load("outputs/2_RACA_tau1/datafull-info.rdata")
-load("outputs/2_RACA_tau1/region.rdata")
+load("outputs/1_RACA_iSDM/datafull-info.rdata")
+load("outputs/1_RACA_iSDM/region.rdata")
 
 spatblocks <- make_CV_blocks(region, rows = 5, cols = 5, k = 3)
 
@@ -830,8 +835,8 @@ raca <- base +
 
 
 # GPOR
-load("outputs/8_GPOR_tau1/datafull-info.rdata")
-load("outputs/8_GPOR_tau1/region.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.rdata")
+load("outputs/2_GPOR_iSDM/region.rdata")
 
 spatblocks <- make_CV_blocks(region, rows = 5, cols = 5, k = 3)
 
@@ -874,7 +879,7 @@ ggsave(pl, file = "outputs/figures/FigS2-CV.jpg", height = 9, width = 12)
 
 
 # Figure S5: coarse spatial effect ----
-load("outputs/8_GPOR_tau1/region.rdata")
+load("outputs/2_GPOR_iSDM/region.rdata")
 spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
 
 
@@ -913,7 +918,7 @@ blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a
 auc <- c()
 
 
-out.dir <- "outputs/2_RACA_tau1/"
+out.dir <- "outputs/1_RACA_iSDM/"
 # Load data from all model runs
 for (i in 1:3) {
   load(paste0(out.dir, "data", i, "-info.rdata"))
@@ -924,7 +929,7 @@ for (i in 1:3) {
 load(paste0(out.dir, "datafull-info.rdata"))
 auc <- bind_rows(auc, all.auc)
 
-out.dir <- "outputs/8_GPOR_tau1/"
+out.dir <- "outputs/2_GPOR_iSDM/"
 # Load data from all model runs
 for (i in 1:3) {
   load(paste0(out.dir, "data", i, "-info.rdata"))
@@ -942,8 +947,8 @@ mean(auc$AUCin, na.rm = T)
 auc1 <- auc %>%
   select(sp.code, block, AUCin.full, AUCout.full) %>%
   distinct() %>%
-  mutate(species = case_when(sp.code == "GPOR" ~ "Spring Salamander",
-                             sp.code == "RACA" ~ "Cascades Frog"))
+  mutate(species = case_when(sp.code == "GPOR" ~ "Spring salamander",
+                             sp.code == "RACA" ~ "Cascades frog"))
 
 mean(auc1$AUCout.full, na.rm = T)
 mean(auc1$AUCin.full, na.rm = T)
@@ -962,9 +967,9 @@ pl <- ggplot(auc2) +
   theme_bw() +
   scale_shape_manual(values = c(16, 1)) +
   scale_color_manual(values = blockcols) +
-  labs(x = "Dataset", y = "AUC", color = "Excluded block",
+  labs(x = "Dataset", y = "AUC", color = "Excluded fold",
        shape = "Validation", size = "Number of cells \nwith validation data") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
         strip.background = element_blank(),
         legend.position = "bottom") +
   scale_x_discrete(labels = scales::label_wrap(15)) +
@@ -1025,37 +1030,42 @@ ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 5, width = 7)
 # Figure S7: Dataset intercepts ----
 
 
-load("outputs/2_RACA_tau1/datafull.rdata")
+load("outputs/1_RACA_iSDM/datafull.rdata")
 
-dp <- out$alpha
-
+dp <- out$alpha %>%
+  arrange(mean)
+dp$name <- factor(dp$name, levels = dp$name)
 
 a <- ggplot(dp) + 
-  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
+  geom_pointrange(aes(x = name, y = log(mean), 
                       ymax = log(hi), ymin = log(lo),
                       color = data.type)) +
   scale_color_manual(values = c("#000000", "#56B4E9", "#CC79A7")) +
+  scale_x_discrete(labels = stringr::str_wrap(dp$name, 20)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90,
                                    hjust = 1, 
                                    vjust = 0.5),
         plot.title = element_text(hjust = 0.5)) +
   labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
-  coord_cartesian(ylim = c(-8, 3))
+  coord_cartesian(ylim = c(-10, 3))
 
 
 
 
-load("outputs/8_GPOR_tau1/datafull.rdata")
+load("outputs/2_GPOR_iSDM/datafull.rdata")
 
-dp <- out$alpha
+dp <- out$alpha %>%
+  arrange(mean)
+dp$name <- factor(dp$name, levels = dp$name)
 
 
 b <- ggplot(dp) + 
-  geom_pointrange(aes(x = reorder(name, mean), y = log(mean), 
+  geom_pointrange(aes(x = name, y = log(mean), 
                       ymax = log(hi), ymin = log(lo),
                       color = data.type)) +
   scale_color_manual(values = c("#000000", "#56B4E9", "#CC79A7")) +
+  scale_x_discrete(labels = stringr::str_wrap(dp$name, 20)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90,
                                    hjust = 1, 
@@ -1063,23 +1073,24 @@ b <- ggplot(dp) +
         axis.text.y = element_blank(),
         plot.title = element_text(hjust = 0.5)) +
   labs(x = "Dataset", y = "Log(Dataset intercept)", color = "Data type") +
-  coord_cartesian(ylim = c(-8, 3))
+  coord_cartesian(ylim = c(-10, 3))
 
+b
 pl <- a | b 
 pl <- pl +
   plot_layout(guides = "collect",
               axes = "collect") +
   plot_annotation(tag_levels = "a") 
 
-ggsave(pl, file = "outputs/figures/FigS7-datasetintercepts.jpg", height = 5, width = 7)
+ggsave(pl, file = "outputs/figures/FigS7-datasetintercepts.jpg", height = 5, width = 11)
 
 
 
 
-# Figure S8: GPOR partial effects ----
+# Figure S8: GPOR marginal effects ----
 
-load("outputs/8_GPOR_tau1/datafull-info.rdata")
-load("outputs/8_GPOR_tau1/datafull.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.rdata")
+load("outputs/2_GPOR_iSDM/datafull.rdata")
 cov.labs <- read.csv("data/covariate-labels.csv")
 
 dat <- out$process.coef %>%
@@ -1172,7 +1183,11 @@ for (n in 1:length(covs)) {
     all <- bind_rows(all, use)
   }
   
+  # now get unscaled values
+  mn <- mean(covar_unscaled[,cov])
+  sd <- sd(covar_unscaled[,cov])
   
+  all$x_unscaled <- (all$x * sd) + mn
 }
 
 
@@ -1182,8 +1197,8 @@ all1 <- inner_join(all, cov.labs, by = c("cov" = "covariate")) %>%
 
 effects <- ggplot(filter(all1)) +
   geom_hline(yintercept = 0) +
-  geom_ribbon(aes(x = x, ymax = hi, ymin = lo), alpha = 0.5) +
-  geom_line(aes(x = x, y = mean)) +
+  geom_ribbon(aes(x = x_unscaled, ymax = hi, ymin = lo), alpha = 0.5) +
+  geom_line(aes(x = x_unscaled, y = mean)) +
   facet_wrap(~ cov, scales = "free") +
   theme_bw() +
   theme(strip.background = element_blank())+
@@ -1202,13 +1217,13 @@ ggsave(effects, file = "outputs/figures/FigS8-GPORpartialeffects.jpg",
 
 dat <- c()
 
-load("outputs/2_RACA_tau1/datafull-info.rdata")
+load("outputs/1_RACA_iSDM/datafull-info.rdata")
 dat1 <- species.data$locs$disc %>%
   mutate(species = "Cascades Frog",
          sp.code = "RACA")
 dat <- bind_rows(dat, dat1)
 
-load("outputs/8_GPOR_tau1/datafull-info.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.rdata")
 dat1 <- species.data$locs$disc %>%
   mutate(species = "Spring Salamander",
          sp.code = "GPOR")
@@ -1259,206 +1274,4 @@ write.csv(datsum, file = "outputs/tables/TabS3-datasummary.csv",
           row.names = F)
 
 
-
-
-
-# # Appendix 3: tau ----
-# 
-# dirs <- list.dirs("outputs/", recursive = F)
-# dirs <- dirs[grep("RACA|GPOR", dirs)]
-# 
-# tau <- c()
-# auc <- c()
-# lambda <- c()
-# psi <- c()
-# for (d in 1:length(dirs)) {
-#   
-#   
-#   ind <- as.numeric(gsub("outputs/|_.*", "", dirs[d]))
-#   if (ind %in% c(1, 7)) mod <- 1
-#   if (ind %in% c(2, 8)) mod <- 2
-#   if (ind %in% c(3, 9)) mod <- 3
-#   if (ind %in% c(4, 10)) mod <- 4
-#   if (ind %in% c(5, 11)) mod <- 5
-#   if (ind %in% c(6, 12)) mod <- 6
-#   
-#   
-#   load(paste0(dirs[d], "/datafull-info.rdata"))
-#   
-#   auc1 <- all.auc %>%
-#     mutate(model = mod,
-#            block = "none")
-#   auc <- bind_rows(auc, auc1)
-#   
-#   for (i in 1:3) {
-#     load(paste0(dirs[d], "/data", i, "-info.rdata"))
-#     auc1 <- all.auc %>%
-#       mutate(model = mod,
-#              block = as.character(i))
-#     auc <- bind_rows(auc, auc1)
-#     
-#   }
-#   
-#   load(paste0(dirs[d], "/datafull.rdata"))
-#   
-#   tau1 <- out$tau %>%
-#     mutate(model = mod,
-#            sp.code = auc1$sp.code[1])
-#   
-#   tau <- bind_rows(tau, tau1)
-#   
-#   
-#   lambda1 <- out$lambda %>%
-#     mutate(model = mod,
-#            sp.code = auc1$sp.code[1])
-#   
-#   lambda <- bind_rows(lambda, lambda1)
-#   
-#   psi1 <- out$psi %>%
-#     mutate(model = mod,
-#            sp.code = auc1$sp.code[1])
-#   
-#   psi <- bind_rows(psi, psi1)
-#   
-# }
-# 
-# 
-# # Plot tau 
-# priors <- c()
-# for (p in 4:6) {
-#   if (p == 4) vec <- rgamma(100000, 5, 5)
-#   if (p == 5) vec <- rnorm(100000, 0, (1/sqrt(0.1)))
-#   if (p == 6) vec <- rgamma(100000, 0.01, 0.01)
-#   
-#   tmp <- data.frame(model = p,
-#                     prior = vec)
-#   
-#   
-#   priors <- bind_rows(priors, tmp)
-# }
-# 
-# priors <- priors %>%
-#   mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
-#                           model == 5 ~ "Normal(0, 3.16)",
-#                           model == 6 ~ "Gamma(0.01, 0.01)"))
-# 
-# tau <- tau %>%
-#   mutate(name = case_when(model == 4 ~ "Gamma(5, 5)",
-#                           model == 5 ~ "Normal(0, 3.16)",
-#                           model == 6 ~ "Gamma(0.01, 0.01)"))
-# 
-# ggplot() + 
-#   geom_violin(data = priors, aes(x = name, y = prior)) +
-#   geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
-#   theme_bw() +
-#   labs(x = "Model", y = "Value") +
-#   facet_wrap(~sp.code + model, scales = "free_x") +
-#   coord_cartesian(ylim = c(-10, 10))
-# 
-# ggplot() + 
-#   geom_violin(data = priors, aes(x = name, y = prior)) +
-#   geom_pointrange(data = filter(tau, lo != hi), aes(x = name, y = mean, ymin = lo, ymax = hi)) +
-#   theme_bw() +
-#   labs(x = "Model", y = "Value") +
-#   facet_wrap(~sp.code + model, scales = "free_x") +
-#   coord_cartesian(ylim = c(-0.5, 0.5))
-# 
-# 
-# 
-# # Plot AUC
-# auc1 <- auc %>%
-#   select(sp.code, model, block, AUCin.full, AUCout.full) %>%
-#   distinct() %>%
-#   pivot_longer(cols = c(AUCin.full, AUCout.full))%>%
-#   mutate(dist = case_when(model == 4 ~ "Gamma(5, 5)",
-#                           model == 5 ~ "Normal(0, 3.16)",
-#                           model == 6 ~ "Gamma(0.01, 0.01)",
-#                           model == 1 ~ "0.1",
-#                           model == 2 ~ "1",
-#                           model == 3 ~ "10"),
-#          val = case_when(name == "AUCin.full" ~ "In-sample",
-#                          T ~ "Out-of-sample"))
-# 
-# 
-# blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
-# ggplot(auc1) +
-#   geom_point(aes(x = dist, y = value, shape = val, group = block, color = block),
-#              position = position_dodge(width = 0.6)) +
-#   geom_line(aes(x = dist, y = value, group = interaction(block, dist), color = block),
-#             position = position_dodge(width = 0.6)) +
-#   theme_bw() +
-#   scale_shape_manual(values = c(16, 1)) +
-#   scale_color_manual(values = blockcols) +
-#   labs(x = "Tau", y = "AUC", color = "Fold", shape = "Validation") +
-#   facet_wrap(~ sp.code)
-# 
-# 
-# # Maps
-# load("outputs/1_RACA_tau0.1/region.rdata")
-# lam <- filter(lambda, sp.code == "RACA") %>%
-#   full_join(region$sp.grid, ., by = "conus.grid.id")
-# 
-# 
-# q99 <- stats::quantile(lam$mean, 0.99, na.rm = T)
-# lam$mean[which(lam$mean > q99)] <- q99
-# 
-# ggplot(lam) +
-#   geom_sf(aes(fill = mean), color = NA) +
-#   facet_wrap(~ model) +
-#   viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
-#                               option = "magma",
-#                               na.value = NA,
-#                               direction = -1)
-# 
-# 
-# 
-# 
-# ggplot(lam) +
-#   geom_sf(aes(fill = log(mean)), color = NA) +
-#   facet_wrap(~ model) +
-#   viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
-#                               option = "magma",
-#                               na.value = NA,
-#                               direction = -1)
-# 
-# 
-# q99 <- stats::quantile(lam$mean, 0.95, na.rm = T)
-# lam$mean[which(lam$mean > q99)] <- q99
-# 
-# 
-# 
-# 
-# ggplot(lam) +
-#   geom_sf(aes(fill = mean), color = NA) +
-#   facet_wrap(~ model) +
-#   viridis::scale_fill_viridis(guide = ggplot2::guide_colorbar(),
-#                               option = "magma",
-#                               na.value = NA,
-#                               direction = -1)
-# 
-# 
-# tmp <- lam %>%
-#   st_drop_geometry() %>%
-#   select(conus.grid.id, model, mean) %>%
-#   pivot_wider(values_from = mean, names_from = model)
-# tmp1 <- as.data.frame(cor(tmp[,2:7])) %>%
-#   dplyr::mutate(model1 = row.names(.)) %>%
-#   tidyr::pivot_longer(!model1) %>%
-#   dplyr::filter(value != 1) 
-# 
-# ggplot(tmp1) + geom_tile(aes(x = model1, y = name, fill = value))
-# 
-# ps <- filter(psi, sp.code == "RACA") %>%
-#   mutate(pres = case_when(mean > 0.5 ~ "present",
-#                           T ~ "absent")) %>%
-#   full_join(region$sp.grid, ., by = "conus.grid.id")
-# 
-# 
-# 
-# ggplot(ps) +
-#   geom_sf(aes(fill = pres), color = NA) +
-#   facet_wrap(~ model) +
-#   ggplot2::scale_fill_manual(values = c("white", "darkblue"), na.value = NA) +
-#   ggplot2::scale_color_manual(values = c("white", "darkblue"), na.value = NA)
-# 
 
