@@ -1,11 +1,11 @@
 covariate,Label
 conus.grid.id,Conus grid id
 sp.grid.id,Species grid id
-tmin,Minimum temperature
-tmax,Maximum temperature
-prec,Annual precipitation
-spr.prec,Spring precipitation
-elevation,Elevation
+tmin,Minimum temperature (C) 
+tmax,Maximum temperature (C)
+prec,Annual precipitation (mm)
+spr.prec,Spring precipitation (mm)
+elevation,Elevation (m)
 slope,Slope
 aspect,Aspect
 TRI,TRI
@@ -54,7 +54,7 @@ barren,Barren
 urban/built,Urban/built
 water,Water
 snow/ice,Snow/ice
-forest,Forest
+forest,Forest (% cover)
 shrub,Shrub
 grass,Grass
 density,Human density
@@ -70,9 +70,9 @@ protected.TRIB,Tribal protected land
 protected.TOT,Total protected land
 roadLength.km,Total road length (km)
 traveltime,Travel time to nearest city
-area_large,Total area of large water bodies
-area_medium,Total area of medium water bodies
-area_small,Total area of small water bodies
+area_large,Total area of large water bodies (m^2)
+area_medium,Total area of medium water bodies (m^2)
+area_small,Total area of small water bodies (m^2)
 n_large,Number of large water bodies
 n_medium,Number of medium water bodies
 n_small,Number of small water bodies
@@ -100,8 +100,8 @@ rain_85_4069,"Rainfall, projected RCP 8.5 2040-2069"
 rain_45_7099,"Rainfall, projected RCP 4.5 2070-2099"
 rain_85_7099,"Rainfall, projected RCP 8.5 2070-2099"
 rain_current,Rainfall
-sqrtarea_small,Sqrt(small water bodies)
-sqrtarea_medium,Sqrt(medium water bodies)
+sqrtarea_small,Sqrt(small water bodies) (m^2)
+sqrtarea_medium,Sqrt(medium water bodies) (m^2)
 cwd_45_4069,"CWD, projected RCP 4.5 2040-2069"
 cwd_85_4069,"CWD, projected RCP 8.5 2040-2069"
 cwd_45_7099,"CWD, projected RCP 4.5 2070-2099"

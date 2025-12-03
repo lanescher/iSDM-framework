@@ -323,6 +323,8 @@ effects <- ggplot(filter(all1)) +
   theme_bw() +
   theme(strip.background = element_blank())+
   labs(x = "Covariate value", y = "Exp(Estimate)")
+effects
+
 
 covs <- pars / effects
 covs <- covs + 
@@ -1018,50 +1020,11 @@ pl <- pl +
   theme(legend.position = "bottom")
 
 pl
-ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 5, width = 7)
+ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 4, width = 7)
 
 
 
 
-
-# auc1 <- pivot_longer(auc, cols = !c("sp.code", "block", "source")) %>%
-#   mutate(inout = case_when(name %in% c("AUCin", "AUCin.full", "in.cell", "in.full.cell", "in.full.n", "in.n") ~ "In sample",
-#                            T ~ "Out of sample"),
-#          type = case_when(name %in% c("AUCin", "AUCin.full", "AUCout", "AUCout.full") ~ "AUC",
-#                           name %in% c("in.cell", "in.full.cell", "out.cell", "out.full.cell") ~ "cells",
-#                           name %in% c("in.full.n", "in.n", "out.full.n", "out.n") ~ "samples"),
-#          full = case_when(name %in% c("AUCin.full", "AUCout.full", "in.full.cell", "in.full.n", "out.full.cell", "out.full.n") ~ "full",
-#                           T ~ "dataset")) %>%
-#   select(!name) %>%
-#   pivot_wider(names_from = c(type), values_from = value) %>%
-#   mutate(source = case_when(full == "dataset" ~ source,
-#                             T ~ "All"),
-#          species = case_when(sp.code == "GPOR" ~ "Spring Salamander",
-#                              sp.code == "RACA" ~ "Cascades Frog")) %>%
-#   distinct()
-# 
-# pl <- ggplot(auc1) +
-#   geom_line(aes(x = source, y = AUC,
-#                 group = interaction(source, block), color = as.factor(block)),
-#             position = position_dodge(width = 0.6)) +
-#   geom_point(aes(x = source, y = AUC, shape = inout,
-#                  color = as.factor(block), group = as.factor(block), size = cells),
-#              position = position_dodge(width = 0.6)) +
-#   theme_bw() +
-#   scale_shape_manual(values = c(16, 1)) +
-#   scale_color_manual(values = blockcols) +
-#   labs(x = "Dataset", y = "AUC", color = "Excluded block",
-#        shape = "Validation", size = "Number of cells \nwith validation data") +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
-#         strip.background = element_blank(),
-#         legend.position = "bottom") +
-#   scale_x_discrete(labels = scales::label_wrap(15)) +
-#   facet_wrap(~species, scales = "free_x") +
-#   guides(color = guide_legend(title.position="top", title.hjust = 0.5),
-#          size = guide_legend(title.position="top", title.hjust = 0.5),
-#          shape = guide_legend(title.position="top", title.hjust = 0.5))
-# 
-# ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 7, width = 11)
 
 
 
@@ -1241,7 +1204,9 @@ for (n in 1:length(covs)) {
 
 
 all1 <- inner_join(all, cov.labs, by = c("cov" = "covariate")) %>%
-  mutate(cov = Label)
+  mutate(cov = Label,
+         x_unscaled = case_when(cov == "Forest (% cover)" ~ x_unscaled * 100,
+                          T ~ x_unscaled))
 
 
 effects <- ggplot(filter(all1)) +
@@ -1254,6 +1219,7 @@ effects <- ggplot(filter(all1)) +
   labs(x = "Covariate value", y = "Exp(Estimate)")
 
 
+effects
 ggsave(effects, file = "outputs/figures/FigS8-GPORmarginaleffects.jpg",
        height = 7, width = 7)
 
