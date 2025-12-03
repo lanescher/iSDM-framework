@@ -322,7 +322,7 @@ effects <- ggplot(filter(all1)) +
   facet_wrap(~ cov, scales = "free") +
   theme_bw() +
   theme(strip.background = element_blank())+
-  labs(x = "Scaled covariate value", y = "Exp(Estimate)")
+  labs(x = "Covariate value", y = "Exp(Estimate)")
 
 covs <- pars / effects
 covs <- covs + 
@@ -1219,10 +1219,10 @@ effects <- ggplot(filter(all1)) +
   facet_wrap(~ cov, scales = "free") +
   theme_bw() +
   theme(strip.background = element_blank())+
-  labs(x = "Scaled covariate value", y = "Exp(Estimate)")
+  labs(x = "Covariate value", y = "Exp(Estimate)")
 
 
-ggsave(effects, file = "outputs/figures/FigS8-GPORpartialeffects.jpg",
+ggsave(effects, file = "outputs/figures/FigS8-GPORmarginaleffects.jpg",
        height = 7, width = 7)
 
 
