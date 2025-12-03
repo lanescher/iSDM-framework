@@ -964,7 +964,8 @@ auc2 <- pivot_longer(auc1, cols = !c("species", "sp.code", "block")) %>%
   mutate(inout = case_when(name == "AUCin.full" ~ "In-sample",
                            name == "AUCout.full" ~ "Out-of-sample"))
 
-pl <- ggplot(auc2) +
+pla <- ggplot(filter(auc2, species == "Cascades frog")) +
+  geom_hline(yintercept = 0.5, color = "darkgray") +
   geom_line(aes(x = block, y = value,
                 group = interaction(block), color = as.factor(block)),
             position = position_dodge(width = 0.6)) +
@@ -975,17 +976,48 @@ pl <- ggplot(auc2) +
   scale_shape_manual(values = c(16, 1)) +
   scale_color_manual(values = blockcols) +
   labs(x = "Dataset", y = "AUC", color = "Excluded fold",
-       shape = "Validation", size = "Number of cells \nwith validation data") +
+       shape = "Validation") +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
         strip.background = element_blank(),
         legend.position = "bottom") +
   scale_x_discrete(labels = scales::label_wrap(15)) +
-  facet_wrap(~species, scales = "free_x") +
+  #facet_wrap(~species, scales = "free_x") +
   guides(color = guide_legend(title.position="top", title.hjust = 0.5),
-         size = guide_legend(title.position="top", title.hjust = 0.5),
          shape = guide_legend(title.position="top", title.hjust = 0.5)) +
-  coord_cartesian(ylim = c(0.5, 1))
+  coord_cartesian(ylim = c(0.4, 1))
+
+plb <- ggplot(filter(auc2, species == "Spring salamander")) +
+  geom_hline(yintercept = 0.5, color = "darkgray") +
+  geom_line(aes(x = block, y = value,
+                group = interaction(block), color = as.factor(block)),
+            position = position_dodge(width = 0.6)) +
+  geom_point(aes(x = block, y = value, shape = inout,
+                 color = as.factor(block), group = as.factor(block)),
+             position = position_dodge(width = 0.6)) +
+  theme_bw() +
+  scale_shape_manual(values = c(16, 1)) +
+  scale_color_manual(values = blockcols) +
+  labs(x = "Dataset", y = "AUC", color = "Excluded fold",
+       shape = "Validation") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+        strip.background = element_blank(),
+        legend.position = "bottom") +
+  scale_x_discrete(labels = scales::label_wrap(15)) +
+  #facet_wrap(~species, scales = "free_x") +
+  guides(color = guide_legend(title.position="top", title.hjust = 0.5),
+         shape = guide_legend(title.position="top", title.hjust = 0.5)) +
+  coord_cartesian(ylim = c(0.4, 1))
   
+
+
+pl <- pla | plb 
+pl <- pl +
+  plot_layout(guides = "collect",
+              axes = "collect") +
+  plot_annotation(tag_levels = "a") &
+  theme(legend.position = "bottom")
+
+pl
 ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 5, width = 7)
 
 
