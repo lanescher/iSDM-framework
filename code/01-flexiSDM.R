@@ -180,7 +180,8 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         boundary = usa,
                         grid = conus.grid,
                         rm.clumps = T,
-                        clump.size = 50)
+                        clump.size = 50, 
+                        continuous = cont.grid)
   
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
@@ -221,7 +222,7 @@ if (block.out == "none") {
 
 
 
-# Make gridkey and spatkey ----
+# Make gridkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
   st_drop_geometry() %>%
   mutate(grid.id = 1:nrow(.),
