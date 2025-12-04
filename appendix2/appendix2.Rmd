@@ -1,8 +1,14 @@
 ---
 title: "Appendix 2"
-output: pdf_document
 date: "Last updated: `r Sys.Date()`"
 toc: true
+header-includes:
+  - \usepackage{float}
+output: 
+  rmarkdown::pdf_document:
+    fig_caption: yes
+    includes:
+      in_header: preamble.tex
 ---
 
 ```{r setup, include=FALSE}
@@ -112,7 +118,7 @@ block <- 'none' # block to run ('none', 1, 2, or 3)
 local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
-For the purposes of this demonstration, we're going to fit a model to the centroid of the Cascades frog (RACA) range with a 50,000km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. 
+For the purposes of this demonstration, we're going to fit a model to the centroid of the Cascades frog (RACA) range with a 50,000km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`.
 
 
 
@@ -218,7 +224,7 @@ if (dir.exists(data.dir) == F) {
 
 ## Step 1: Define the region
 
-We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid and associated covariates to grid cells (`grid-covar`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we create the region and provide the file in `data.dir/region.rds` to bypass this step.
+We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid (`grid-covar`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we create the region and provide the file in `data.dir/region.rds` to bypass this step.
 
 ```{r ranges, results = 'hide'}
 ## Generating the region requires files that are too big for GitHub just read it in
@@ -255,7 +261,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
 }
 ```
 
-There is one additional step here if you intend to use the coarse spatial grid. We must redefine the spatial grid by grouping hexbins together in sets of seven via the `make_spatkey` function. Otherwise, `spatRegion` is set to NULL.
+There is one additional step here if you intend to use a coarse spatial grid for the spatial model. Using a coarser grid improves computation time, which may be of concern for large-range species. We must redefine the spatial grid by grouping hexbins together in sets of seven via the `make_spatkey` function. Otherwise, `spatRegion` is set to NULL.
 
 ```{r spatRegion}
 ## If using the coarse spatial grid, redefine the grid and plot the resulting grid.
@@ -276,7 +282,7 @@ if (coarse.grid == T) {
 
 ## Step 2: Set up cross-validation blocks
 
-We have set up the code so that this section needs to be run even if you do not intend to use cross-validation blocks. If you do not desire, cross-validation blocks, all of the data are considered "training data". Otherwise, the data are split into "test" and "training" data depending on the cross-validation fold (1, 2, or 3) that is selected to run.
+We have set up the code so that this section needs to be run even if you do not intend to use cross-validation blocks. If you do not desire, cross-validation blocks, all of the data are considered "training data". Otherwise, the data are split into "test" and "training" data depending on the cross-validation fold/block (1, 2, or 3) that is selected to run.
 
 ```{r cv-blocks}
 ## Set up cross validation blocks
@@ -303,6 +309,7 @@ if (block.out == "none") { # If fitting the full model, then there are
 After the cross-validation blocks are assembled and the data are assigned to "training" and "test" sets, we make a `gridkey` that allows us to index the data in NIMBLE by assigning the data to one of two groups.
 MOVE THIS TO NIMBLE CODE AREA?
 
+
 ```{r gridkey}
 # Make gridkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
@@ -317,7 +324,7 @@ gridkey <- select(region$sp.grid, conus.grid.id) %>%
 
 ## Step 3: Load species data
 
-We're now ready to load the species data. We have assembled a full amphibian species list (`model-specieslist.csv`) from which we pull out the common name, any species code that could refer to the species of interest, and the scientific name. We demonstrate how we did this process, but these values could be set manually or pulled from a list. We additionally define the species type (e.g., Frog/Toad or Salamander) based off the genus name. This delineation is used later for covariate data.
+We're now ready to load the species data. We have assembled a full amphibian species list (`model-specieslist.csv`) from which we pull out the common name, any species code that could refer to the species of interest, and the scientific name. We demonstrate how we did this process, but these values could be set manually or pulled from a list. We additionally define the species type (e.g., Frog/Toad or Salamander) based off the genus name. This delineation is used later in the covariate data section.
 
 ```{r spp-codes}
 ## Define species codes
@@ -361,25 +368,26 @@ if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
 gen; spp.type
 ```
 
+Next we will load a dataframe with the names of data sources (`00-data-summary-flexiSDM.csv`). We define ours in a CSV file because we have hundreds of datasets to filter through for different species. This process could also be done by manually creating a dataframe with similar columns. The necessary columns include: `file.name` (how the file is named in the source folder), `file.label` (the label for the data source), `covar.mean` (detection covariates that should be averaged), `covar.sum` (detection covariates that should be summed), data.type (Count, DND, or PO), and PO.extent (does the presence-only span the continent or particular states). For additional clarification, sometimes it is more appropriate to summarize detection covariates by averaging than summing and vice versa. For example, the number of survey minutes should be summed but the temperature during the survey should be averaged. 
 
 
 ```{r species-data}
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-  filter(Species == sp.code) %>%
-  rename(file.name = Data.Swamp.file.name,
-         file.label = Name,
-         covar.mean = Covar.mean,
-         covar.sum = Covar.sum,
-         data.type = Type.true) %>%
-  select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
+            filter(Species == sp.code) %>%
+            rename(file.name = Data.Swamp.file.name,
+                   file.label = Name,
+                   covar.mean = Covar.mean,
+                   covar.sum = Covar.sum,
+                   data.type = Type.true) %>%
+            select(file.name, file.label, covar.mean, covar.sum, 
+                   data.type, PO.extent)
 
 head(allfiles)
 ```
 
+We can now use `allfiles` to load all of the species data sources. We have developed a function called `load_species_data` which takes the species code, `allfiles`, the region, and information about filtering, start/end dates, and spatial uncertainty to load and filter the data appropriately. The number of observations removed from the data sources and the reasons for removal are provided as console output to the user. 
 
-NEED THESE TO LOAD SPECIES DATA
-NEED A LIST SAME LENGTH AS FILE VECTOR WHERE EACH ELEMENT IS A DETECTION COVARIATE
 
 ```{r load-species-data}
 species.data <- load_species_data(sp.code,
@@ -422,12 +430,14 @@ pl <- map_species_data(region = region,
                        plot.region = T,
                        details = F,
                        title = paste0(common, " (", sp.code, ")", title))
+
 ## Save plot
 ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"),
        height = 8, width = 10)
 ```
 
-![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
+
+![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
 
 ```{r cv-plots}
 ## Cross-validation block-specific plots
@@ -462,7 +472,7 @@ if (block.out != "none") {
 }
 ```
 
-![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
+![Distribution of data with overlaid cross-validation blocks](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
 
 ## Step 5: Load covariate data
 
@@ -633,13 +643,15 @@ if (block.out == "none") {
 ```
 
 
-![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
+![Distribution of distribution-level covariates across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
 
-![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
+![Correlation between distribution-level covariates](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
 
-![IMAGE](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg)
+![Distribution of presence-only (PO) effort covariates](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg)
 
 ## Step 7: NIMBLE
+
+To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function which loads all datasets (`allfiles`), distribution-level covariates, PO and iNat covariates ADD TEXT HERE
 
 ```{r spdata}
 sp.data <- sppdata_for_nimble(species.data,
@@ -817,7 +829,7 @@ if (local == 1) {
 
 
 
-<!-- # 03-flexiSDM.R -->
+# 03-flexiSDM.R
 
 <!-- <!-- ## --------------------------- --> -->
 <!-- <!-- ## Objective:  --> -->
@@ -833,457 +845,457 @@ if (local == 1) {
 <!-- <!-- ## --------------------------- --> -->
 
 
-<!-- ```{r load-packages3, results = 'hide'} -->
-<!-- ## load packages ---- -->
-<!-- library(tidyverse, quietly = T) -->
-<!-- library(magrittr, quietly = T) -->
-<!-- library(sf, quietly = T) -->
-<!-- library(SpFut.flexiSDM) -->
-<!-- ``` -->
-
-
-<!-- ```{r params.edit3, eval = F} -->
-<!-- num <- 3 -->
-<!-- block <- "none" -->
-<!-- sp.code <- "RACA" -->
-<!-- model <- "subrange" -->
-<!-- maxchain <- 3 -->
-<!-- local <- 1 -->
-<!-- ``` -->
-
-
-
-<!-- ```{r out.dir3} -->
-<!-- # load output directory, setup, and functions -->
-<!-- out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/') -->
-
-<!-- load(paste0(out.dir,'setup_',block,'.Rdata')) -->
-<!-- ``` -->
-
-
-
-
-<!-- ```{r load-chains} -->
-<!-- # Load chains (samples) ---- -->
-<!-- samples <- readRDS(paste0(out.dir,'samples_',block,'.rds')) -->
-
-<!-- ## Calculate derived quantities ---- -->
-<!-- # This takes longer with the coarse grid. -->
-<!-- samples <- lapply(samples, get_derived, data = data, project = project, -->
-<!--                   coarse.grid = coarse.grid, spatRegion = spatRegion, -->
-<!--                   pathToProj = 'code/03-species-models/setup-projections.R') -->
-<!-- ``` -->
-
-<!-- ```{r summarize-chains} -->
-<!-- ## Summarize chains ---- -->
-<!-- out <- summarize_samples(samples,  -->
-<!--                          data,  -->
-<!--                          constants,  -->
-<!--                          project = project, -->
-<!--                          coarse.grid = coarse.grid, -->
-<!--                          block.out = block.out, -->
-<!--                          gridkey = gridkey,  -->
-<!--                          spatkey = spatRegion$spatkey,  -->
-<!--                          effort = T, -->
-<!--                          SLURM = ifelse(local == 1, F, T)) -->
-
-<!-- save(out, file = paste0(out.dir, "data", blockname, ".rdata")) -->
-<!-- ``` -->
-
-
-<!-- ```{r plot-output, eval=F} -->
-<!-- # Plot output ---- -->
-
-<!-- # Convergence -->
-<!-- ggsave(plot_convergence(out),  -->
-<!--        file = paste0(out.dir, "3_parameters-0_convergence-", block, ".jpg"), -->
-<!--        height = 5, width = 12) -->
-
-<!-- if (block.out == "none") { -->
-<!--   cov.labs <- read.csv("data/covariate-labels.csv") -->
-
-<!--   ### Chains ---- -->
-<!--   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,  -->
-<!--                      plot = "B", cutoff = 0),  -->
-<!--          file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"),  -->
-<!--          height = 6, width = 8) -->
-<!--   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,  -->
-<!--                      plot = "alpha", cutoff = 0),  -->
-<!--          file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"),  -->
-<!--          height = 6, width = 8) -->
-<!--   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,  -->
-<!--                      plot = "tau", cutoff = 0),  -->
-<!--          file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"),  -->
-<!--          height = 6, width = 8) -->
-
-<!--   # Posteriors ---- -->
-<!--   ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,  -->
-<!--                          plot = "B", cutoff = 0),  -->
-<!--          file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"),  -->
-<!--          height = 6, width = 8) -->
-<!--   ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,  -->
-<!--                          plot = "alpha", cutoff = 0),  -->
-<!--          file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"),  -->
-<!--          height = 6, width = 8) -->
-
-
-
-<!--   ### Parameter estimates ---- -->
-<!--   ggsave(plot_pars(out,  -->
-<!--                    plot.type = "full",  -->
-<!--                    plot.group = "process",  -->
-<!--                    title = "Process parameter estimates", -->
-<!--                    cov.labs = cov.labs), -->
-<!--          file = paste0(out.dir, "3_parameters-a3_B.jpg"),  -->
-<!--          height = 6, width = 10) -->
-
-<!--   ggsave(plot_pars(out,  -->
-<!--                    plot.type = "full",  -->
-<!--                    plot.group = "dataset",  -->
-<!--                    title = "Dataset parameter estimates"), -->
-<!--          file = paste0(out.dir, "3_parameters-b3_alpha.jpg"),  -->
-<!--          height = 6, width = 10) -->
-
-<!--   ggsave(plot_pars(out,  -->
-<!--                    plot.type = "full",  -->
-<!--                    plot.group = "observation",  -->
-<!--                    title = "Observation intercept estimates", -->
-<!--                    cov.labs = cov.labs), -->
-<!--          file = paste0(out.dir, "3_parameters-c3_observation.jpg"),  -->
-<!--          height = 6, width = 10) -->
-
-<!--   ggsave(plot_pars(out,  -->
-<!--                    plot.type = "full",  -->
-<!--                    plot.group = "tau",  -->
-<!--                    title = "Tau estimate"), -->
-<!--          file = paste0(out.dir, "3_parameters-c3_tau.jpg"),  -->
-<!--          height = 6, width = 10) -->
-
-<!--   ### Marginal effects ---- -->
-<!--   ggsave(plot_effects(data, out, breaks = 0.001),  -->
-<!--          file = paste0(out.dir, "/3_parameters-a4-effects.jpg"),  -->
-<!--          height = 7, width = 10) -->
-
-
-<!--   ### Maps ---- -->
-<!--   # Current -->
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                          region,  -->
-<!--                          plot = "lambda", -->
-<!--                          out = out) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region,  -->
-<!--                          plot = "lambda", -->
-<!--                          out = out,  -->
-<!--                          plot.uncertainty = "unc.range") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncabs.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "lambda", -->
-<!--                          out = out,  -->
-<!--                          plot.uncertainty = "unc.rel") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncrel.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "psi", -->
-<!--                          out = out) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "psi", -->
-<!--                          out = out,  -->
-<!--                          plot.uncertainty = "unc.range") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncabs.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "psi", -->
-<!--                          out = out,  -->
-<!--                          plot.uncertainty = "unc.rel") -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncrel.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "boundary", -->
-<!--                          out = out,  -->
-<!--                          threshold = 0.25) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c1_boundary-0.25.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "boundary", -->
-<!--                          out = out,  -->
-<!--                          threshold = 0.5) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c2_boundary-0.5.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "boundary", -->
-<!--                          out = out,  -->
-<!--                          threshold = 0.75) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c3_boundary-0.75.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "spat", -->
-<!--                          out = out, -->
-<!--                          coarse.grid = coarse.grid, -->
-<!--                          spatRegion = spatRegion) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                          region, -->
-<!--                          plot = "XB", -->
-<!--                          out = out, -->
-<!--                          plot.exp = T) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-<!--   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                          region,  -->
-<!--                          plot = "effort", -->
-<!--                          out = out) -->
-<!--   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"),  -->
-<!--          height = 7, width = 9) -->
-
-
-<!--   ### Future projections ---- -->
-<!--   if (project > 0) { -->
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "lambda", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "lambda", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            plot.uncertainty = "unc.range", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncabs.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "lambda", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            plot.uncertainty = "unc.rel", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncrel.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region,  -->
-<!--                            plot = "psi", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "psi", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            plot.uncertainty = "unc.range", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncabs.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "psi", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            plot.uncertainty = "unc.rel", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncrel.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "boundary", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            threshold = 0.25, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c1_boundary-0.25.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "boundary", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            threshold = 0.5, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c2_boundary-0.5.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "boundary", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = F,  -->
-<!--                            threshold = 0.75, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c3_boundary-0.75.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "XB", -->
-<!--                            out = out,  -->
-<!--                            plot.exp = T, -->
-<!--                            plot.current = F, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "5_mapfuture-d_expXB-future.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-
-<!--     ### Future absolute change ---- -->
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "lambda", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = "absolute", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-a1_lambda-abs.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"), -->
-<!--                            region, -->
-<!--                            plot = "psi", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = "absolute", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-b1_psi-abs.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                            region, -->
-<!--                            plot = "boundary", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = "absolute",  -->
-<!--                            threshold = 0.25, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c1_boundary-abs-0.25.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                            region, -->
-<!--                            plot = "boundary", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = "absolute",  -->
-<!--                            threshold = 0.5, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c2_boundary-abs-0.5.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                            region, -->
-<!--                            plot = "boundary", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = "absolute",  -->
-<!--                            threshold = 0.75, -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-c3_boundary-abs-0.75.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     ### Future relative change ---- -->
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                            region, -->
-<!--                            plot = "lambda", -->
-<!--                            out = out,  -->
-<!--                            plot.current = F,  -->
-<!--                            plot.change = "relative", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-a2_lambda-rel.jpg"),  -->
-<!--            height = 7, width = 9) -->
-
-<!--     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),  -->
-<!--                            region, -->
-<!--                            plot = "psi",  -->
-<!--                            out = out,  -->
-<!--                            plot.current = F, -->
-<!--                            plot.change = "relative", -->
-<!--                            proj.names = proj.names) -->
-<!--     ggsave(pl, file = paste0(out.dir, "6_mapchange-b2_psi-rel.jpg"),  -->
-<!--            height = 7, width = 9) -->
-<!--   } -->
-<!-- } -->
-<!-- ``` -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## High performance computing
+```{r load-packages3, results = 'hide', eval = F}
+## load packages ----
+library(tidyverse, quietly = T)
+library(magrittr, quietly = T)
+library(sf, quietly = T)
+library(SpFut.flexiSDM)
+```
+
+
+```{r params.edit3, eval = F}
+num <- 3
+block <- "none"
+sp.code <- "RACA"
+model <- "subrange"
+maxchain <- 3
+local <- 1
+```
+
+
+
+```{r out.dir3, eval = F}
+# load output directory, setup, and functions
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
+
+load(paste0(out.dir,'setup_',block,'.Rdata'))
+```
+
+
+
+
+```{r load-chains, eval = F}
+# Load chains (samples) ----
+samples <- readRDS(paste0(out.dir,'samples_',block,'.rds'))
+
+## Calculate derived quantities ----
+# This takes longer with the coarse grid.
+samples <- lapply(samples, get_derived, data = data, project = project,
+                  coarse.grid = coarse.grid, spatRegion = spatRegion,
+                  pathToProj = 'code/03-species-models/setup-projections.R')
+```
+
+```{r summarize-chains, eval = F}
+## Summarize chains ----
+out <- summarize_samples(samples,
+                         data,
+                         constants,
+                         project = project,
+                         coarse.grid = coarse.grid,
+                         block.out = block.out,
+                         gridkey = gridkey,
+                         spatkey = spatRegion$spatkey,
+                         effort = T,
+                         SLURM = ifelse(local == 1, F, T))
+
+save(out, file = paste0(out.dir, "data", blockname, ".rdata"))
+```
+
+
+```{r plot-output, eval=F}
+# Plot output ----
+
+# Convergence
+ggsave(plot_convergence(out),
+       file = paste0(out.dir, "3_parameters-0_convergence-", block, ".jpg"),
+       height = 5, width = 12)
+
+if (block.out == "none") {
+  cov.labs <- read.csv("data/covariate-labels.csv")
+
+  ### Chains ----
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
+                     plot = "B", cutoff = 0),
+         file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"),
+         height = 6, width = 8)
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
+                     plot = "alpha", cutoff = 0),
+         file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"),
+         height = 6, width = 8)
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
+                     plot = "tau", cutoff = 0),
+         file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"),
+         height = 6, width = 8)
+
+  # Posteriors ----
+  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,
+                         plot = "B", cutoff = 0),
+         file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"),
+         height = 6, width = 8)
+  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,
+                         plot = "alpha", cutoff = 0),
+         file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"),
+         height = 6, width = 8)
+
+
+
+  ### Parameter estimates ----
+  ggsave(plot_pars(out,
+                   plot.type = "full",
+                   plot.group = "process",
+                   title = "Process parameter estimates",
+                   cov.labs = cov.labs),
+         file = paste0(out.dir, "3_parameters-a3_B.jpg"),
+         height = 6, width = 10)
+
+  ggsave(plot_pars(out,
+                   plot.type = "full",
+                   plot.group = "dataset",
+                   title = "Dataset parameter estimates"),
+         file = paste0(out.dir, "3_parameters-b3_alpha.jpg"),
+         height = 6, width = 10)
+
+  ggsave(plot_pars(out,
+                   plot.type = "full",
+                   plot.group = "observation",
+                   title = "Observation intercept estimates",
+                   cov.labs = cov.labs),
+         file = paste0(out.dir, "3_parameters-c3_observation.jpg"),
+         height = 6, width = 10)
+
+  ggsave(plot_pars(out,
+                   plot.type = "full",
+                   plot.group = "tau",
+                   title = "Tau estimate"),
+         file = paste0(out.dir, "3_parameters-c3_tau.jpg"),
+         height = 6, width = 10)
+
+  ### Marginal effects ----
+  ggsave(plot_effects(data, out, breaks = 0.001),
+         file = paste0(out.dir, "/3_parameters-a4-effects.jpg"),
+         height = 7, width = 10)
+
+
+  ### Maps ----
+  # Current
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "lambda",
+                         out = out)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "lambda",
+                         out = out,
+                         plot.uncertainty = "unc.range")
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncabs.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "lambda",
+                         out = out,
+                         plot.uncertainty = "unc.rel")
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncrel.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "psi",
+                         out = out)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "psi",
+                         out = out,
+                         plot.uncertainty = "unc.range")
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncabs.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "psi",
+                         out = out,
+                         plot.uncertainty = "unc.rel")
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncrel.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "boundary",
+                         out = out,
+                         threshold = 0.25)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c1_boundary-0.25.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "boundary",
+                         out = out,
+                         threshold = 0.5)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c2_boundary-0.5.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "boundary",
+                         out = out,
+                         threshold = 0.75)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c3_boundary-0.75.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "spat",
+                         out = out,
+                         coarse.grid = coarse.grid,
+                         spatRegion = spatRegion)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "XB",
+                         out = out,
+                         plot.exp = T)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"),
+         height = 7, width = 9)
+
+  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                         region,
+                         plot = "effort",
+                         out = out)
+  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"),
+         height = 7, width = 9)
+
+
+  ### Future projections ----
+  if (project > 0) {
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "lambda",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "lambda",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           plot.uncertainty = "unc.range",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncabs.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "lambda",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           plot.uncertainty = "unc.rel",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncrel.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "psi",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "psi",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           plot.uncertainty = "unc.range",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncabs.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "psi",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           plot.uncertainty = "unc.rel",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncrel.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "boundary",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           threshold = 0.25,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-c1_boundary-0.25.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "boundary",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           threshold = 0.5,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-c2_boundary-0.5.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "boundary",
+                           out = out,
+                           plot.current = F,
+                           plot.change = F,
+                           threshold = 0.75,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-c3_boundary-0.75.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "XB",
+                           out = out,
+                           plot.exp = T,
+                           plot.current = F,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "5_mapfuture-d_expXB-future.jpg"),
+           height = 7, width = 9)
+
+
+    ### Future absolute change ----
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "lambda",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "absolute",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-a1_lambda-abs.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "psi",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "absolute",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-b1_psi-abs.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "boundary",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "absolute",
+                           threshold = 0.25,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-c1_boundary-abs-0.25.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "boundary",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "absolute",
+                           threshold = 0.5,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-c2_boundary-abs-0.5.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "boundary",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "absolute",
+                           threshold = 0.75,
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-c3_boundary-abs-0.75.jpg"),
+           height = 7, width = 9)
+
+    ### Future relative change ----
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "lambda",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "relative",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-a2_lambda-rel.jpg"),
+           height = 7, width = 9)
+
+    pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
+                           region,
+                           plot = "psi",
+                           out = out,
+                           plot.current = F,
+                           plot.change = "relative",
+                           proj.names = proj.names)
+    ggsave(pl, file = paste0(out.dir, "6_mapchange-b2_psi-rel.jpg"),
+           height = 7, width = 9)
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# High performance computing
 
 We almost exclusively run these models on a high performance computing (HPC) cluster. We clone our repository directly to the HPC to ensure we have the same file structure and no version conflicts. We've set up the code so we can seamlessly move between running the workflow locally and on our HPC. 
 
