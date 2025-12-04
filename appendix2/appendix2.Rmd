@@ -255,7 +255,8 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         boundary = usa,
                         grid = conus.grid,
                         rm.clumps = T,
-                        clump.size = 50)
+                        clump.size = 50,
+                        continuous = cont.grid)
   
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
