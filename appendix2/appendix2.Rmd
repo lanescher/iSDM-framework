@@ -411,8 +411,7 @@ species.data <- load_species_data(sp.code,
 
 ## Step 4: Plot species data
 
-
-WE PROBABLY DON'T NEED TO INCLUDE ALL OF THE FIGURES THAT WE MAKE, SO LET'S CHOOSE A FEW TO HIGHLIGHT
+Next let's plot the species data to visualize where the data occur in the subrange.  
 
 ```{r plot-species-data-samples}
 ## Quick title to be used across figures
@@ -439,6 +438,9 @@ ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"),
 
 
 ![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
+
+We can also take a look at the distribution of data across the cross-validation blocks.
+
 
 ```{r cv-plots}
 ## Cross-validation block-specific plots
@@ -477,10 +479,11 @@ if (block.out != "none") {
 
 ## Step 5: Load covariate data
 
-ONLY GOING TO SHOW COVARIATE DATA LOADING FOR RACA
-ADD INAT DATA FOR SIMILAR SPECIES
-Downloading and assembling the covariate data takes some time but should be 
-This step takes awhile depending on the size of the range. 
+We're now ready to download covariate data for the subrange. We use functions from the `SpFut.covariates` package. These functions consist of wrappers for other data sources (e.g., National Hydrologic Database IS THAT WHAT IT'S CALLED? and  the `geodata` R package) and download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly.
+
+DO WE WANT TO INCLUDE A DEMONSTRATION OF "OTHER INAT SPECIES" AS A COVARIATE OR SKIP IT IN THIS APPENDIX?
+
+Just a note: Downloading and assembling the covariate data can take significant time depending on the size of the range. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step.
 
 ```{r cov-data}
 if (sp.code == "RACA") {
@@ -539,7 +542,7 @@ numcols <- which(numcols)
 covar[,numcols] <- sapply(covar[,numcols], scale_this)
 ```
 
-Finally we create the quadratic covariates.
+Finally we create the quadratic covariates (as defined in `model-specs.csv`).
 
 ```{r quad-covs}
 if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
@@ -551,7 +554,7 @@ if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
 ```
 
 
-There's one additional step that could be done here. If removing collinearity is desired, the following piece of code would check and remove covariates that violate the 0.4 correlation threshold. If there are fewer than 3 covariates remaining after the procedure, then message will alert you.
+There's one additional step that could be done here. If removing multicollinearity is desired, the following piece of code would check and remove covariates that violate a 0.4 correlation threshold. If there are fewer than 3 covariates remaining after the procedure, then a message will alert you.
 
 ```{r collinearity, eval=F}
 # remove covariates that are correlated > 0.4
@@ -572,9 +575,12 @@ if (length(covs.z) < 3) {
 }
 ```
 
+
 ## Step 6: Plot covariates
 
-```{r plot-covs}
+Now that we've downloaded covariate data, let's take a look at the distribution of each covariate and the correlations between them.
+
+```{r plot-covs, results = 'hide'}
 if (block.out == "none") {
   
   ## Distribution covariates
