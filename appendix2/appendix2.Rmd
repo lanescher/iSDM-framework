@@ -35,8 +35,10 @@ So you wanna fit an integrated species distribution model? You've come to the ri
 
 # NEED SOME SORT OF INTRO HERE.
 
+Our workflow is separated into three parts.
+
 - The first part of this sets up the range, imports species and covariate data, scales covariates, and sets everything up for NIMBLE.
-- The second part fits the NIMBLE model
+- The second part fits the NIMBLE model.
 - The third part summarizes the NIMBLE output and creates output figures.
 
 
@@ -57,11 +59,11 @@ library(SpFut.covariates)
 source("code/FXN-nimbleParallel.R")
 ```
 
-# 01-flexiSDM.R
+# Part 1: 01-flexiSDM.R
 
-## Model specifications
+## Load model specifications
 
-To load data or fit a model, you must first create a .csv file that outlines the model specifications. We call ours `model-specs.csv`. Let's load the .csv and take a look at how we structured it.
+Each model requires a variety of specifications. Rather than enter them manually in the code, we find it easier to manage multiple models by storing all specifications in a .csv file that is read in to provide input values. We call ours `model-specs.csv`. Each row represents a model, so you can easily see and edit the parameters used for each model. Let's load the .csv and take a look at how we structured it.
 
 ```{r model-specs}
 mods <- read.csv("code/model-specs.csv")
@@ -74,32 +76,32 @@ The following table describes the column names, data type, and description found
 | Column Name     | Type      | Description                              |
 |-----------------|-----------|------------------------------------------|
 | number          | numeric   | Model number                             |
-| sp.code         | character | Four digit species code                  |
+| sp.code         | character | Species code, must match the species code used in the species data                  |
 | model           | character | Model name                               |
 | mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE. Could be omitted if not using an HPC. |
 | mem.sum         | numeric   | Memory allocation (in MB) for parallelized summarization. Could be omitted if not using an HPC. |
-| year.start      | numeric   | Starting year of data inclusion          |
-| year.end        | numeric   | Ending year of data inclusion            |
-| buffer          | numeric   | Size of buffer around range edge (in km) |
+| year.start      | numeric   | Starting year of data to include         |
+| year.end        | numeric   | Ending year of data to include           |
+| buffer          | numeric   | Size of buffer around range edge (in m)  |
 | sp.auto         | logical   | Should a spatial model be included?      |
 | zero_mean       | logical   | Should a zero mean assumption be included in the spatial model? |
 | tau             | numeric/character | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
 | coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
 | cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
-| covs.PO         | character | A comma-separated list of covariates for modeling PO sampling effort. These must match the covariate names in the data. |
+| covs.PO         | character | A comma-separated list of covariates for modeling non-iNaturalist PO sampling effort. These must match the covariate names in the data. |
 | covs.inat       | character | A comma-separated list of covariates for modeling iNaturalist sampling effort. These must match the covariate names in the data. |
 | covs.lin        | character | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | covs.quad       | character | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | check.covs      | logical   | Should covariate selection remove multicollinearity? |
 | Bprior          | character | Assign a prior distribution in BUGS lanaguage for the $\beta$ coefficients in the state model (e.g., dnorm(1,0))
-| filter.region   | logical   | Should the region be spatially filtered?          |
+| filter.region   | logical   | Should data outside of the region be removed? Note that this is only for mapping purposes; data that are outside of the region are never used to fit the model          |
 | spat.bal        | logical   | Should the PO data be spatially balanced?         |
-| coordunc        | numeric   | The level of acceptable coordinate uncertainty    |
-| coordunc_na.rm  | logical   | Should coordinates with uncertainty beyond `coordunc` be removed? |
+| coordunc        | numeric   | The level of acceptable coordinate uncertainty (for PO datasets that record coordinate uncertainty)    |
+| coordunc_na.rm  | logical   | Should PO data with coordinate uncertainty = NA be removed? (for PO datasets that record coordinate uncertainty)|
 | block.rows      | numeric   | The number of rows for cross-validation blocks    |
 | block.cols      | numeric   | The number of columns for cross-validation blocks |
-| block.folds     | numeric   | The number of cross-validation block groups       |
-| iter            | numeric   | The number of iterations to run an MCMC chain     |
+| block.folds     | numeric   | The number of folds to group cross-validation blocks into       |
+| iter            | numeric   | The number of iterations to run an MCMC chain (the first 75% will be discarded as a burn-in)    |
 | thin            | numeric   | Thin the MCMC chains by this parameter            |
 | region.sub      | logical   | Only use the centroid of the region with a radius equal to the buffer size? |
 | lon.hi          | numeric   | High longitude value to restrict the range
@@ -114,15 +116,16 @@ We have set up the scripts in the flexiSDM workflow so that a minimum number of 
 
 ```{r param.edit}
 nums.do <- 3 # model number to run
-block <- 'none' # block to run ('none', 1, 2, or 3)
+block <- 'none' # CV fold to exclude ('none', 1, 2, or 3)
 local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
-For the purposes of this demonstration, we're going to fit a model to the centroid of the Cascades frog (RACA) range with a 50,000km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`.
+
+For the purposes of this demonstration, we're going to fit model 3, which uses a centroid of the Cascades frog (RACA) range with a 50,000km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`.
 
 
 
-### Load model specifications
+### Define model specifications
 
 Now that we have loaded our model specifications, we can use them to define a series of inputs for the setup script (found in `01-flexiSDM.R`).
 
@@ -132,28 +135,28 @@ mods <- filter(mods, number %in% nums.do)
 
 ## Get variables for model from model-specs.csv
 number <- mods$number[1] # model number
-sp.code <- mods$sp.code[1] # 4-digit species code
+sp.code <- mods$sp.code[1] # species code
 model <- mods$model[1] # model name
 sp.auto <- mods$sp.auto[1] # include spatial autocorrelation?
 coarse.grid <- mods$coarse.grid[1] # use a coarse grid?
 cont.grid <- mods$cont.grid[1] # restrict to only a continuous grid?
 year.start <- mods$year.start[1] # start year for data
 year.end <- mods$year.end[1] # end year for data
-buffer <- mods$buffer[1] # buffer size (km)
-filter.region <- mods$filter.region[1] # filter the region? LANE - FILTER BY WHAT?
-spat.bal <- mods$spat.bal[1] # include spatial balancing?
-coordunc <- mods$coordunc[1] # level of coordinate uncertainty to include (km)
-coordunc_na.rm <- mods$coordunc_na.rm[1] # filter by coordinate uncertainty?
+buffer <- mods$buffer[1] # buffer size (m)
+filter.region <- mods$filter.region[1] # filter data to the region?
+spat.bal <- mods$spat.bal[1] # include spatial balancing for PO data?
+coordunc <- mods$coordunc[1] # level of coordinate uncertainty to include (m)
+coordunc_na.rm <- mods$coordunc_na.rm[1] # include coordinate uncertainty = NA?
 block.folds <- mods$block.folds[1] # how many groups of blocks?
 block.rows <- mods$block.rows[1] # how many rows of blocks?
 block.cols <- mods$block.cols[1] # how many columns of blocks?
-block.out <- block # define the block to setup
+block.out <- block # define the fold to setup
 
 if (block.out == "none") {
   blockname <- "full" # rename the block to 'full' if not doing cross-validation
 } else {blockname <- block.out} # otherwise, keep the block number
 
-# names of datasets to exclude (e.g., iNaturalist) - must match dataset naming
+# names of datasets to exclude (e.g., iNaturalist) - must match file.label column in allfiles
 exclude.dataset <- unlist(str_split(mods$exclude.dataset[1], pattern = ", "))
 
 ## ICAR parameters
@@ -166,7 +169,7 @@ thin <- mods$thin[1] # number to thin by
 burnin <- floor(iter*0.75) # burnin to discard
 
 ## Change of region
-region.sub <- mods$region.sub[1] # only estimate for a subregion?
+region.sub <- mods$region.sub[1] # only use the centroid + buffer?
 lat.hi <- mods$lat.hi[1] # high value of latitude range
 lat.lo <- mods$lat.lo[1] # low value of latitude range
 lon.hi <- mods$lon.hi[1] # high value of longitude range
@@ -175,11 +178,11 @@ lon.lo <- mods$lon.lo[1] # low value of longitude range
 ## Future projections
 project <- mods$project[1] # how many projections?
 if (block.out != "none") {
-  project <- 0 # no projections for cross-validation blocks
+  project <- 0 # no projections for cross-validation models
 }
 
 ## Covariates
-# list of PO covariates
+# list of non-iNaturalist PO covariates
 covs.PO <- unlist(str_split(mods$covs.PO[1], pattern = ", "))
 # list of iNaturalist covariates
 covs.inat <- unlist(str_split(mods$covs.inat[1], pattern = ", "))
@@ -203,7 +206,7 @@ if (NA %in% covs.z) {
 ```
 
 
-Now we're ready to set up the region and load data and covariates. First, let's ensure that we have output and data folders specific to the model we are fitting.
+We're almost ready to set up the region and load data. Let's first ensure that we have output and data folders specific to the model we are fitting to store some of these objects.
 
 ```{r output-folder}
 ## Make output folder
@@ -224,7 +227,7 @@ if (dir.exists(data.dir) == F) {
 
 ## Step 1: Define the region
 
-We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid (`grid-covar`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we create the region and provide the file in `data.dir/region.rds` to bypass this step.
+We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid (`conus.grid`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we create the region and provide the file in `data.dir/region.rds` to bypass this step.
 
 ```{r ranges, results = 'hide'}
 ## Generating the region requires files that are too big for GitHub just read it in
@@ -232,12 +235,14 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   region <- read_rds(file = paste0(data.dir, "region.rds"))
 } else {
   ## Load ranges
-  range.path <- c(paste0("data/", sp.code, "/GAP/"),
+  range.path <- c(paste0("data/", sp.code, "/GAP/"),  
                   paste0("data/", sp.code, "/IUCN/"))
   range.name <- c("GAP", "IUCN")
   rangelist <- get_range(range.path,
                          range.name,
                          crs = 4326)
+  # We use GAP and IUCN ranges, but you can use any polygons. Just enter the path to where you store the shape files
+  
   ## USA boundary
   exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
                "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
@@ -253,7 +258,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         crs = 3857,
                         sub = region.sub,
                         boundary = usa,
-                        grid = conus.grid,
+                        grid = conus.grid,  # You can use any grid to delineate spatial units
                         rm.clumps = T,
                         clump.size = 50,
                         continuous = cont.grid)
@@ -262,7 +267,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
 }
 ```
 
-There is one additional step here if you intend to use a coarse spatial grid for the spatial model. Using a coarser grid improves computation time, which may be of concern for large-range species. We must redefine the spatial grid by grouping hexbins together in sets of seven via the `make_spatkey` function. Otherwise, `spatRegion` is set to NULL.
+There is one additional step here if you intend to use a coarse spatial grid for the spatial model. Using a coarse grid improves computation time, which may be of concern for large-range species. We must redefine the spatial grid by grouping neighboring hexbins together in sets of seven via the `make_spatkey` function. Otherwise, `spatRegion` is set to NULL.
 
 ```{r spatRegion}
 ## If using the coarse spatial grid, redefine the grid and plot the resulting grid.
@@ -281,20 +286,22 @@ if (coarse.grid == T) {
 
 
 
-## Step 2: Set up cross-validation blocks
+## Step 2: Designate training and testing data
 
-We have set up the code so that this section needs to be run even if you do not intend to use cross-validation blocks. If you do not desire, cross-validation blocks, all of the data are considered "training data". Otherwise, the data are split into "test" and "training" data depending on the cross-validation fold/block (1, 2, or 3) that is selected to run.
+We have set up the code so that this section needs to be run even if you do not intend to exclude data for cross-validation. If you do are not excluding any blocks, all of the data are considered "train" data. Otherwise, the data are split into "train" and "test" data depending on the cross-validation fold (1, 2, or 3) that is excluded.
 
 ```{r cv-blocks}
-## Set up cross validation blocks
-spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
 
-## Set up training and test sets based on cross validation blocks
-if (block.out == "none") { # If fitting the full model, then there are
-  test.i <- c()            # no test data
+if (block.out == "none") { 
+  # If fitting the full model, then there are no test data
+  test.i <- c()            
   train.i <- region$sp.grid$conus.grid.id
 
 } else {
+  
+  ## Set up cross validation blocks
+  spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
+
   block1 <- spatblocks %>% filter(folds == block.out)
 
   ## Find grid.ids for test block, everything else is in the training block
@@ -307,8 +314,7 @@ if (block.out == "none") { # If fitting the full model, then there are
 ```
 
 
-After the cross-validation blocks are assembled and the data are assigned to "training" and "test" sets, we make a `gridkey` that allows us to index the data in NIMBLE by assigning the data to one of two groups.
-MOVE THIS TO NIMBLE CODE AREA?
+After the cross-validation blocks are assembled, the cells are assigned to "train" and "test" groups in a `gridkey`. This `gridkey` also contains `grid.id`, which allows us to index the data in NIMBLE.
 
 
 ```{r gridkey}
@@ -325,7 +331,7 @@ gridkey <- select(region$sp.grid, conus.grid.id) %>%
 
 ## Step 3: Load species data
 
-We're now ready to load the species data. We have assembled a full amphibian species list (`model-specieslist.csv`) from which we pull out the common name, any species code that could refer to the species of interest, and the scientific name. We demonstrate how we did this process, but these values could be set manually or pulled from a list. We additionally define the species type (e.g., Frog/Toad or Salamander) based off the genus name. This delineation is used later in the covariate data section.
+We're now ready to load the species data. We have assembled a full amphibian species list (`model-specieslist.csv`) from which we pull out the common name, any species code that could refer to the species of interest, and the scientific name. We demonstrate how we do this with our list, but these values could be set manually or pulled from a different list. We additionally define the species type (e.g., Frog/Toad or Salamander) based off the genus name. This delineation is used later in the covariate data section.
 
 ```{r spp-codes}
 ## Define species codes
@@ -369,7 +375,8 @@ if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
 gen; spp.type
 ```
 
-Next we will load a dataframe with the names of data sources (`00-data-summary-flexiSDM.csv`). We define ours in a CSV file because we have hundreds of datasets to filter through for different species. This process could also be done by manually creating a dataframe with similar columns. The necessary columns include: `file.name` (how the file is named in the source folder), `file.label` (the label for the data source), `covar.mean` (detection covariates that should be averaged), `covar.sum` (detection covariates that should be summed), data.type (Count, DND, or PO), and PO.extent (does the presence-only span the continent or particular states). For additional clarification, sometimes it is more appropriate to summarize detection covariates by averaging than summing and vice versa. For example, the number of survey minutes should be summed but the temperature during the survey should be averaged. 
+Next we will load a dataframe with the names of data sources (`00-data-summary-flexiSDM.csv`). We define ours in a CSV file because we have hundreds of datasets to filter through for different species. This process could also be done by manually creating a dataframe with the same column names. The necessary columns are: `file.name` (how the file is named in the source folder), `file.label` (the label for the data source), data.type (Count, DND, or PO), PO.extent (does the presence-only span the continent or a particular state), `covar.mean` (detection covariates that should be averaged across passes), `covar.sum` (detection covariates that should be summed across passes). For additional clarification, sometimes it is more appropriate to summarize detection covariates by averaging than summing and vice versa. For example, the number of survey minutes should be summed but the temperature during the survey should be averaged. 
+Note that the dataset names(s) included in `exclude.datasets` must match the `file.label` column.
 
 
 ```{r species-data}
@@ -387,7 +394,7 @@ allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
 head(allfiles)
 ```
 
-We can now use `allfiles` to load all of the species data sources. We have developed a function called `load_species_data` which takes the species code, `allfiles`, the region, and information about filtering, start/end dates, and spatial uncertainty to load and filter the data appropriately. The number of observations removed from the data sources and the reasons for removal are provided as console output to the user. 
+We can now use `allfiles` to load all of the species data sources. We have developed a function called `load_species_data` which takes the species code, `allfiles`, the region, and information about filtering, start/end dates, and spatial uncertainty to load and filter the data appropriately. The number of observations removed from each data source and the reasons for removal are provided as console output to the user. 
 
 
 ```{r load-species-data}
@@ -439,7 +446,7 @@ ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"),
 
 ![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
 
-We can also take a look at the distribution of data across the cross-validation blocks.
+We can also take a look at the distribution of data across the cross-validation folds.
 
 
 ```{r cv-plots}
@@ -479,11 +486,13 @@ if (block.out != "none") {
 
 ## Step 5: Load covariate data
 
-We're now ready to download covariate data for the subrange. We use functions from the `SpFut.covariates` package. These functions consist of wrappers for other data sources (e.g., National Hydrologic Database IS THAT WHAT IT'S CALLED? and  the `geodata` R package) and download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly.
+We're now ready to download covariate data for the subrange. We use functions from the `SpFut.covariates` package. These functions consist of wrappers for other data sources (e.g., National Hydrologic Database IS THAT WHAT IT'S CALLED? and  the `geodata` R package) that download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly.
 
-DO WE WANT TO INCLUDE A DEMONSTRATION OF "OTHER INAT SPECIES" AS A COVARIATE OR SKIP IT IN THIS APPENDIX?
+The `covar` object needs to contain all covariates needed for the distribution model (`covs.z`), as well as all covariates needed for the PO effort models (`covs.PO` and `covs.inat`). These covariates will vary across species. Any method can be used to derive the covariates, as long as it is aggregated to the spatial unit and included in `covar`.
 
-Just a note: Downloading and assembling the covariate data can take significant time depending on the size of the range. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step.
+DO WE WANT TO INCLUDE A DEMONSTRATION OF "OTHER INAT SPECIES" AS A COVARIATE OR SKIP IT IN THIS APPENDIX? - CLS says skip it. I added some text about other covariates being needed for other species 
+
+Just a note: Downloading and assembling the covariate data can take significant time depending on the size of the range and your internet connection. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step.
 
 ```{r cov-data}
 if (sp.code == "RACA") {
@@ -521,7 +530,7 @@ if (sp.code == "RACA") {
 }
 ```
 
-Next we remove grid cells which do not have complete covariates
+Next we remove grid cells that do not have complete covariates.
 
 ```{r incomplete-covs}
 ## Remove incomplete cases
@@ -658,7 +667,7 @@ if (block.out == "none") {
 
 ## Step 7: NIMBLE
 
-To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function which loads all datasets (`allfiles`), distribution-level covariates, PO and iNat covariates ADD TEXT HERE
+To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function that combines and formats  species datasets (`allfiles`) and their associated covariates (contained in `allfiles`, `covs.inat`, and `covs.PO`)
 
 ```{r spdata}
 sp.data <- sppdata_for_nimble(species.data,
@@ -667,13 +676,12 @@ sp.data <- sppdata_for_nimble(species.data,
                               covar = covar,
                               covs.inat = covs.inat,
                               covs.PO = covs.PO,
-                              DND.maybe = 1,
-                              # Get rid of PO cells that are in the wrong grid cells
+                              DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
+                              # Only keep PO cells that training grid cells
                               keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) 
 ```
 
-
-### Data/constants
+Next, the distribution-level covariates (`covar`) are combined with the formatted species data. All of this is then broken into `data` and `constants` which are the inputs for the model.
 
 ```{r data-constants}
 tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
@@ -685,12 +693,18 @@ data <- tmp$data
 constants <- tmp$constants
 ```
 
-STATE INDICATOR FOR GPOR
+
+The model structure allows for an indicator variable to indicate whether a cell is in a state with effort or not. There are generally two cases where this is useful. First, if a state agency has collected PO only from within its state. By definition, there is effort within that state but not outside of it. Second, in iNaturalist data, if a species has taxon geoprivacy (i.e., obscured locations due to listing status) within a state, records from that state will be removed due to high coordinate uncertainty. The effort in that state is therefore effectively 0. The following code adds the state indicator variable to `constants`.
 
 ```{r state-indicator}
-# Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
-# Add state indicator for multi-state PO to indicate which states have data
+
+# GPOR has taxon geoprivacy in four states
 if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
+
+# RACA has no iNat data
+if (sp.code == "RACA") obsc.state <- NA
+
+
 constants <- add_state_ind(species.data,
                            region,
                            gridkey,
