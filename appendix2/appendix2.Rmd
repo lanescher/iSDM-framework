@@ -694,7 +694,12 @@ constants <- tmp$constants
 ```
 
 
-The model structure allows for an indicator variable to indicate whether a cell is in a state with effort or not. There are generally two cases where this is useful. First, if a state agency has collected PO only from within its state. By definition, there is effort within that state but not outside of it. Second, in iNaturalist data, if a species has taxon geoprivacy (i.e., obscured locations due to listing status) within a state, records from that state will be removed due to high coordinate uncertainty. The effort in that state is therefore effectively 0. The following code adds the state indicator variable to `constants`.
+The model structure allows for an indicator variable to indicate whether a cell is in a state with effort or not. There are generally two cases where this is useful: 
+
+- If a state agency has collected PO only from within its state, by definition there is effort within that state but not outside of it. This information is already stored in `constants`, which pulled it from `allfiles$POextent`
+- In iNaturalist data, if a species has taxon geoprivacy (i.e., obscured locations due to listing status) within a state, all records from that state will be removed by `load_species_data()` due to high coordinate uncertainty. The effort in that state is therefore effectively 0. 
+
+The following code adds the state indicator variable to `constants`.
 
 ```{r state-indicator}
 
@@ -715,7 +720,7 @@ constants <- add_state_ind(species.data,
 ```
 
 
-### Code
+Once `data` and `constants` are set up for NIMBLE, the function `nimble_code()` writes the NIMBLE code using the information contained in those objects as well several other specificiations defined earlier in the code. The NIMBLE code is saved as a .R file in the location defined by the `path` argument, and in the object `code`.
 
 ```{r code}
 code <- nimble_code(data,
@@ -731,7 +736,7 @@ code <- nimble_code(data,
                     tau = tau)
 ```
 
-### Initial values
+Next, set up the initial values, also based on the information in `data` and `constants`.
 
 ```{r inits}
 inits <- function(x){nimble_inits(data,
@@ -740,20 +745,21 @@ inits <- function(x){nimble_inits(data,
                                   seed = x)}
 ```
 
-
-### Parameters
+Finally, identify which parameters the model should save chains for. By default, distribution model parameters ($B$) and dataset intercepts ($A$) are saved. Parameters that are estimated for each hexbin ($\lambda$, $XB$, effort) require more storage, so there are options to disable them. If `sp.auto = T`, then the spatial random effect and $\tau$ are also saved.
 
 ```{r params}
 params <- nimble_params(data,
                         constants,
                         lambda = T,
                         XB = T,
-                        sp.auto = sp.auto,
-                        effort = T)
+                        effort = T,
+                        sp.auto = sp.auto)
 ```
 
 
 ## Step 8: Clean up and save
+
+Remove objects that are large and are not required for further steps, then save the workspace.
 
 ```{r clean-up}
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
@@ -782,7 +788,7 @@ save.image(paste0(out.dir, "setup_",block.out,".Rdata"))
 <!-- ## -->
 <!-- ## --------------------------- -->
 
-# 02-flexiSDM.R
+# Part 2: 02-flexiSDM.R
 
 ```{r param.edit2, eval = F}
 num <- 3
@@ -850,7 +856,7 @@ if (local == 1) {
 
 
 
-# 03-flexiSDM.R
+# Part 3: 03-flexiSDM.R
 
 <!-- <!-- ## --------------------------- --> -->
 <!-- <!-- ## Objective:  --> -->
