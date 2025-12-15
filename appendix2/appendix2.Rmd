@@ -95,6 +95,9 @@ Example: five audio recordings are taken at each visit to a site. All five recor
 
 # Riley can you add the anotated data fig here please
 
+![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/appendix2/annotateddata.png)
+
+
 # Part 1: 01-flexiSDM.R
 
 ## Load model specifications
