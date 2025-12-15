@@ -35,11 +35,12 @@ So you wanna fit an integrated species distribution model? You've come to the ri
 
 # NEED SOME SORT OF INTRO HERE.
 
-Our workflow is separated into three parts.
+Our workflow is separated into four parts.
 
-- The first part of this sets up the range, imports species and covariate data, scales covariates, and sets everything up for NIMBLE.
-- The second part fits the NIMBLE model.
-- The third part summarizes the NIMBLE output and creates output figures.
+- First, the data needs to be in the correct format. We do not provide a script for this, as each dataset begins in a unique format. Instead, we provide a description of the format that the analysis requires.
+- The first script sets up the range, imports species and covariate data, scales covariates, and sets everything up for NIMBLE.
+- The second script fits the NIMBLE model.
+- The third script summarizes the NIMBLE output and creates output figures.
 
 
 Let's first load the libraries we'll need to set up, visualize, fit, and summarize our data.
@@ -59,6 +60,41 @@ library(SpFut.covariates)
 source("code/FXN-nimbleParallel.R")
 ```
 
+# Part 0: Data formatting
+
+Data must be in the following structure to enter models. This structure is suitable for Presence-only (PO), Detection/non-detection (DND), and count (Count) data. Other data types can usually be reduced into one of these types (e.g., capture-mark-recapture can be reduced to Count or DND). In anticipation of adding a specific observation model for CMR and time-to-detection data in the future, we include `individual.id` and `time.to.detection` as required columns in the data format.
+
+We use a long format, where there is a unique row for each age (if recorded) of each species in each pass of each sampling event (defined as a visit to a site). There are 13 required columns. Any other information recorded in the field that relates to detection probability (e.g., duration of survey, area surveyed) should be included as additional columns. There should be no empty cells. Use NA (not NULL, -999, etc.) to indicate missing data.
+
+
+| Column Name   | Format     | Appropriate values   | Notes            |
+|---------------|------------|----------------------|------------------|
+| site.id       | character  | alphanuermic string  | Each site.id is associated with exactly one set of coorinates|
+| lat           | numeric    | WGS84                | Each set of coordinates is associated with exactly one site.id|
+| lon           | numeric    | WGS84                | Each set of coordinates is associated with exactly one site.id|
+| day           | numeric    | 1-31                 | If day was not recorded, use NA |
+| month         | numeric    | 1-12                 | If month was not recorded, use NA |
+| year          | numeric    | 4 digit year         | If year was not recorded, use NA |
+| survey.conducted | numeric | 0, 1                 | Indicates whether or not a survey was conducted (e.g., if there was no water at an intended survey location, survey.conducted = 0). For all PO records, survey.conducted = 1 |
+|survey.id      | numeric    | any number           | All observations from a single visit to a single site have the same survey.id  |
+| data.type     | character  | `PO`, `DND`, `count`       | data.type may vary across species or age class (e.g. adults are count but larvae are DND) |
+| pass.id       | numeric    | any number           | Within a survey.id (i.e., a visit to a site), each pass should have a unique pass.id. All observations within a pass should have the same pass.id |
+| species       | character  | species identifier   | We use 4- or 6-digit codes. Any value can be used, as long as it is consistent across all datasets |
+| age           | character  | `egg`, `egg mass`, `larva`, `juvenile`, `metamorph`, `adult`, `unknown`, `NR` | Use NR if age classes were not recorded. Do not use NA |
+| individual.id | character  | alphanumeric string  | If no individuals were seen (count = 0), then individual.id = NA. If individuals were seen (count = 1) but not marked (too small, escaped, etc.), then individual.id = 0. | Applies only to CMR, otherwise use NA. |
+| time.to.detect | numeric   | any number           | Use NA if time to detection was not recorded |
+| count          | numeric   | If count: 0-Inf; If DND or CMR: 0/1/2; If PO: 1 | Must be a specific value, not range of numbers (e.g., 10-50); for DND and CMR, 0 = not detected, 1 = detected, 2 = maybe detected |
+
+*A Note on survey.id and pass.id:* To make sure all data enter the model correctly, we need to know which records were part of the same sampling event. A sampling event is a specific visit to a specific site. Sampling events are identified with `survey.id`. During a sampling event, multiple observations (“passes”) may be made, e.g., multiple observers, multiple passes by a single observer, multiple audio recordings, multiple water samples for eDNA. Generally, site.id, day, month, and year define a unique sampling event. The exception is if passes occur overnight: passes that occur after midnight should be given the same survey.id as passes that occur before midnight.
+
+All passes within a sampling event get the same survey.id. All passes within a sampling event get a unique pass.id.
+
+Example: a double observer visual encounter survey. Both observations at Site A on Day 1 get survey.id = 1, and the observations by each observer get a pass.id that is unique within the survey.id (1 and 2). All observations at site B on Day 1 get survey.id = 2, and each observation gets a unique pass.id (1 and 2). Site A is revisited on Day 2, and all observations get survey.id = 3, and each observation gets a unique pass.id (1 and 2).
+
+Example: five audio recordings are taken at each visit to a site. All five recordings at Site A on Day 1 get survey.id = 1, and each recording gets a pass.id from 1 to 5. All recordings at Site B on Day 1 get survey.id = 2, and each recording gets a pass.id from 1 to 5. Site A is revisited on Day 2, and all recordings get survey.id = 3, and each recording gets a pass.id from 1 to 5.
+
+# Riley can you add the anotated data fig here please
+
 # Part 1: 01-flexiSDM.R
 
 ## Load model specifications
@@ -76,41 +112,39 @@ The following table describes the column names, data type, and description found
 | Column Name     | Type      | Description                              |
 |-----------------|-----------|------------------------------------------|
 | number          | numeric   | Model number                             |
-| sp.code         | character | Species code, must match the species code used in the species data                  |
+| sp.code         | character | Species code, must match the species code used in the species data |
 | model           | character | Model name                               |
-| mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE. Could be omitted if not using an HPC. |
-| mem.sum         | numeric   | Memory allocation (in MB) for parallelized summarization. Could be omitted if not using an HPC. |
+| region.sub      | logical   | Only use the centroid of the region with a radius equal to the buffer size? |
+| buffer          | numeric   | Size of buffer around range edge or centroid (in m)  |
+| cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
+| coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
+| lon.lo          | numeric   | Low longitude value to restrict the range |
+| lon.hi          | numeric   | High longitude value to restrict the range |
+| lat.lo          | numeric   | Low latitude value to restrict the range |
+| lat.hi          | numeric   | High latitude value to restrict the range |
 | year.start      | numeric   | Starting year of data to include         |
 | year.end        | numeric   | Ending year of data to include           |
-| buffer          | numeric   | Size of buffer around range edge (in m)  |
-| sp.auto         | logical   | Should a spatial model be included?      |
-| zero_mean       | logical   | Should a zero mean assumption be included in the spatial model? |
-| tau             | numeric/character | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
-| coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
-| cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
+| filter.region   | logical   | Should data outside of the region be removed? Note that this is only for mapping purposes; data that are outside of the region are never used to fit the model          |
+| spat.bal        | logical   | Should the PO data be spatially balanced?         |
+| coordunc        | numeric   | The level of acceptable coordinate uncertainty (for PO datasets that record coordinate uncertainty)    |
+| coordunc_na.rm  | logical   | Should PO data with coordinate uncertainty = NA be removed? (for PO datasets that record coordinate uncertainty)|
 | covs.PO         | character | A comma-separated list of covariates for modeling non-iNaturalist PO sampling effort. These must match the covariate names in the data. |
 | covs.inat       | character | A comma-separated list of covariates for modeling iNaturalist sampling effort. These must match the covariate names in the data. |
 | covs.lin        | character | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | covs.quad       | character | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | check.covs      | logical   | Should covariate selection remove multicollinearity? |
 | Bprior          | character | Assign a prior distribution in BUGS lanaguage for the $\beta$ coefficients in the state model (e.g., dnorm(1,0))
-| filter.region   | logical   | Should data outside of the region be removed? Note that this is only for mapping purposes; data that are outside of the region are never used to fit the model          |
-| spat.bal        | logical   | Should the PO data be spatially balanced?         |
-| coordunc        | numeric   | The level of acceptable coordinate uncertainty (for PO datasets that record coordinate uncertainty)    |
-| coordunc_na.rm  | logical   | Should PO data with coordinate uncertainty = NA be removed? (for PO datasets that record coordinate uncertainty)|
+| sp.auto         | logical   | Should a spatial model be included?      |
+| zero_mean       | logical   | Should a zero mean assumption be included in the spatial model? |
+| tau             | numeric/character | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
+| iter            | numeric   | The number of iterations to run an MCMC chain (the first 75% will be discarded as a burn-in)    |
+| thin            | numeric   | Thin the MCMC chains by this parameter            |
+| project         | numeric   | The number of future projections (otherwise, NA)  |
 | block.rows      | numeric   | The number of rows for cross-validation blocks    |
 | block.cols      | numeric   | The number of columns for cross-validation blocks |
 | block.folds     | numeric   | The number of folds to group cross-validation blocks into       |
-| iter            | numeric   | The number of iterations to run an MCMC chain (the first 75% will be discarded as a burn-in)    |
-| thin            | numeric   | Thin the MCMC chains by this parameter            |
-| region.sub      | logical   | Only use the centroid of the region with a radius equal to the buffer size? |
-| lon.hi          | numeric   | High longitude value to restrict the range
-| lon.lo          | numeric   | Low longitude value to restrict the range
-| lat.hi          | numeric   | High latitude value to restrict the range
-| lat.lo          | numeric   | Low latitude value to restrict the range
-| project         | numeric   | The number of future projections (otherwise, NA)  |
-| exclude.dataset | character | A comma-separated list of datasets to exclude from analysis |
-
+| mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE. Could be omitted if not using an HPC. |
+| mem.sum         | numeric   | Memory allocation (in MB) for parallelized summarization. Could be omitted if not using an HPC. |
 
 We have set up the scripts in the flexiSDM workflow so that a minimum number of parameters needs to be changed among them. To run this script in full (using our file arrangement), you only need to edit the following parameters:
 
