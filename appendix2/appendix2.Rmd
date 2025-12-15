@@ -190,9 +190,6 @@ if (block.out == "none") {
   blockname <- "full" # rename the block to 'full' if not doing cross-validation
 } else {blockname <- block.out} # otherwise, keep the block number
 
-# names of datasets to exclude (e.g., iNaturalist) - must match file.label column in allfiles
-exclude.dataset <- unlist(str_split(mods$exclude.dataset[1], pattern = ", "))
-
 ## ICAR parameters
 zero_mean <- mods$zero_mean[1] # zero mean assumption?
 tau <- mods$tau[1] # precision (tau) can be a fixed value or a prior
