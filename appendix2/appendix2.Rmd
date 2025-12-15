@@ -109,42 +109,42 @@ head(mods)
 
 The following table describes the column names, data type, and description found in `model-specs.csv`. Not all columns are required depending how you intend to fit the model (i.e., local computer vs. high performance computing cluster).
 
-| Column Name     | Type      | Description                              |
-|-----------------|-----------|------------------------------------------|
-| number          | numeric   | Model number                             |
-| sp.code         | character | Species code, must match the species code used in the species data |
-| model           | character | Model name                               |
-| region.sub      | logical   | Only use the centroid of the region with a radius equal to the buffer size? |
-| buffer          | numeric   | Size of buffer around range edge or centroid (in m)  |
-| cont.grid       | logical   | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
-| coarse.grid     | logical   | Should a coarse grid be used for the spatial model? Usually desired for large-range species |
-| lon.lo          | numeric   | Low longitude value to restrict the range |
-| lon.hi          | numeric   | High longitude value to restrict the range |
-| lat.lo          | numeric   | Low latitude value to restrict the range |
-| lat.hi          | numeric   | High latitude value to restrict the range |
-| year.start      | numeric   | Starting year of data to include         |
-| year.end        | numeric   | Ending year of data to include           |
-| filter.region   | logical   | Should data outside of the region be removed? Note that this is only for mapping purposes; data that are outside of the region are never used to fit the model          |
-| spat.bal        | logical   | Should the PO data be spatially balanced?         |
-| coordunc        | numeric   | The level of acceptable coordinate uncertainty (for PO datasets that record coordinate uncertainty)    |
-| coordunc_na.rm  | logical   | Should PO data with coordinate uncertainty = NA be removed? (for PO datasets that record coordinate uncertainty)|
-| covs.PO         | character | A comma-separated list of covariates for modeling non-iNaturalist PO sampling effort. These must match the covariate names in the data. |
-| covs.inat       | character | A comma-separated list of covariates for modeling iNaturalist sampling effort. These must match the covariate names in the data. |
-| covs.lin        | character | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
-| covs.quad       | character | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
-| check.covs      | logical   | Should covariate selection remove multicollinearity? |
-| Bprior          | character | Assign a prior distribution in BUGS lanaguage for the $\beta$ coefficients in the state model (e.g., dnorm(1,0))
-| sp.auto         | logical   | Should a spatial model be included?      |
-| zero_mean       | logical   | Should a zero mean assumption be included in the spatial model? |
-| tau             | numeric/character | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
-| iter            | numeric   | The number of iterations to run an MCMC chain (the first 75% will be discarded as a burn-in)    |
-| thin            | numeric   | Thin the MCMC chains by this parameter            |
-| project         | numeric   | The number of future projections (otherwise, NA)  |
-| block.rows      | numeric   | The number of rows for cross-validation blocks    |
-| block.cols      | numeric   | The number of columns for cross-validation blocks |
-| block.folds     | numeric   | The number of folds to group cross-validation blocks into       |
-| mem.nim         | numeric   | Memory allocation (in MB) for NIMBLE. Could be omitted if not using an HPC. |
-| mem.sum         | numeric   | Memory allocation (in MB) for parallelized summarization. Could be omitted if not using an HPC. |
+| Column Name     | Type      | Recommended value  | Description                              |
+|-----------------|-----------|--------------------|------------------------------------------|
+| number          | numeric   | 1                  | Model number                             |
+| sp.code         | character | species identifier | Species code, must match the species code used in the species data |
+| model           | character | short descriptor   | Model name                               |
+| region.sub      | logical   | F, unless troubleshooting | Only use the centroid of the region with a radius equal to the buffer size? |
+| buffer          | numeric   | 50000              | Size of buffer around range edge or centroid (in m)  |
+| cont.grid       | logical   | T                  | Should the grid be restricted to continuous cells? (This will remove any groups of non-contiguous cells) |
+| coarse.grid     | logical   | T, unless small region | Should a coarse grid be used for the spatial model? |
+| lon.lo          | numeric   | empty, unless troubleshooting | Low longitude value to restrict the range |
+| lon.hi          | numeric   | empty, unless troubleshooting |  High longitude value to restrict the range |
+| lat.lo          | numeric   | empty, unless troubleshooting |  Low latitude value to restrict the range |
+| lat.hi          | numeric   | empty, unless troubleshooting |  High latitude value to restrict the range |
+| year.start      | numeric   | 1994               | Starting year of data to include         |
+| year.end        | numeric   | current year       | Ending year of data to include           |
+| filter.region   | logical   | F to see if species is recorded outside of range | Should data outside of the region be removed? Note that this is only for mapping purposes; data that are outside of the region are never used to fit the model          |
+| spat.bal        | logical   | T                  |Should the PO data be spatially balanced?         |
+| coordunc        | numeric   | 1000            | The level of acceptable coordinate uncertainty (meters, for PO datasets that record coordinate uncertainty)    |
+| coordunc_na.rm  | logical   | T               | Should PO data with coordinate uncertainty = NA be removed? (for PO datasets that record coordinate uncertainty)|
+| covs.PO         | character | human density   | A comma-separated list of covariates for modeling non-iNaturalist PO sampling effort. These must match the covariate names in the data. |
+| covs.inat       | character | human density   | A comma-separated list of covariates for modeling iNaturalist sampling effort. These must match the covariate names in the data. |
+| covs.lin        | character | based on species ecology | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
+| covs.quad       | character | based on species ecology | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
+| check.covs      | logical   | T               | Should covariate selection remove multicollinearity? |
+| Bprior          | numeric or character | dnorm(0, 1) | Assign a prior distribution in BUGS language for the $\beta$ coefficients in the state model (e.g., dnorm(1,0))
+| sp.auto         | logical   | T               | Should a spatial model be included?      |
+| zero_mean       | logical   | T               | Should a zero mean assumption be included in the spatial model? |
+| tau             | numeric or character | 1    | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
+| iter            | numeric   | depends on computational power | The number of iterations to run an MCMC chain (the first 75% will be discarded as a burn-in)    |
+| thin            | numeric   | 5               | Thin the MCMC chains by this parameter            |
+| project         | numeric   | 0               | The number of future projections (otherwise, NA)  |
+| block.rows      | numeric   | 5               | The number of rows for cross-validation blocks    |
+| block.cols      | numeric   | 5               | The number of columns for cross-validation blocks |
+| block.folds     | numeric   | 3               | The number of folds to group cross-validation blocks into       |
+| mem.nim         | numeric   | 30000           | Memory allocation (in MB) for NIMBLE. Can be omitted if not using an HPC. |
+| mem.sum         | numeric   | 40000           | Memory allocation (in MB) for parallelized summarization. Can be omitted if not using an HPC. |
 
 We have set up the scripts in the flexiSDM workflow so that a minimum number of parameters needs to be changed among them. To run this script in full (using our file arrangement), you only need to edit the following parameters:
 
