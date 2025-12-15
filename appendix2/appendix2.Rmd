@@ -187,8 +187,8 @@ block.cols <- mods$block.cols[1] # how many columns of blocks?
 fold.out <- fold # define the fold to setup
 
 if (fold.out == "none") {
-  blockname <- "full" # rename the fold to 'full' if not doing cross-validation
-} else {blockname <- fold.out} # otherwise, keep the fold number
+  foldname <- "full" # rename the fold to 'full' if not doing cross-validation
+} else {foldname <- fold.out} # otherwise, keep the fold number
 
 ## ICAR parameters
 zero_mean <- mods$zero_mean[1] # zero mean assumption?
@@ -457,7 +457,7 @@ pl <- map_species_data(region = region,
                        title = paste0(common, " (", sp.code, ")", title))
 
 ## Save plot
-ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"),
+ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", foldname, ".jpg"),
        height = 8, width = 10)
 ```
 
@@ -481,7 +481,7 @@ if (fold.out != "none") {
                          plot.region = T,
                          details = F,
                          title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"),
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
          height = 8, width = 10)
 } else {
   # Plot
@@ -495,7 +495,7 @@ if (fold.out != "none") {
                          plot.region = T,
                          details = F,
                          title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"),
+  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
          height = 8, width = 10)
 }
 ```
@@ -943,7 +943,7 @@ out <- summarize_samples(samples,
                          effort = T,
                          SLURM = ifelse(local == 1, F, T))
 
-save(out, file = paste0(out.dir, "data", blockname, ".rdata"))
+save(out, file = paste0(out.dir, "data", foldname, ".rdata"))
 ```
 
 
