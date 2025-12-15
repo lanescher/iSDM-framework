@@ -150,7 +150,7 @@ We have set up the scripts in the flexiSDM workflow so that a minimum number of 
 
 ```{r param.edit}
 nums.do <- 3 # model number to run
-block <- 'none' # CV fold to exclude ('none', 1, 2, or 3)
+fold <- 'none' # CV fold to exclude ('none', 1, 2, or 3)
 local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
@@ -184,11 +184,11 @@ coordunc_na.rm <- mods$coordunc_na.rm[1] # include coordinate uncertainty = NA?
 block.folds <- mods$block.folds[1] # how many groups of blocks?
 block.rows <- mods$block.rows[1] # how many rows of blocks?
 block.cols <- mods$block.cols[1] # how many columns of blocks?
-block.out <- block # define the fold to setup
+fold.out <- fold # define the fold to setup
 
-if (block.out == "none") {
-  blockname <- "full" # rename the block to 'full' if not doing cross-validation
-} else {blockname <- block.out} # otherwise, keep the block number
+if (fold.out == "none") {
+  blockname <- "full" # rename the fold to 'full' if not doing cross-validation
+} else {blockname <- fold.out} # otherwise, keep the fold number
 
 ## ICAR parameters
 zero_mean <- mods$zero_mean[1] # zero mean assumption?
@@ -208,7 +208,7 @@ lon.lo <- mods$lon.lo[1] # low value of longitude range
 
 ## Future projections
 project <- mods$project[1] # how many projections?
-if (block.out != "none") {
+if (fold.out != "none") {
   project <- 0 # no projections for cross-validation models
 }
 
@@ -306,7 +306,7 @@ if (coarse.grid == T) {
   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
 
   # Print spatial grid
-  if (block.out == 'none') {
+  if (fold.out == 'none') {
     pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
     ggsave(pl, file = paste0(out.dir, "2_inputmap-e_spatGrid.jpg"), height = 8, width = 10)
   }
@@ -323,7 +323,7 @@ We have set up the code so that this section needs to be run even if you do not 
 
 ```{r cv-blocks}
 
-if (block.out == "none") { 
+if (fold.out == "none") { 
   # If fitting the full model, then there are no test data
   test.i <- c()            
   train.i <- region$sp.grid$conus.grid.id
@@ -333,9 +333,9 @@ if (block.out == "none") {
   ## Set up cross validation blocks
   spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
 
-  block1 <- spatblocks %>% filter(folds == block.out)
+  block1 <- spatblocks %>% filter(folds == fold.out)
 
-  ## Find grid.ids for test block, everything else is in the training block
+  ## Find grid.ids for test fold, everything else is in the training fold
   test.i <- st_intersection(region$sp.grid, block1) %>%
              pull(conus.grid.id) %>%
              unique()
@@ -440,10 +440,10 @@ Next let's plot the species data to visualize where the data occur in the subran
 
 ```{r plot-species-data-samples}
 ## Quick title to be used across figures
-if (block == "none") {
+if (fold == "none") {
   title <- ", full model"
 } else {
-  title <- paste0(", excluding block ", block)
+  title <- paste0(", excluding fold ", fold)
 }
 
 ## Plot data samples
@@ -468,8 +468,8 @@ We can also take a look at the distribution of data across the cross-validation 
 
 
 ```{r cv-plots}
-## Cross-validation block-specific plots
-if (block.out != "none") {
+## Cross-validation fold-specific plots
+if (fold.out != "none") {
 
   pl <- map_species_data(region = region,
                          species.data = species.data,
@@ -477,7 +477,7 @@ if (block.out != "none") {
                          year.end = year.end,
                          plot = "samples",
                          plot.blocks = T,
-                         blocks = spatblocks[which(spatblocks$folds == block),],
+                         blocks = spatblocks[which(spatblocks$folds == fold),],
                          plot.region = T,
                          details = F,
                          title = paste0(common, " (", sp.code, ")", title))
@@ -608,7 +608,7 @@ if (length(covs.z) < 3) {
 Now that we've downloaded covariate data, let's take a look at the distribution of each covariate and the correlations between them.
 
 ```{r plot-covs, results = 'hide'}
-if (block.out == "none") {
+if (fold.out == "none") {
   
   ## Distribution covariates
   
@@ -747,7 +747,7 @@ code <- nimble_code(data,
                     sp.auto = sp.auto, 
                     coarse.grid = coarse.grid,
                     Bprior = Bprior,
-                    block.out = block.out,
+                    block.out = fold.out,
                     min.visits.incl = 3, 
                     zero_mean = zero_mean,
                     rm.state = F,
@@ -780,14 +780,14 @@ params <- nimble_params(data,
 Remove objects that are large and are not required for further steps, then save the workspace.
 
 ```{r clean-up}
-# Remove local and block in case the setup is run locally but the model is fit on the HPC.
+# Remove local and fold in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
-rm(list=c('local','block','args','conus.covar.grid','conus.grid','usa','conus',
+rm(list=c('local','fold','args','conus.covar.grid','conus.grid','usa','conus',
           'pl','centroid'))
 
 
 # Save environment and full set up
-save.image(paste0(out.dir, "setup_",block.out,".Rdata"))
+save.image(paste0(out.dir, "setup_",fold.out,".Rdata"))
 ```
 
 
@@ -810,7 +810,7 @@ save.image(paste0(out.dir, "setup_",block.out,".Rdata"))
 
 ```{r param.edit2, eval = F}
 num <- 3
-block <- "none"
+fold <- "none"
 sp.code <- "RACA"
 model <- "subrange"
 chain <- 1
@@ -829,7 +829,7 @@ library(SpFut.flexiSDM)
 # Set output directory and load setup file
 out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 
-load(paste0(out.dir,'setup_',block,'.Rdata'))
+load(paste0(out.dir,'setup_',fold,'.Rdata'))
 ```
 
 ## Fit NIMBLE model
@@ -849,7 +849,7 @@ if (local == 1) {
   end.nim <- Sys.time() - start.nim
   print(end.nim)
 
-  saveRDS(samples, paste0(out.dir,'samples_',block,'.rds'))
+  saveRDS(samples, paste0(out.dir,'samples_',fold,'.rds'))
 } else {
 
   info <- list(seed = chain,
@@ -868,7 +868,7 @@ if (local == 1) {
   end.nim <- Sys.time() - start.nim
   print(end.nim)
 
-  saveRDS(samples, paste0(out.dir,'samples_',block,'_',chain,'.rds'))
+  saveRDS(samples, paste0(out.dir,'samples_',fold,'_',chain,'.rds'))
 }
 ```
 
@@ -901,7 +901,7 @@ library(SpFut.flexiSDM)
 
 ```{r params.edit3, eval = F}
 num <- 3
-block <- "none"
+fold <- "none"
 sp.code <- "RACA"
 model <- "subrange"
 maxchain <- 3
@@ -914,7 +914,7 @@ local <- 1
 # load output directory, setup, and functions
 out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 
-load(paste0(out.dir,'setup_',block,'.Rdata'))
+load(paste0(out.dir,'setup_',fold,'.Rdata'))
 ```
 
 
@@ -922,7 +922,7 @@ load(paste0(out.dir,'setup_',block,'.Rdata'))
 
 ```{r load-chains, eval = F}
 # Load chains (samples) ----
-samples <- readRDS(paste0(out.dir,'samples_',block,'.rds'))
+samples <- readRDS(paste0(out.dir,'samples_',fold,'.rds'))
 
 ## Calculate derived quantities ----
 # This takes longer with the coarse grid.
@@ -938,7 +938,7 @@ out <- summarize_samples(samples,
                          constants,
                          project = project,
                          coarse.grid = coarse.grid,
-                         block.out = block.out,
+                         block.out = fold.out,
                          gridkey = gridkey,
                          spatkey = spatRegion$spatkey,
                          effort = T,
@@ -953,10 +953,10 @@ save(out, file = paste0(out.dir, "data", blockname, ".rdata"))
 
 # Convergence
 ggsave(plot_convergence(out),
-       file = paste0(out.dir, "3_parameters-0_convergence-", block, ".jpg"),
+       file = paste0(out.dir, "3_parameters-0_convergence-", fold, ".jpg"),
        height = 5, width = 12)
 
-if (block.out == "none") {
+if (fold.out == "none") {
   cov.labs <- read.csv("data/covariate-labels.csv")
 
   ### Chains ----
@@ -970,7 +970,7 @@ if (block.out == "none") {
          height = 6, width = 8)
   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
                      plot = "tau", cutoff = 0),
-         file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"),
+         file = paste0(out.dir, "3_parameters-b1_chains-tau-",fold,".jpg"),
          height = 6, width = 8)
 
   # Posteriors ----
@@ -1347,7 +1347,7 @@ We almost exclusively run these models on a high performance computing (HPC) clu
 To run the first steps of the workflow via `01-flexiSDM.R`, we call the script `01-flexiSDM.sh`, which takes 3 inputs: 
 
 - Model number
-- Block (defined by an array in the script)
+- fold (defined by an array in the script)
 - Local (1/0)
 
 We have simplified this further by writing a wrapper called `01-HPC.sh`, which only takes one input: model number. Within the script, `local` is set to 0, indicating a run on an HPC.
@@ -1364,11 +1364,11 @@ if (length(args) > 0) {
   nums.do = as.numeric(args[1])
 
   # Blocks can be run as single jobs or as arrays
-  block = as.numeric(args[2])
+  fold = as.numeric(args[2])
   
-  # The block input is numeric only. Convert 4 = 'none'
-  if (block == 4) {
-    block <- 'none'
+  # The fold input is numeric only. Convert 4 = 'none'
+  if (fold == 4) {
+    fold <- 'none'
   }
 
   # Running locally? Yes = 1
@@ -1390,7 +1390,7 @@ if (length(args) > 0) {
 <!--   num = as.numeric(args[1]) -->
 <!--   sp.code = as.character(args[2]) -->
 <!--   model = as.character(args[3]) -->
-<!--   block = as.numeric(args[4]) -->
+<!--   fold = as.numeric(args[4]) -->
 <!--   chain = as.numeric(args[5]) -->
 <!--   local = as.numeric(args[6])  -->
 
@@ -1400,9 +1400,9 @@ if (length(args) > 0) {
 <!--   }  -->
 <!-- } -->
 
-<!-- # Ensure block is coded correctly -->
-<!-- if (block == 4) { -->
-<!--   block <- 'none' -->
+<!-- # Ensure fold is coded correctly -->
+<!-- if (fold == 4) { -->
+<!--   fold <- 'none' -->
 <!-- } -->
 
 
@@ -1415,7 +1415,7 @@ if (length(args) > 0) {
 <!--   num = as.numeric(args[1]) -->
 <!--   sp.code = as.character(args[2]) -->
 <!--   model = as.character(args[3]) -->
-<!--   block = as.numeric(args[4]) -->
+<!--   fold = as.numeric(args[4]) -->
 <!--   maxchain = as.numeric(args[5]) -->
 <!--   local = as.numeric(args[6]) -->
 
@@ -1425,7 +1425,7 @@ if (length(args) > 0) {
 
 <!-- } -->
 
-<!-- # Ensure block is coded correctly -->
-<!-- if (block == 4) { -->
-<!--   block <- 'none' -->
+<!-- # Ensure fold is coded correctly -->
+<!-- if (fold == 4) { -->
+<!--   fold <- 'none' -->
 <!-- } -->
