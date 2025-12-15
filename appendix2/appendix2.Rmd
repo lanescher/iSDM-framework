@@ -387,23 +387,10 @@ sciname <- codeKey %>%
 sciname
 
 ## Save genus name to assign Frog/Toad or Salamander
-gen <- stringr::word(sciname, 1)
-
-if (gen %in% c("Acris", "Anaxyrus", "Aquarana", "Ascaphus",
-               "Craugastor", "Dendrobates", "Dryophytes", "Eleutherodactylus",
-               "Gastrophryne", "Glandirana", "Hyla", "Hypopachus", "Incilius",
-               "Leptodactylus", "Lithobates", "Osteopilus",
-               "Pseudacris", "Rana", "Rhinella", "Rhinophrynus",
-               "Scaphiopus", "Smilisca", "Spea", "Xenopus")) spp.type <- "Frog/Toad"
-if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
-               "Cryptobranchus", "Desmognathus", "Dicamptodon",
-               "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
-               "Hydromantes", "Necturus", "Notophthalmus",
-               "Phaeognathus", "Plethodon", "Pseudobranchus",
-               "Pseudotriton", "Rhyacotriton", "Siren",
-               "Stereochilus", "Taricha", "Urspelerpes")) spp.type <- "Salamander"
-
-gen; spp.type
+spp.type <- codeKey %>%
+            filter(DS.code == sp.code) %>%
+            pull(spp.type)
+spp.type
 ```
 
 Next we will load a dataframe with the names of data sources (`00-data-summary-flexiSDM.csv`). We define ours in a CSV file because we have hundreds of datasets to filter through for different species. This process could also be done by manually creating a dataframe with the same column names. The necessary columns are: `file.name` (how the file is named in the source folder), `file.label` (the label for the data source), data.type (Count, DND, or PO), PO.extent (does the presence-only span the continent or a particular state), `covar.mean` (detection covariates that should be averaged across passes), `covar.sum` (detection covariates that should be summed across passes). For additional clarification, sometimes it is more appropriate to summarize detection covariates by averaging than summing and vice versa. For example, the number of survey minutes should be summed but the temperature during the survey should be averaged. 
