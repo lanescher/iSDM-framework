@@ -325,6 +325,8 @@ if (coarse.grid == T) {
 We have set up the code so that this section needs to be run even if you do not intend to exclude data for cross-validation. If you do are not excluding any blocks, all of the data are considered "train" data. Otherwise, the data are split into "train" and "test" data depending on the cross-validation fold (1, 2, or 3) that is excluded.
 
 ```{r cv-blocks}
+spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, 
+                             k = block.folds)
 
 if (fold.out == "none") { 
   # If fitting the full model, then there are no test data
@@ -334,8 +336,6 @@ if (fold.out == "none") {
 } else {
   
   ## Set up cross validation blocks
-  spatblocks <- make_CV_blocks(region, rows = block.rows, cols = block.cols, k = block.folds)
-
   block1 <- spatblocks %>% filter(folds == fold.out)
 
   ## Find grid.ids for test fold, everything else is in the training fold
