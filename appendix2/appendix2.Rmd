@@ -588,7 +588,6 @@ There's one additional step that could be done here. If removing multicollineari
 if (check.covs == T){
 
   threshold <- 0.4
-  if (sp.code == "PJOR") threshold <- 0.45
 
   covs.rm <- select_covar(covs.z, threshold = threshold)
   covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
