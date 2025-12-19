@@ -342,6 +342,7 @@ if (fold.out == "none") {
   test.i <- st_intersection(region$sp.grid, block1) %>%
              pull(conus.grid.id) %>%
              unique()
+  
   train.i <- filter(region$sp.grid, conus.grid.id %in% test.i == F) %>%
               pull(conus.grid.id)
 }
