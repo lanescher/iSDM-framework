@@ -598,14 +598,14 @@ pl1 <- base +
   geom_sf(data = region$range, color = "black", fill = NA) +
   geom_sf(data = wa, fill = "lightsteelblue") +
   coord_sf(xlim = xlim, ylim = ylim) +
-  labs(color = "Source", shape = "Data type") +
+  labs(color = "Source") +
   scale_color_manual(values = c("NY Atlas" = "#CC79A7",
                                 "VT PO" = "#0072B2",
                                 "WV PO" = "#E69F00",
                                 "MA PO" = "#009E73",
                                 "MD PO" = "#E63833FF",
                                 "ME PO" = "#881C00FF",
-                                "iNaturalist" = "#D55E00"),
+                                "iNaturalist" = "gray20"),
                      drop = F) +
   theme(legend.key = element_rect(fill = NA),
         legend.position = "bottom",
@@ -624,14 +624,14 @@ pl2 <- base +
   geom_sf(data = region$range, color = "black", fill = NA) +
   geom_sf(data = wa, fill = "lightsteelblue") +
   coord_sf(xlim = xlim, ylim = ylim) +
-  labs(color = "Source", shape = "Data type") +
+  labs(color = "Source") +
   scale_color_manual(values = c("NY Atlas" = "#CC79A7",
                                 "VT PO" = "#0072B2",
                                 "WV PO" = "#E69F00",
                                 "MA PO" = "#009E73",
                                 "MD PO" = "#E63833FF",
                                 "ME PO" = "#881C00FF",
-                                "iNaturalist" = "#D55E00"),
+                                "iNaturalist" = "gray20"),
                      drop = F) +
   theme(legend.key = element_rect(fill = NA),
         legend.position = "bottom",
@@ -644,13 +644,15 @@ pl2 <- base +
 
 
 
-tmp <- out$effort %>%
+tmp1 <- out$effort %>%
   filter(PO.dataset.name %in% c("MA PO, MD PO, ME PO, NY Atlas, VT PO, WV PO")) %>%
-  full_join(region$sp.grid, ., by = "conus.grid.id") %>%
+  full_join(region$sp.grid, ., by = "conus.grid.id") 
+
+tmp <- tmp1 %>%
   filter(mean != 0)
 
 pl3 <- base +
-  geom_sf(data = tmp, aes(fill = log(mean), color = log(mean))) +
+  geom_sf(data = tmp1, fill = "white", color = 'white') +
   geom_sf(data = tmp, aes(fill = log(mean), color = log(mean))) +
   geom_sf(data = region$range, color = "black", fill = NA) +
   coord_sf(xlim = xlim, ylim = ylim) +
@@ -774,7 +776,7 @@ ggsave(pl, file = "outputs/figures/Fig5-gporPO.jpg",
 
 
 
-# Figure S2: CV maps ----
+# Figure S3: CV maps ----
 
 na <- rnaturalearth::ne_countries(continent = "North America", 
                                   returnclass = "sf", 
@@ -880,14 +882,14 @@ pl <- pl +
 ggsave(pl, file = "outputs/figures/FigS2-CV.jpg", height = 9, width = 12)
 
 
-# Figure S3: RACA data map from auto-generated output ----
+# Figure S1: RACA data map from auto-generated output ----
 
 
 
-# Figure S4: GPOR data map from auto-generated output ----
+# Figure S2: GPOR data map from auto-generated output ----
 
 
-# Figure S5: coarse spatial effect ----
+# Figure S4: coarse spatial effect ----
 load("outputs/2_GPOR_iSDM/region.rdata")
 spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
 
@@ -920,7 +922,7 @@ ggsave(pl, file = "outputs/figures/FigS5-coarsegrid.jpg", height = 6, width = 12
 
 
 
-# Figure S6: AUC ----
+# Figure S5: AUC ----
 
 blockcols <- c("none" = "black", "1" = "#e79f1e", "2" = "#009e73", "3" = "#cb79a8")
 
@@ -1029,7 +1031,7 @@ ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 4, width = 7)
 
 
 
-# Figure S7: Dataset intercepts ----
+# Figure S6: Dataset intercepts ----
 
 
 load("outputs/1_RACA_iSDM/datafull.rdata")
@@ -1089,7 +1091,7 @@ ggsave(pl, file = "outputs/figures/FigS7-datasetintercepts.jpg", height = 5, wid
 
 
 
-# Figure S8: GPOR marginal effects ----
+# Figure S7: GPOR marginal effects ----
 
 load("outputs/2_GPOR_iSDM/datafull-info.rdata")
 load("outputs/2_GPOR_iSDM/datafull.rdata")
