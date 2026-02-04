@@ -93,8 +93,6 @@ Example: a double observer visual encounter survey. Both observations at Site A 
 
 Example: five audio recordings are taken at each visit to a site. All five recordings at Site A on Day 1 get survey.id = 1, and each recording gets a pass.id from 1 to 5. All recordings at Site B on Day 1 get survey.id = 2, and each recording gets a pass.id from 1 to 5. Site A is revisited on Day 2, and all recordings get survey.id = 3, and each recording gets a pass.id from 1 to 5.
 
-# Riley can you add the anotated data fig here please
-
 ![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/appendix2/annotateddata.png)
 
 
@@ -691,23 +689,24 @@ if (fold.out == "none") {
 To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function that combines and formats  species datasets (`allfiles`) and their associated covariates (contained in `allfiles`, `covs.inat`, and `covs.PO`)
 
 ```{r spdata}
-sp.data <- sppdata_for_nimble(species.data,
-                              region,
-                              file.info = allfiles,
-                              covar = covar,
-                              covs.inat = covs.inat,
-                              covs.PO = covs.PO,
-                              DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
-                              # Only keep PO cells that training grid cells
-                              keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) 
+sp.data <- sppdata_for_nimble(
+                  species.data,
+                  region,
+                  file.info = allfiles,
+                  covar = covar,
+                  covs.inat = covs.inat,
+                  covs.PO = covs.PO,
+                  DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
+                  # Only keep PO cells that training grid cells
+                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) 
 ```
 
-Next, the distribution-level covariates (`covar`) are combined with the formatted species data. All of this is then broken into `data` and `constants` which are the inputs for the model.
+Next, the distribution-level covariates (`covar`) are combined with the formatted species data. This combined data is then broken into `data` and `constants` which are the inputs for the NIMBLE model. As their names imply, the `data` list object contains values which vary over space or time (e.g., species data, distribution-level covariates, and detection covariates). The `constants` list object contains fixed values such as the number of cells in the grid, grid indices for specific datasets, names of datasets, and parameters for the spatial model.
 
 ```{r data-constants}
 tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
-                       sp.auto = sp.auto, coarse.grid = coarse.grid, region = region,
-                       process.intercept = F,
+                       sp.auto = sp.auto, coarse.grid = coarse.grid, 
+                       region = region, process.intercept = F,
                        gridkey = gridkey, spatRegion = spatRegion)
 
 data <- tmp$data
@@ -715,7 +714,7 @@ constants <- tmp$constants
 ```
 
 
-The model structure allows for an indicator variable to indicate whether a cell is in a state with effort or not. There are generally two cases where this is useful: 
+The model structure allows for an indicator variable to indicate whether a cell is in a state with PO effort or not. There are generally two cases where this is useful: 
 
 - If a state agency has collected PO only from within its state, by definition there is effort within that state but not outside of it. This information is already stored in `constants`, which pulled it from `allfiles$POextent`
 - In iNaturalist data, if a species has taxon geoprivacy (i.e., obscured locations due to listing status) within a state, all records from that state will be removed by `load_species_data()` due to high coordinate uncertainty. The effort in that state is therefore effectively 0. 
@@ -731,17 +730,19 @@ if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
 if (sp.code == "RACA") obsc.state <- NA
 
 
-constants <- add_state_ind(species.data,
-                           region,
-                           gridkey,
-                           constants,
-                           covs.inat = covs.inat,
-                           obsc.state = obsc.state,
-                           keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+constants <- add_state_ind(
+               species.data,
+               region,
+               gridkey,
+               constants,
+               covs.inat = covs.inat,
+               obsc.state = obsc.state,
+               keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 ```
 
 
-Once `data` and `constants` are set up for NIMBLE, the function `nimble_code()` writes the NIMBLE code using the information contained in those objects as well several other specificiations defined earlier in the code. The NIMBLE code is saved as a .R file in the location defined by the `path` argument, and in the object `code`.
+Once `data` and `constants` are created for NIMBLE, the function `nimble_code()` writes the NIMBLE code using the information contained in those objects as well several other specificiations defined earlier in the code. The NIMBLE code is saved as a .R file in the location defined by the `path` argument, and in the object `code`.
+
 
 ```{r code}
 code <- nimble_code(data,
@@ -766,7 +767,7 @@ inits <- function(x){nimble_inits(data,
                                   seed = x)}
 ```
 
-Finally, identify which parameters the model should save chains for. By default, distribution model parameters ($B$) and dataset intercepts ($A$) are saved. Parameters that are estimated for each hexbin ($\lambda$, $XB$, effort) require more storage, so there are options to disable them. If `sp.auto = T`, then the spatial random effect and $\tau$ are also saved.
+Finally, identify for which parameters the model should save chains. By default, distribution model parameters ($\beta$) and dataset intercepts ($\alpha$) are saved. Parameters that are estimated for each hexbin ($\lambda$, $XB$, effort) require more storage, so there are options to disable them. If `sp.auto = T`, then the spatial random effect and $\tau$ are also saved.
 
 ```{r params}
 params <- nimble_params(data,
@@ -780,13 +781,13 @@ params <- nimble_params(data,
 
 ## Step 8: Clean up and save
 
-Remove objects that are large and are not required for further steps, then save the workspace.
+Remove objects that are large and are not required for further steps, save the workspace, and move on to `02-flexiSDM.R`.
 
 ```{r clean-up}
 # Remove local and fold in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
-rm(list=c('local','fold','args','conus.covar.grid','conus.grid','usa','conus',
-          'pl','centroid'))
+rm(list=c('local','fold','args','conus.covar.grid','conus.grid',
+          'usa','conus', 'pl','centroid'))
 
 
 # Save environment and full set up
@@ -795,49 +796,46 @@ save.image(paste0(out.dir, "setup_",fold.out,".Rdata"))
 
 
 
-<!-- # End script - proceed to 02-flexiSDM.R -->
-
-<!-- ## --------------------------- -->
-<!-- ## Objective:  -->
-<!-- ##    - Fit NIMBLE model using setup_BLOCK.rdata file -->
-<!-- ##  -->
-<!-- ## Input: -->
-<!-- ##    - setup_BLOCK.rdata -->
-<!-- ## -->
-<!-- ## Output:  -->
-<!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds -->
-<!-- ## -->
-<!-- ## --------------------------- -->
-
 # Part 2: 02-flexiSDM.R
 
-```{r param.edit2, eval = F}
-num <- 3
-fold <- "none"
-sp.code <- "RACA"
-model <- "subrange"
-chain <- 1
-local <- 1
+The goal of this script is solely to fit the model via NIMBLE. The code is set up to allow for parallelization of the MCMC chains so they can be fit simultaneously on either a local computer or a high performance computing system.
+
+
+Because this script can be run independently of `01-flexiSDM.R`, we set some key parameters manually and load the setup file created before proceeding.
+
+
+```{r param.edit2}
+num <- 3 # model number
+fold <- "none" # CV fold
+sp.code <- "RACA" # 4-digit species code (must match model number row in model-specs.csv)
+model <- "subrange" # model name (must match model number row in model-specs.csv)
+local <- 1 # are you fitting the model locally (1) or on an HPC (0)?
+chain <- 1 # chain number (only relevant if fitting as an array job on an HPC)
 ```
 
 
-```{r load-packages2, results = 'hide', eval=F}
+```{r load-packages2, results = 'hide'}
 # Load functions and packages
-source("functions/FXN-nimbleParallel.R") # HOW DO YOU RUN THIS IN ISDM-FRAMEWORK?
+source("code/FXN-nimbleParallel.R") 
 library(SpFut.flexiSDM)
 ```
 
 
-```{r output-dir2, eval = F}
+```{r output-dir2}
 # Set output directory and load setup file
 out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 
 load(paste0(out.dir,'setup_',fold,'.Rdata'))
 ```
 
+
 ## Fit NIMBLE model
 
-```{r fit-nimble, eval=F}
+If you intend to fit the model locally, the function `nimbleParallel` will create a local cluster on your computer with a default of 3 cores (this can be changed as an argument to the function). It then configures, compiles, and runs the MCMC in parallel for the number of chains you have defined. The output is then saved as a single output object. 
+
+If you intend to use an HPC to fit the model, please see the section below on high performance computing.
+
+```{r fit-nimble}
 if (local == 1) {
   start.nim <- Sys.time()
   samples <- nimbleParallel(code = code,
@@ -879,18 +877,9 @@ if (local == 1) {
 
 # Part 3: 03-flexiSDM.R
 
-<!-- <!-- ## --------------------------- --> -->
-<!-- <!-- ## Objective:  --> -->
-<!-- <!-- ##    - Fit NIMBLE model using setup_BLOCK.rdata file --> -->
-<!-- <!-- ##  --> -->
-<!-- <!-- ## Input: --> -->
-<!-- <!-- ##    - setup_BLOCK.rdata --> -->
-<!-- <!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds --> -->
-<!-- <!-- ## --> -->
-<!-- <!-- ## Output:  --> -->
-<!-- <!-- ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds --> -->
-<!-- <!-- ## --> -->
-<!-- <!-- ## --------------------------- --> -->
+The goal of this script is to summarize the chains from the NIMBLE MCMC model and visualize the output in a series of figures. 
+
+Because this script can be run independently of `02-flexiSDM.R`, we set load packages, set some key parameters manually, and load the setup file created in the first script before proceeding.
 
 
 ```{r load-packages3, results = 'hide', eval = F}
@@ -902,18 +891,16 @@ library(SpFut.flexiSDM)
 ```
 
 
-```{r params.edit3, eval = F}
-num <- 3
-fold <- "none"
-sp.code <- "RACA"
-model <- "subrange"
-maxchain <- 3
-local <- 1
+```{r params.edit3}
+num <- 3 # model number
+fold <- "none" # CV fold
+sp.code <- "RACA" # 4-digit species code (must match model number row in model-specs.csv)
+model <- "subrange" # model name (must match model number row in model-specs.csv)
+local <- 1 # are you fitting the model locally (1) or on an HPC (0)?
+maxchain <- 3 # the total number of chains that were fit
 ```
 
-
-
-```{r out.dir3, eval = F}
+```{r out.dir3}
 # load output directory, setup, and functions
 out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
 
@@ -921,18 +908,19 @@ load(paste0(out.dir,'setup_',fold,'.Rdata'))
 ```
 
 
+First we'll load the MCMC samples created by `02-flexiSDM.R`, assuming the model was fit on your local computer. To save time in fitting the model and reduce the size of the samples.rds file, we removed all derived quantities (e.g., occupancy probability ($\psi$) and projections) from the NIMBLE code. We can calculate those derived quantities now by using the `get_derived` function, which will create a derived quantity for each step in the MCMC chain.
 
-
-```{r load-chains, eval = F}
+# ERROR iN SECTION BELOW
+```{r load-chains, eval=F}
 # Load chains (samples) ----
 samples <- readRDS(paste0(out.dir,'samples_',fold,'.rds'))
 
 ## Calculate derived quantities ----
-# This takes longer with the coarse grid.
 samples <- lapply(samples, get_derived, data = data, project = project,
-                  coarse.grid = coarse.grid, spatRegion = spatRegion,
-                  pathToProj = 'code/03-species-models/setup-projections.R')
+                  coarse.grid = coarse.grid, spatRegion = spatRegion)
 ```
+
+Our next step is to summarize the MCMC chains using the `summarize_samples` function. This function also creates a local cluster on your machine to parallelize the summarization. In this step, you will be summarizing a matrix of 
 
 ```{r summarize-chains, eval = F}
 ## Summarize chains ----
