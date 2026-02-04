@@ -1,0 +1,20 @@
+Time summary for: 3 RACA subrange
+
+The model was run on Wed Feb 2026 04 3:29:29 PM
+
+Total time for setup:
+Time difference of 22.97183 secs
+
+Total time for fitting NIMBLE model: 
+Time difference of 1.266456 mins
+
+Total time for summarization: 
+Time difference of 1.831994 mins
+
+Start to finish time (code): 
+Time difference of 208.8788 secs
+
+Start to finish time (user delay): 
+Time difference of 16.42554 mins
+
+

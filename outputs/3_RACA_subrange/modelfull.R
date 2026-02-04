@@ -1,4 +1,4 @@
-code <- nimbleCode({
+code <- nimble::nimbleCode({
 
 
 # Process Model
@@ -45,7 +45,8 @@ for (j in 1:nW2) {
   W2[j] ~ dpois(lambdaD2[j] * E2[j]) # Poisson
 
   # Effort 
-  log(E2[j]) <- A2[1] * Xw2[j,1]
+  log(eff2[j]) <- A2[1] * Xw2[j,1]
+  E2[j] <- eff2[j] * S2[j]
 
   # Prior for X imputation
   Xw2[j, 1] ~ dnorm(0, 1)
