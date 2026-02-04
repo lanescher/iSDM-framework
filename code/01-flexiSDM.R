@@ -170,18 +170,17 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
           filter((NAME %in% exclude) == F) %>%
           st_union()
   # CONUS grid
-  load("../species-futures/data/USA/grid-covar.rdata")
+  load("../species-futures/data/USA/grid-and-huc.rdata")
 
-  # Region
+  # Region - LANE CHECK 
   region <- make_region(rangelist,
                         buffer = buffer,
-                        crs = 3857,
                         sub = region.sub,
                         boundary = usa,
                         grid = conus.grid,
                         rm.clumps = T,
                         clump.size = 50, 
-                        continuous = cont.grid)
+                        continuous = T)
   
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
@@ -224,10 +223,10 @@ if (block.out == "none") {
 
 # Make gridkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
-  st_drop_geometry() %>%
-  mutate(grid.id = 1:nrow(.),
-         group = case_when(conus.grid.id %in% train.i ~ "train",
-                           conus.grid.id %in% test.i ~ "test"))
+            st_drop_geometry() %>%
+            mutate(grid.id = 1:nrow(.),
+                   group = case_when(conus.grid.id %in% train.i ~ "train",
+                                     conus.grid.id %in% test.i ~ "test"))
 
 
 
@@ -267,13 +266,13 @@ if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
 
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-  filter(Species == sp.code) %>%
-  rename(file.name = Data.Swamp.file.name,
-         file.label = Name,
-         covar.mean = Covar.mean,
-         covar.sum = Covar.sum,
-         data.type = Type.true) %>%
-  select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
+            filter(Species == sp.code) %>%
+            rename(file.name = Data.Swamp.file.name,
+                   file.label = Name,
+                   covar.mean = Covar.mean,
+                   covar.sum = Covar.sum,
+                   data.type = Type.true) %>%
+            select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
 
 
 species.data <- load_species_data(sp.code,
@@ -291,7 +290,7 @@ species.data <- load_species_data(sp.code,
 
 
 
-
+## PLOTTING ISSUE HERE - LANE CHECK - STILL PLOTTING ISSUE
 
 ### Plot species data ----
 if (block == "none") {
@@ -498,21 +497,25 @@ if (block.out == "none") {
   
   # get covariate labels
   covlabs <- read.csv("data/covariate-labels.csv") %>%
-    filter(covariate %in% covs.z)
+              filter(covariate %in% covs.z)
   
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-a_process-map")
+  # LANE - CHECK HERE
+  pl <- plot_covar(covar,
+                   region,
+                   scaled = T,
+                   cov.names = covlabs$covariate,
+                   cov.labels = covlabs$Label)
   
-  cor_covar(covar, 
-            cov.names = covlabs$covariate,
-            cov.labels = covlabs$Label,
-            out.path = out.dir,
-            out.name = "1_covariates-a_process-correlations", 
-            color.threshold = 0.25)
+  ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-a_process-map.jpg"), 
+         height = 15, width = 15)
+  
+  pl <- cor_covar(covar, 
+                  cov.names = covlabs$covariate,
+                  cov.labels = covlabs$Label,
+                  color.threshold = 0.25)
+  
+  ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-a_process-correlations.jpg"), 
+         height = 5, width = 9)
   
   
   
@@ -520,22 +523,25 @@ if (block.out == "none") {
   if ("iNaturalist" %in% names(species.data$obs)) {
     # get covariate labels
     covlabs <- read.csv("data/covariate-labels.csv") %>%
-      filter(covariate %in% covs.inat)
+                filter(covariate %in% covs.inat)
     
-    plot_covar(covar,
-               region,
-               cov.names = covlabs$covariate,
-               cov.labels = covlabs$Label,
-               out.path = out.dir,
-               out.name = "1_covariates-b_iNat-map")
+    pl <- plot_covar(covar,
+                     region,
+                     scaled = T,
+                     cov.names = covlabs$covariate,
+                     cov.labels = covlabs$Label)
+    
+    ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-b_iNat-map.jpg"), 
+           height = 15, width = 15)
     
     if (length(covs.inat) > 1) {
-      cor_covar(covar, 
-                cov.names = covlabs$covariate,
-                cov.labels = covlabs$Label,
-                out.path = out.dir,
-                out.name = "1_covariates-b_iNat-correlations", 
-                color.threshold = 0.25)
+      pl <- cor_covar(covar, 
+                      cov.names = covlabs$covariate,
+                      cov.labels = covlabs$Label,
+                      color.threshold = 0.25)
+      
+      ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-b_iNat-correlations.jpg"), 
+             height = 5, width = 9)
     }
   }
   
@@ -546,22 +552,25 @@ if (block.out == "none") {
   
   # get covariate labels
   covlabs <- read.csv("data/covariate-labels.csv") %>%
-    filter(covariate %in% covs.PO)
+              filter(covariate %in% covs.PO)
   
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-c_PO-map")
+  pl <- plot_covar(covar,
+                   region,
+                   scaled = T,
+                   cov.names = covlabs$covariate,
+                   cov.labels = covlabs$Label)
+  
+  ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-c_PO-map.jpg"), 
+         height = 15, width = 15)
   
   if (length(covs.PO) > 1) {
-    cor_covar(covar, 
-              cov.names = covlabs$covariate,
-              cov.labels = covlabs$Label,
-              out.path = out.dir,
-              out.name = "1_covariates-c_PO-correlations", 
-              color.threshold = 0.25)
+    pl <- cor_covar(covar, 
+                    cov.names = covlabs$covariate,
+                    cov.labels = covlabs$Label,
+                    color.threshold = 0.25)
+    
+    ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-c_PO-correlations.jpg"), 
+           height = 5, width = 9)
   }
   
 }
@@ -598,7 +607,7 @@ constants <- add_state_ind(species.data,
                            region,
                            gridkey,
                            constants,
-                           covs.inat = covs.inat,
+                           stategrid,
                            obsc.state = obsc.state,
                            keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
@@ -613,7 +622,7 @@ code <- nimble_code(data,
                     coarse.grid = coarse.grid,
                     Bprior = Bprior,
                     block.out = block.out,
-                    min.visits.incl = 3, 
+                    # min.visits.incl = 3, 
                     zero_mean = zero_mean,
                     rm.state = F,
                     tau = tau)
@@ -642,8 +651,7 @@ end1 <- Sys.time() - start1
 
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
-rm(list=c('local','block','args','conus.covar.grid','conus.grid','usa','conus',
-          'pl'))
+rm(list=c('local','block','args','pl','a','c','rm','tmp'))
 
 
 # Save environment and full set up

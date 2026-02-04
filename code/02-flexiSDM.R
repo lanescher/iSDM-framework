@@ -11,7 +11,7 @@
 ## ---------------------------
 
 start2 <- Sys.time() 
-print(paste0('Beginning 02-MVPv1.1 script at ', start2))
+print(paste0('Beginning 02-flexiSDM script at ', start2))
 
 
 # EDIT THIS SECTION ----

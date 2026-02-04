@@ -111,13 +111,18 @@ if (block.out == "none") {
   cov.labs <- read.csv("data/covariate-labels.csv")
   
   ### Chains ----
-  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"), height = 6, width = 8)
-  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"), height = 6, width = 8)
-  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "tau", cutoff = 0), file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"), height = 6, width = 8)
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), 
+         file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"), height = 6, width = 8)
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), 
+         file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"), height = 6, width = 8)
+  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs, plot = "tau", cutoff = 0), 
+         file = paste0(out.dir, "3_parameters-b1_chains-tau-",block,".jpg"), height = 6, width = 8)
   
   # Posteriors ----
-  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"), height = 6, width = 8)
-  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"), height = 6, width = 8)
+  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "B", cutoff = 0), 
+         file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"), height = 6, width = 8)
+  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs, plot = "alpha", cutoff = 0), 
+         file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"), height = 6, width = 8)
   
   
   
