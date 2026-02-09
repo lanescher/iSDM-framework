@@ -154,7 +154,7 @@ if (block.out == "none") {
          file = paste0(out.dir, "3_parameters-c3_tau.jpg"), height = 6, width = 10)
   
   ### Marginal effects ----
-  ggsave(plot_effects(data, out, breaks = 0.001, unscale_covar = covar_unscaled), 
+  ggsave(plot_effects(data, out, breaks = 0.001, cov.labs = cov.labs, unscale_covar = covar_unscaled), 
          file = paste0(out.dir, "/3_parameters-a4-effects.jpg"), height = 7, width = 10)
   
   
