@@ -2,3 +2,4 @@ number,sp.code,model,region.sub,buffer,cont.grid,coarse.grid,lon.lo,lon.hi,lat.l
 1,RACA,iSDM,F,50000,F,F,,,,,1994,2025,T,T,1000,T,traveltime,NA,"sqrtarea_medium, sqrtarea_small, footprint","TRI, tmin",F,"dnorm(0,1)",T,T,1,100000,5,,5,5,3,30000,40000
 2,GPOR,iSDM,F,50000,F,T,,,,,1994,2025,T,T,1000,T,traveltime,ORM,"streamLength.km, prec, forest",elevation,F,"dnorm(0,1)",T,T,1,100000,5,,5,5,3,30000,60000
 3,RACA,subrange,T,50000,F,F,,,,,1994,2025,T,T,1000,T,traveltime,NA,"sqrtarea_medium, sqrtarea_small, footprint","TRI, tmin",F,"dnorm(0,1)",T,T,1,10000,5,,5,5,3,30000,40000
+4,GPOR,subrange,T,100000,F,F,,,,,1994,2025,T,T,1000,T,traveltime,traveltime,"streamLength.km, prec, forest",elevation,F,"dnorm(0,1)",T,T,1,10000,5,,5,5,3,30000,40000
