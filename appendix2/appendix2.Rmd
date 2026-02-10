@@ -1082,9 +1082,80 @@ Output is added to the map using:
 - `threshold` (default is 0.5, threshold to determine presence based on occupancy probability; only used if `plot` = 'boundary')
 
 
- 
-
+Here are some examples:
 ```{r plot-maps}
+
+# A few ways to look at relative abundance
+outplot <- map_species_data(title = "Lambda, mean estimate", region = region, plot = "lambda",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "none", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),
+         height = 7, width = 9)
+
+outplot <- map_species_data(title = "Lambda, relative uncertainty", region = region, plot = "lambda",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = "unc.rel",
+                          transform = "none", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-a_lambda-relunc.jpg"),
+         height = 7, width = 9)
+
+
+outplot <- map_species_data(title = "Log(lambda)", region = region, plot = "lambda",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "log", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-a_lambdalog.jpg"),
+         height = 7, width = 9)
+
+# Occupancy probability
+outplot <- map_species_data(title = "Psi, mean estimate", region = region, plot = "psi",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "none", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),
+         height = 7, width = 9)
+
+# Occupied range boundary
+outplot <- map_species_data(title = "Boundary, threshold = 0.75", region = region, plot = "boundary",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "none", plot.change = F,
+                        threshold = 0.75)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-c_boundary.jpg"),
+         height = 7, width = 9)
+
+# Spatial effect
+outplot <- map_species_data(title = "Spatial effect, mean estimate", region = region, plot = "spat",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "none", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),
+         height = 7, width = 9)
+
+# X * B (i.e., variation in relative abundance from covariates)
+outplot <- map_species_data(title = "XB, mean estimate", region = region, plot = "XB",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "none", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-e_xb.jpg"),
+         height = 7, width = 9)
+
+# Effort
+outplot <- map_species_data(title = "Effort, mean estimate", region = region, plot = "effort",
+                          out = out,
+                          plot.range = F, plot.region = F, plot.cells = F,
+                          plot.current = T, plot.uncertainty = F,
+                          transform = "none", plot.change = F)
+ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-f_effort.jpg"),
+         height = 7, width = 9)
 
 ```
 
@@ -1097,103 +1168,6 @@ Output is added to the map using:
 
 
 if (fold.out == "none") {
-  
-  ### Maps ----
-  # Current
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "lambda",
-                         out = out)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "lambda",
-                         out = out,
-                         plot.uncertainty = "unc.range")
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncabs.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "lambda",
-                         out = out,
-                         plot.uncertainty = "unc.rel")
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncrel.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "psi",
-                         out = out)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "psi",
-                         out = out,
-                         plot.uncertainty = "unc.range")
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncabs.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "psi",
-                         out = out,
-                         plot.uncertainty = "unc.rel")
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncrel.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "boundary",
-                         out = out,
-                         threshold = 0.25)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c1_boundary-0.25.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "boundary",
-                         out = out,
-                         threshold = 0.5)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c2_boundary-0.5.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "boundary",
-                         out = out,
-                         threshold = 0.75)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c3_boundary-0.75.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "spat",
-                         out = out,
-                         coarse.grid = coarse.grid,
-                         spatRegion = spatRegion)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "XB",
-                         out = out,
-                         plot.exp = T)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"),
-         height = 7, width = 9)
-  
-  pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
-                         region,
-                         plot = "effort",
-                         out = out)
-  ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"),
-         height = 7, width = 9)
-  
   
   ### Future projections ----
   if (project > 0) {
