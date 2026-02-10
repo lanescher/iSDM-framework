@@ -971,7 +971,6 @@ save(out, file = paste0(out.dir, "data", foldname, ".rdata"))
 ```
 
 All plotting functions all produce a list with two objects: `plot`, a ggplot object with our preset formatting, and `dat`, a dataframe containing the data visualized in `plot`.
-# ISSUE RILEY - Same question about plotting output - save to file or just show it within r?
 
 First, view the chains and convergence metrics to assess whether the chains are sufficiently long.
 ```{r plot-output}
@@ -1060,8 +1059,32 @@ ggsave(outplot$plot,
 ```
 
 
+Finally, the `map_species_data()` function can be used to plot the model output. There are a variety of ways to customize the maps.
 
-```{r}
+Set up the map with:
+- `title`
+- `region`
+- `plot` (options are 'samples', 'lambda', 'psi', 'boundary', 'effort', 'XB' or 'spat')
+
+Features can be added to the map using:
+- `plot.range` (default T)
+- `plot.region` (default F)
+- `plot.cells` (default F)
+
+Output is added to the map using:
+- `out` contains the model output
+- `plot.current` (default is T, use F to plot projections)
+- `plot.uncertainty` (default is F, can be 'unc.rel' or 'unc.range')
+- `transform` (default is 'none', can be 'exp' or 'log')
+- `plot.change` (default is F, can be 'relative' or 'absolute'; only used if `plot.current` = F)
+- `proj.n` (default is 0, number of projections; only used if `plot.current` = F)
+- `proj.names` (only used if `plot.current` = F)
+- `threshold` (default is 0.5, threshold to determine presence based on occupancy probability; only used if `plot` = 'boundary')
+
+
+ 
+
+```{r plot-maps}
 
 ```
 
@@ -1074,16 +1097,6 @@ ggsave(outplot$plot,
 
 
 if (fold.out == "none") {
-  
-  
-  # Posteriors ----
-  
-  
-  
-  
-  ### Parameter estimates ----
-  
-  
   
   ### Maps ----
   # Current
