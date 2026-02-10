@@ -943,7 +943,6 @@ maxchain <- 3 # the total number of chains that were fit
 
 First we'll load the MCMC samples created by `02-flexiSDM.R`, assuming the model was fit on your local computer. Instructions for models fit with a high performance computing are below. To save time in fitting the model and reduce the size of the samples.rds file, we removed all derived quantities (e.g., occupancy probability ($\psi$) and projections) from the NIMBLE code. We can calculate those derived quantities now by using the `get_derived()` function, which will create a derived quantity for each step in the MCMC chain.
 
-# ERROR iN SECTION BELOW
 ```{r load-chains, eval=F}
 # Load chains (samples) ----
 samples <- readRDS(paste0(out.dir,'samples_',fold,'.rds'))
@@ -971,79 +970,119 @@ out <- summarize_samples(samples,
 save(out, file = paste0(out.dir, "data", foldname, ".rdata"))
 ```
 
+All plotting functions all produce a list with two objects: `plot`, a ggplot object with our preset formatting, and `dat`, a dataframe containing the data visualized in `plot`.
+# ISSUE RILEY - Same question about plotting output - save to file or just show it within r?
+
+First, view the chains and convergence metrics to assess whether the chains are sufficiently long.
+```{r plot-output}
+# Read in labels that will be used for all output figures
+cov.labs <- read.csv("data/covariate-labels.csv")
+
+
+# Convergence metrics for all chains
+outplot <- plot_convergence(out)
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-0_convergence-", fold, ".jpg"),
+       height = 5, width = 12)
+
+
+# Beta 
+outplot <- plot_chains(samples, data = data, cov.labs = cov.labs,
+                       plot = "B", cutoff = 0)
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"),
+       height = 6, width = 8)
+
+outplot <- plot_posteriors(samples, data = data, cov.labs = cov.labs,
+                           plot = "B", cutoff = 0)
+ggsave(outplot,
+       file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"),
+       height = 6, width = 8)
+
+# Alpha (dataset intercepts)
+outplot <- plot_chains(samples, data = data, constants = constants, cov.labs = cov.labs,
+                       plot = "alpha", cutoff = 0)
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"),
+       height = 6, width = 8)
+
+outplot <- plot_posteriors(samples, data = data, constants = constants, cov.labs = cov.labs,
+                           plot = "alpha", cutoff = 0)
+ggsave(outplot, 
+       file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"),
+       height = 6, width = 8)
+
+
+# Tau - we fixed tau at 1, but tau could be estimated
+outplot <- plot_chains(samples, data = data, cov.labs = cov.labs,
+                       plot = "tau", cutoff = 0)
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-b1_chains-tau-",fold,".jpg"),
+       height = 6, width = 8)
+
+```
+
+Generally, an Rhat below 1.05 indicates that the chains have fully mixed and the results can be interpreted. We ran relatively short chains to minimize the computational load, so we ended up with higher Rhat. For the sake of practice, we'll look at the results anyway.
+
+We can plot the estimated parameters `plot_pars()`. Additionally, the marginal effects of the distribution model parameters can be visualized with `plot_effects()`.
+```{r plot-parameters}
+outplot <- plot_pars(out$process.coef,
+                     plot.type = "full",
+                     cov.labs = cov.labs)
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-a3_B.jpg"),
+       height = 6, width = 10)
+
+outplot <- plot_effects(data, out, cov.labs = cov.labs, breaks = 0.001)
+ggsave(outplot$plot,
+       file = paste0(out.dir, "/3_parameters-a4-effects.jpg"),
+       height = 7, width = 10)
+
+
+outplot <- plot_pars(out$alpha,
+                     plot.type = "full")
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-b3_alpha.jpg"),
+       height = 6, width = 10)
+
+outplot <- plot_pars(out$obs.coef,
+                     cov.labs = cov.labs,
+                     plot.type = "full")
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-c3_observation.jpg"),
+       height = 6, width = 10)
+
+outplot <- plot_pars(out$tau,
+                     plot.type = "full")
+ggsave(outplot$plot,
+       file = paste0(out.dir, "3_parameters-c3_tau.jpg"),
+       height = 6, width = 10)
+```
+
+
+
+```{r}
+
+```
+
+
 
 ```{r plot-output, eval=F}
 # Plot output ----
 
-# Convergence
-ggsave(plot_convergence(out),
-       file = paste0(out.dir, "3_parameters-0_convergence-", fold, ".jpg"),
-       height = 5, width = 12)
+
+
 
 if (fold.out == "none") {
-  cov.labs <- read.csv("data/covariate-labels.csv")
   
-  ### Chains ----
-  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
-                     plot = "B", cutoff = 0),
-         file = paste0(out.dir, "3_parameters-a1_chains-B.jpg"),
-         height = 6, width = 8)
-  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
-                     plot = "alpha", cutoff = 0),
-         file = paste0(out.dir, "3_parameters-b1_chains-alpha.jpg"),
-         height = 6, width = 8)
-  ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
-                     plot = "tau", cutoff = 0),
-         file = paste0(out.dir, "3_parameters-b1_chains-tau-",fold,".jpg"),
-         height = 6, width = 8)
   
   # Posteriors ----
-  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,
-                         plot = "B", cutoff = 0),
-         file = paste0(out.dir, "3_parameters-a2_posteriors-B.jpg"),
-         height = 6, width = 8)
-  ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,
-                         plot = "alpha", cutoff = 0),
-         file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"),
-         height = 6, width = 8)
+  
   
   
   
   ### Parameter estimates ----
-  ggsave(plot_pars(out,
-                   plot.type = "full",
-                   plot.group = "process",
-                   title = "Process parameter estimates",
-                   cov.labs = cov.labs),
-         file = paste0(out.dir, "3_parameters-a3_B.jpg"),
-         height = 6, width = 10)
   
-  ggsave(plot_pars(out,
-                   plot.type = "full",
-                   plot.group = "dataset",
-                   title = "Dataset parameter estimates"),
-         file = paste0(out.dir, "3_parameters-b3_alpha.jpg"),
-         height = 6, width = 10)
-  
-  ggsave(plot_pars(out,
-                   plot.type = "full",
-                   plot.group = "observation",
-                   title = "Observation intercept estimates",
-                   cov.labs = cov.labs),
-         file = paste0(out.dir, "3_parameters-c3_observation.jpg"),
-         height = 6, width = 10)
-  
-  ggsave(plot_pars(out,
-                   plot.type = "full",
-                   plot.group = "tau",
-                   title = "Tau estimate"),
-         file = paste0(out.dir, "3_parameters-c3_tau.jpg"),
-         height = 6, width = 10)
-  
-  ### Marginal effects ----
-  ggsave(plot_effects(data, out, breaks = 0.001),
-         file = paste0(out.dir, "/3_parameters-a4-effects.jpg"),
-         height = 7, width = 10)
   
   
   ### Maps ----
