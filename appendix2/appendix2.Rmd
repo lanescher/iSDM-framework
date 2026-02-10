@@ -93,14 +93,14 @@ Example: a double observer visual encounter survey. Both observations at Site A 
 
 Example: five audio recordings are taken at each visit to a site. All five recordings at Site A on Day 1 get survey.id = 1, and each recording gets a pass.id from 1 to 5. All recordings at Site B on Day 1 get survey.id = 2, and each recording gets a pass.id from 1 to 5. Site A is revisited on Day 2, and all recordings get survey.id = 3, and each recording gets a pass.id from 1 to 5.
 
-![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/appendix2/annotateddata.png)
+![Distribution of species data across the subrange](~/GitHub/iSDM-framework/appendix2/annotateddata.png)
 
 
 # Part 1: 01-flexiSDM.R
 
-## Load model specifications
+## Load and define model specifications
 
-Each model requires a variety of specifications. Rather than enter them manually in the code, we find it easier to manage multiple models by storing all specifications in a .csv file that is read in to provide input values. We call ours `model-specs.csv`. Each row represents a model, so you can easily see and edit the parameters used for each model. Let's load the .csv and take a look at how we structured it.
+Each model requires a variety of specifications. Rather than enter them manually in the code, we find it easier to manage multiple models by storing all specifications in a .csv file that is read in to provide input values. We call our csv file `model-specs.csv`. Each row represents a model, so you can easily see and edit the parameters used for each model. Let's load the .csv and take a look at how we structured it.
 
 ```{r model-specs}
 mods <- read.csv("code/model-specs.csv")
@@ -126,7 +126,7 @@ The following table describes the column names, data type, and description found
 | year.start      | numeric   | 1994               | Starting year of data to include         |
 | year.end        | numeric   | current year       | Ending year of data to include           |
 | filter.region   | logical   | F to see if species is recorded outside of range | Should data outside of the region be removed? Note that this is only for mapping purposes; data that are outside of the region are never used to fit the model          |
-| spat.bal        | logical   | T                  |Should the PO data be spatially balanced?         |
+| spat.thin        | logical   | T                  |Should the PO data be spatially thinned?         |
 | coordunc        | numeric   | 1000            | The level of acceptable coordinate uncertainty (meters, for PO datasets that record coordinate uncertainty)    |
 | coordunc_na.rm  | logical   | T               | Should PO data with coordinate uncertainty = NA be removed? (for PO datasets that record coordinate uncertainty)|
 | covs.PO         | character | human density   | A comma-separated list of covariates for modeling non-iNaturalist PO sampling effort. These must match the covariate names in the data. |
@@ -134,7 +134,7 @@ The following table describes the column names, data type, and description found
 | covs.lin        | character | based on species ecology | A comma-separated list of linear covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | covs.quad       | character | based on species ecology | A comma-separated list of quadratic covariates for modeling species relative abundance. These must match the covariate names in the data. |
 | check.covs      | logical   | T               | Should covariate selection remove multicollinearity? |
-| Bprior          | numeric or character | dnorm(0, 1) | Assign a prior distribution in BUGS language for the $\beta$ coefficients in the state model (e.g., dnorm(1,0))
+| Bprior          | numeric or character | dnorm(0, 1) | Assign a prior distribution in BUGS language for the $\beta$ coefficients in the distribution model (e.g., dnorm(1,0))
 | sp.auto         | logical   | T               | Should a spatial model be included?      |
 | zero_mean       | logical   | T               | Should a zero mean assumption be included in the spatial model? |
 | tau             | numeric or character | 1    | Assign a fixed value or a prior distribution in BUGS language for precision ($\tau$; e.g., dgamma(5,5)) |
@@ -156,13 +156,11 @@ local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
 
-For the purposes of this demonstration, we're going to fit model 3, which uses a centroid of the Cascades frog (RACA) range with a 50,000km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`.
+For the purposes of this demonstration, we're going to fit model 3, which uses the centroid of the Cascades frog (RACA) range with a 50km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`.
 
 
 
-### Define model specifications
-
-Now that we have loaded our model specifications, we can use them to define a series of inputs for the setup script (found in `01-flexiSDM.R`).
+Now that we have loaded our model specifications, we can use them to define a series of inputs for the setup script.
 
 ```{r mods}
 ## Set up model variables
@@ -173,13 +171,13 @@ number <- mods$number[1] # model number
 sp.code <- mods$sp.code[1] # species code
 model <- mods$model[1] # model name
 sp.auto <- mods$sp.auto[1] # include spatial autocorrelation?
-coarse.grid <- mods$coarse.grid[1] # use a coarse grid?
+coarse.grid <- mods$coarse.grid[1] # use a coarse grid for the spatial effect?
 cont.grid <- mods$cont.grid[1] # restrict to only a continuous grid?
 year.start <- mods$year.start[1] # start year for data
 year.end <- mods$year.end[1] # end year for data
 buffer <- mods$buffer[1] # buffer size (m)
 filter.region <- mods$filter.region[1] # filter data to the region?
-spat.bal <- mods$spat.bal[1] # include spatial balancing for PO data?
+spat.thin <- mods$spat.thin[1] # include spatial thinning for PO data?
 coordunc <- mods$coordunc[1] # level of coordinate uncertainty to include (m)
 coordunc_na.rm <- mods$coordunc_na.rm[1] # include coordinate uncertainty = NA?
 block.folds <- mods$block.folds[1] # how many groups of blocks?
@@ -214,17 +212,17 @@ if (fold.out != "none") {
 }
 
 ## Covariates
-# list of non-iNaturalist PO covariates
+# non-iNaturalist PO covariates
 covs.PO <- unlist(str_split(mods$covs.PO[1], pattern = ", "))
-# list of iNaturalist covariates
+# iNaturalist covariates
 covs.inat <- unlist(str_split(mods$covs.inat[1], pattern = ", "))
-# list of linear covariates for state model
+# linear covariates for distribution model
 covs.lin <- unlist(str_split(mods$covs.lin[1], pattern = ", "))
-# list of quadratic covariates for state model
+# quadratic covariates for distribution model
 covs.quad <- unlist(str_split(mods$covs.quad[1], pattern = ", "))
-check.covs <- mods$check.covs[1] # covariate selection to remove multicollinearity?
+check.covs <- mods$check.covs[1] # covariate selection to remove multicollinearity? (T/F)
 
-## Define the prior for the state model coefficients
+## Define the prior for the distribution model coefficients
 Bprior <- mods$Bprior[1]
 
 ## Combine linear and quadratic distribution covariates into covs.z
@@ -259,7 +257,7 @@ if (dir.exists(data.dir) == F) {
 
 ## Step 1: Define the region
 
-We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid (`conus.grid`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we create the region and provide the file in `data.dir/region.rds` to bypass this step.
+We define the region of inference using the GAP and IUCN ranges. Other boundaries could be used to create the limits of the range. We saved the IUCN and GAP range boundaries in folders in `data/sp.code`, so that they can be called by the `get_range()` function. We have also downloaded the US Census state boundary shapefile (`cb_2018_us_state_500k.shp`) to dictate the national and state borders. We have already overlaid a continental US hexbin grid (`conus.grid`). Unfortunately, this file is too large to upload to GitHub, so we demonstrate how we created the region and provide the file in `data.dir/region.rds` to bypass this step.
 
 ```{r ranges, results = 'hide'}
 ## Generating the region requires files that are too big for GitHub just read it in
@@ -279,33 +277,32 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
                "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
   usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
-          filter((NAME %in% exclude) == F) %>%
-          st_union()
+    filter((NAME %in% exclude) == F) %>%
+    st_union()
   ## CONUS grid
-  load("../species-futures/data/USA/grid-covar.rdata") # Too big for GitHub
-
+  load("../species-futures/data/USA/grid-and-huc.rdata", verbose = T)
+  
   ## Region
   region <- make_region(rangelist,
                         buffer = buffer,
-                        crs = 3857,
                         sub = region.sub,
-                        boundary = usa,
-                        grid = conus.grid,  # You can use any grid to delineate spatial units
-                        rm.clumps = T,
-                        clump.size = 50,
+                        boundary = usa, # crop study region to this boundary
+                        grid = conus.grid, # You can use any grid to delineate spatial units
+                        rm.clumps = T, # remove small clumps of cells?
+                        clump.size = 50, # size of clumps to remove, if rm.clumps = T
                         continuous = cont.grid)
   
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
 ```
 
-There is one additional step here if you intend to use a coarse spatial grid for the spatial model. Using a coarse grid improves computation time, which may be of concern for large-range species. We must redefine the spatial grid by grouping neighboring hexbins together in sets of seven via the `make_spatkey` function. Otherwise, `spatRegion` is set to NULL.
+There is one additional step here if you intend to use a coarse spatial grid for the spatial model. Using a coarse grid greatly reduces computation time, which may be of concern for large-range species. We must redefine the spatial grid by grouping neighboring hexbins together in sets of seven via the `make_spatkey()` function. Otherwise, `spatRegion` is set to NULL.
 
 ```{r spatRegion}
 ## If using the coarse spatial grid, redefine the grid and plot the resulting grid.
 if (coarse.grid == T) {
   spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
-
+  
   # Print spatial grid
   if (fold.out == 'none') {
     pl <- ggplot(spatRegion$spat.grid) + geom_sf() + theme_bw()
@@ -330,19 +327,19 @@ if (fold.out == "none") {
   # If fitting the full model, then there are no test data
   test.i <- c()            
   train.i <- region$sp.grid$conus.grid.id
-
+  
 } else {
   
   ## Set up cross validation blocks
   block1 <- spatblocks %>% filter(folds == fold.out)
-
+  
   ## Find grid.ids for test fold, everything else is in the training fold
   test.i <- st_intersection(region$sp.grid, block1) %>%
-             pull(conus.grid.id) %>%
-             unique()
+    pull(conus.grid.id) %>%
+    unique()
   
   train.i <- filter(region$sp.grid, conus.grid.id %in% test.i == F) %>%
-              pull(conus.grid.id)
+    pull(conus.grid.id)
 }
 ```
 
@@ -353,10 +350,10 @@ After the cross-validation blocks are assembled, the cells are assigned to "trai
 ```{r gridkey}
 # Make gridkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
-            st_drop_geometry() %>%
-            mutate(grid.id = 1:nrow(.),
-                   group = case_when(conus.grid.id %in% train.i ~ "train",
-                                     conus.grid.id %in% test.i ~ "test"))
+  st_drop_geometry() %>%
+  mutate(grid.id = 1:nrow(.),
+         group = case_when(conus.grid.id %in% train.i ~ "train",
+                           conus.grid.id %in% test.i ~ "test"))
 ```
 
 
@@ -372,49 +369,57 @@ codeKey <- read.csv("data/model-specieslist.csv")
 
 ## Common name
 common <- codeKey %>%
-            filter(DS.code == sp.code) %>%
-            pull(SSAR.common)
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.common)
 common
 
 ## All species codes used (some species are complexes or have subspecies so multiple codes exist)
 sp.code.all <- codeKey %>%
-                filter(DS.code == sp.code) %>%
-                pull(all.codes)
+  filter(DS.code == sp.code) %>%
+  pull(all.codes)
 sp.code.all
 
 ## Scientific name
 sciname <- codeKey %>%
-            filter(DS.code == sp.code) %>%
-            pull(SSAR.scientific)
+  filter(DS.code == sp.code) %>%
+  pull(SSAR.scientific)
 sciname
 
 ## Save genus name to assign Frog/Toad or Salamander
 spp.type <- codeKey %>%
-            filter(DS.code == sp.code) %>%
-            pull(spp.type)
+  filter(DS.code == sp.code) %>%
+  pull(spp.type)
 spp.type
 ```
 
-Next we will load a dataframe with the names of data sources (`00-data-summary-flexiSDM.csv`). We define ours in a CSV file because we have hundreds of datasets to filter through for different species. This process could also be done by manually creating a dataframe with the same column names. The necessary columns are: `file.name` (how the file is named in the source folder), `file.label` (the label for the data source), data.type (Count, DND, or PO), PO.extent (does the presence-only span the continent or a particular state), `covar.mean` (detection covariates that should be averaged across passes), `covar.sum` (detection covariates that should be summed across passes). For additional clarification, sometimes it is more appropriate to summarize detection covariates by averaging than summing and vice versa. For example, the number of survey minutes should be summed but the temperature during the survey should be averaged. 
-Note that the dataset names(s) included in `exclude.datasets` must match the `file.label` column.
+Next we will create a dataframe containing information about each data source. We define ours in a CSV file (`00-data-summary-flexiSDM.csv`) because we have hundreds of datasets to filter through for different species. This process could also be done by manually creating a dataframe with the same column names. The necessary columns are: 
+
+-`file.name` (how the file is named in the source folder)
+-`file.label` (the label for the data source)
+-`data.type` (Count, DND, or PO)
+-`PO.extent` (does the presence-only span the continent or a particular state; only required for PO)
+-`covar.mean` (detection covariates that should be averaged across passes) 
+-`covar.sum` (detection covariates that should be summed across passes)
+
+For additional clarification, sometimes it is more appropriate to summarize detection covariates by averaging than summing and vice versa. For example, the number of survey minutes should be summed across passes but the temperature during the survey should be averaged. 
 
 
 ```{r species-data}
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-            filter(Species == sp.code) %>%
-            rename(file.name = Data.Swamp.file.name,
-                   file.label = Name,
-                   covar.mean = Covar.mean,
-                   covar.sum = Covar.sum,
-                   data.type = Type.true) %>%
-            select(file.name, file.label, covar.mean, covar.sum, 
-                   data.type, PO.extent)
+  filter(Species == sp.code) %>%
+  rename(file.name = Data.Swamp.file.name,
+         file.label = Name,
+         covar.mean = Covar.mean,
+         covar.sum = Covar.sum,
+         data.type = Type.true) %>%
+  select(file.name, file.label, covar.mean, covar.sum, 
+         data.type, PO.extent)
 
 head(allfiles)
 ```
 
-We can now use `allfiles` to load all of the species data sources. We have developed a function called `load_species_data` which takes the species code, `allfiles`, the region, and information about filtering, start/end dates, and spatial uncertainty to load and filter the data appropriately. The number of observations removed from each data source and the reasons for removal are provided as console output to the user. 
+We can now use `allfiles` to load all of the species data sources. We have developed the function `load_species_data()` which takes the species code(s), `allfiles`, the region, and information about filtering, start/end dates, and spatial uncertainty to load and filter the data appropriately. The number of observations removed from each data source and the reasons for removal are provided as console output to the user. 
 
 
 ```{r load-species-data}
@@ -428,7 +433,7 @@ species.data <- load_species_data(sp.code,
                                   year.end = year.end,
                                   coordunc = coordunc,
                                   coordunc_na.rm = coordunc_na.rm,
-                                  spat.thin = spat.bal,
+                                  spat.thin = spat.thin,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 ```
@@ -449,22 +454,22 @@ if (fold == "none") {
 }
 
 ## Plot data samples
-pl <- map_species_data(region = region,
-                       species.data = species.data,
-                       year.start = year.start,
-                       year.end = year.end,
-                       plot = "samples",
-                       plot.region = T,
-                       details = F,
-                       title = paste0(common, " (", sp.code, ")", title))
+out <- map_species_data(region = region,
+                        species.data = species.data,
+                        year.start = year.start,
+                        year.end = year.end,
+                        plot = "samples",
+                        plot.region = T,
+                        details = F,
+                        title = paste0(common, " (", sp.code, ")", title))
 
 ## Save plot
-ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", foldname, ".jpg"),
+ggsave(out$plot, file = paste0(out.dir, "2_inputmap-a_data-", foldname, ".jpg"),
        height = 8, width = 10)
 ```
 
 
-![Distribution of species data across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
+![Distribution of species data across the subrange](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
 
 We can also take a look at the distribution of data across the cross-validation folds.
 
@@ -472,49 +477,47 @@ We can also take a look at the distribution of data across the cross-validation 
 ```{r cv-plots}
 ## Cross-validation fold-specific plots
 if (fold.out != "none") {
-
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         plot.blocks = T,
-                         blocks = spatblocks[which(spatblocks$folds == fold),],
-                         plot.region = T,
-                         details = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
+  
+  out <- map_species_data(region = region,
+                          species.data = species.data,
+                          year.start = year.start,
+                          year.end = year.end,
+                          plot = "samples",
+                          blocks = spatblocks[which(spatblocks$folds == fold),],
+                          plot.region = T,
+                          details = F,
+                          title = paste0(common, " (", sp.code, ")", title))
+  ggsave(out$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
          height = 8, width = 10)
 } else {
   # Plot
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         plot.blocks = T,
-                         blocks = spatblocks,
-                         plot.region = T,
-                         details = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
+  out <- map_species_data(region = region,
+                          species.data = species.data,
+                          year.start = year.start,
+                          year.end = year.end,
+                          plot = "samples",
+                          blocks = spatblocks,
+                          plot.region = T,
+                          details = F,
+                          title = paste0(common, " (", sp.code, ")", title))
+  ggsave(out$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
          height = 8, width = 10)
 }
 ```
 
-![Distribution of data with overlaid cross-validation blocks](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
+![Distribution of data with overlaid cross-validation blocks](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
 
 ## Step 5: Load covariate data
 
-We're now ready to download covariate data for the subrange. We use functions from the `SpFut.covariates` package. These functions consist of wrappers for other data sources (e.g., National Hydrologic Database IS THAT WHAT IT'S CALLED? and  the `geodata` R package) that download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly.
+We're now ready to set up the covariate data. The dataframe `covar` needs to contain all covariates needed for the distribution model (`covs.z`), as well as all covariates needed for the PO effort models (`covs.PO` and `covs.inat`). These covariates vary across species. Any method can be used to derive the covariates, as long as it is aggregated to the spatial unit and contains a column for `conus.grid.id`.
 
-The `covar` object needs to contain all covariates needed for the distribution model (`covs.z`), as well as all covariates needed for the PO effort models (`covs.PO` and `covs.inat`). These covariates will vary across species. Any method can be used to derive the covariates, as long as it is aggregated to the spatial unit and included in `covar`.
+We download and process covariates using functions from the `SpFut.covariates` package (ISSUE - cite). These functions consist of wrappers for other data sources (e.g., National Hydrography Database and  the `geodata` R package (ISSUE - cite)) that download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly.
 
-DO WE WANT TO INCLUDE A DEMONSTRATION OF "OTHER INAT SPECIES" AS A COVARIATE OR SKIP IT IN THIS APPENDIX? - CLS says skip it. I added some text about other covariates being needed for other species 
-
-Just a note: Downloading and assembling the covariate data can take significant time depending on the size of the range and your internet connection. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step.
+Note: Downloading and assembling the covariate data can take significant time depending on the size of the range and your internet connection. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step.
 
 ```{r cov-data}
+
+# ISSUE - re-download covariates with CRAN package
 if (sp.code == "RACA") {
   
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
@@ -534,13 +537,13 @@ if (sp.code == "RACA") {
     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
     
     covar <- full_join(tri, footprint, by = "conus.grid.id") %>%
-              full_join(climate, by = "conus.grid.id") %>%
-              full_join(waterbody, by = "conus.grid.id") %>%
-              full_join(traveltime, by = "conus.grid.id") %>%
-              mutate(sqrtarea_small = sqrt(area_small),
-                     sqrtarea_medium = sqrt(area_medium)) %>%
-              select(conus.grid.id, sqrtarea_small, sqrtarea_medium, 
-                     footprint, TRI, tmin, traveltime)
+      full_join(climate, by = "conus.grid.id") %>%
+      full_join(waterbody, by = "conus.grid.id") %>%
+      full_join(traveltime, by = "conus.grid.id") %>%
+      mutate(sqrtarea_small = sqrt(area_small),
+             sqrtarea_medium = sqrt(area_medium)) %>%
+      select(conus.grid.id, sqrtarea_small, sqrtarea_medium, 
+             footprint, TRI, tmin, traveltime)
     
     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
     write_rds(covar, file = paste0(data.dir, "covariates.rds"))
@@ -583,18 +586,18 @@ if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
 ```
 
 
-There's one additional step that could be done here. If removing multicollinearity is desired, the following piece of code would check and remove covariates that violate a 0.4 correlation threshold. If there are fewer than 3 covariates remaining after the procedure, then a message will alert you.
+There's one additional step that could be done here. If removing multicollinearity is desired, the following piece of code would check and remove covariates that violate a certain correlation threshold (we use 0.4). If there are fewer than 3 covariates remaining after the procedure, then a message will alert you.
 
 ```{r collinearity, eval=F}
 # remove covariates that are correlated > 0.4
 if (check.covs == T){
-
+  
   threshold <- 0.4
-
+  
   covs.rm <- select_covar(covs.z, threshold = threshold)
   covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
   covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
-
+  
   covs.z <- c(covs.lin, covs.quad)
 }
 
@@ -609,6 +612,8 @@ if (length(covs.z) < 3) {
 Now that we've downloaded covariate data, let's take a look at the distribution of each covariate and the correlations between them.
 
 ```{r plot-covs, results = 'hide'}
+
+# ISSUE - figure out which plots to display, how to display
 if (fold.out == "none") {
   
   ## Distribution covariates
@@ -616,40 +621,30 @@ if (fold.out == "none") {
   ## Define covariate labels
   covlabs <- read.csv("data/covariate-labels.csv") %>% filter(covariate %in% covs.z)
   
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-a_process-map")
+  out <- plot_covar(covar,
+                    region,
+                    cov.labs = covlabs,
+                    scaled = T)
   
-  cor_covar(covar, 
-            cov.names = covlabs$covariate,
-            cov.labels = covlabs$Label,
-            out.path = out.dir,
-            out.name = "1_covariates-a_process-correlations", 
-            color.threshold = 0.25)
+  out <- cor_covar(covar, 
+                   cov.labs = covlabs,
+                   color.threshold = 0.25)
   
   ## iNat covariates
   if ("iNaturalist" %in% names(species.data$obs)) {
     ## Define covariate labels
     covlabs <- read.csv("data/covariate-labels.csv") %>%
-                filter(covariate %in% covs.inat)
+      filter(covariate %in% covs.inat)
     
-    plot_covar(covar,
-               region,
-               cov.names = covlabs$covariate,
-               cov.labels = covlabs$Label,
-               out.path = out.dir,
-               out.name = "1_covariates-b_iNat-map")
+    out <- plot_covar(covar,
+                      region,
+                      cov.labs = covlabs,
+                      scaled = T)
     
     if (length(covs.inat) > 1) {
-      cor_covar(covar, 
-                cov.names = covlabs$covariate,
-                cov.labels = covlabs$Label,
-                out.path = out.dir,
-                out.name = "1_covariates-b_iNat-correlations", 
-                color.threshold = 0.25)
+      out <- cor_covar(covar, 
+                       cov.labs = covlabs,
+                       color.threshold = 0.25)
     }
   }
   
@@ -657,48 +652,43 @@ if (fold.out == "none") {
   
   ## Define covariate labels
   covlabs <- read.csv("data/covariate-labels.csv") %>%
-              filter(covariate %in% covs.PO)
+    filter(covariate %in% covs.PO)
   
-  plot_covar(covar,
-             region,
-             cov.names = covlabs$covariate,
-             cov.labels = covlabs$Label,
-             out.path = out.dir,
-             out.name = "1_covariates-c_PO-map")
+  out <- plot_covar(covar,
+                    region,
+                    cov.labs = covlabs,
+                    scaled = T)
   
   if (length(covs.PO) > 1) {
-    cor_covar(covar, 
-              cov.names = covlabs$covariate,
-              cov.labels = covlabs$Label,
-              out.path = out.dir,
-              out.name = "1_covariates-c_PO-correlations", 
-              color.threshold = 0.25)
+    out <- cor_covar(covar, 
+                     cov.labs = covlabs,
+                     color.threshold = 0.25)
   }
 }
 ```
 
 
-![Distribution of distribution-level covariates across the subrange](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
+![Distribution of distribution-level covariates across the subrange](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
 
-![Correlation between distribution-level covariates](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
+![Correlation between distribution-level covariates](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
 
-![Distribution of presence-only (PO) effort covariates](C:/Users/rmummah/OneDrive - DOI/Documents/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg)
+![Distribution of presence-only (PO) effort covariates](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg)
 
 ## Step 7: NIMBLE
 
-To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function that combines and formats  species datasets (`allfiles`) and their associated covariates (contained in `allfiles`, `covs.inat`, and `covs.PO`)
+To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function that combines and formats species datasets (`allfiles`) and their associated covariates (contained in `allfiles`, `covs.inat`, and `covs.PO`)
 
 ```{r spdata}
 sp.data <- sppdata_for_nimble(
-                  species.data,
-                  region,
-                  file.info = allfiles,
-                  covar = covar,
-                  covs.inat = covs.inat,
-                  covs.PO = covs.PO,
-                  DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
-                  # Only keep PO cells that training grid cells
-                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) 
+  species.data,
+  region,
+  file.info = allfiles,
+  covar = covar,
+  covs.inat = covs.inat,
+  covs.PO = covs.PO,
+  DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
+  # Only keep PO cells that training grid cells
+  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) 
 ```
 
 Next, the distribution-level covariates (`covar`) are combined with the formatted species data. This combined data is then broken into `data` and `constants` which are the inputs for the NIMBLE model. As their names imply, the `data` list object contains values which vary over space or time (e.g., species data, distribution-level covariates, and detection covariates). The `constants` list object contains fixed values such as the number of cells in the grid, grid indices for specific datasets, names of datasets, and parameters for the spatial model.
@@ -729,15 +719,18 @@ if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
 # RACA has no iNat data
 if (sp.code == "RACA") obsc.state <- NA
 
+statemap <- ne_states(country = c("Canada", "Mexico", "United States of America"),
+                      returnclass = "sf")
+stategrid <- get_state_grid(region, statemap)
 
 constants <- add_state_ind(
-               species.data,
-               region,
-               gridkey,
-               constants,
-               covs.inat = covs.inat,
-               obsc.state = obsc.state,
-               keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+  species.data,
+  region,
+  gridkey,
+  constants,
+  stategrid = stategrid,
+  obsc.state = obsc.state,
+  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 ```
 
 
@@ -752,7 +745,6 @@ code <- nimble_code(data,
                     coarse.grid = coarse.grid,
                     Bprior = Bprior,
                     block.out = fold.out,
-                    min.visits.incl = 3, 
                     zero_mean = zero_mean,
                     rm.state = F,
                     tau = tau)
@@ -786,7 +778,7 @@ Remove objects that are large and are not required for further steps, save the w
 ```{r clean-up}
 # Remove local and fold in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
-rm(list=c('local','fold','args','conus.covar.grid','conus.grid',
+rm(list=c('local','fold','args','conus.covar.grid','conus.grid', 'conus.huc',
           'usa','conus', 'pl','centroid'))
 
 
@@ -846,16 +838,16 @@ if (local == 1) {
                             iter = iter,
                             burnin = burnin,
                             thin = thin)
-
+  
   end.nim <- Sys.time() - start.nim
   print(end.nim)
-
+  
   saveRDS(samples, paste0(out.dir,'samples_',fold,'.rds'))
 } else {
-
+  
   info <- list(seed = chain,
                inits = inits(chain))
-
+  
   start.nim <- Sys.time()
   samples <- run_nimbleMCMC(info = info,
                             code = code,
@@ -865,10 +857,10 @@ if (local == 1) {
                             iter = iter,
                             burnin = burnin,
                             thin = thin)
-
+  
   end.nim <- Sys.time() - start.nim
   print(end.nim)
-
+  
   saveRDS(samples, paste0(out.dir,'samples_',fold,'_',chain,'.rds'))
 }
 ```
@@ -949,7 +941,7 @@ ggsave(plot_convergence(out),
 
 if (fold.out == "none") {
   cov.labs <- read.csv("data/covariate-labels.csv")
-
+  
   ### Chains ----
   ggsave(plot_chains(samples, data = data, cov.labs = cov.labs,
                      plot = "B", cutoff = 0),
@@ -963,7 +955,7 @@ if (fold.out == "none") {
                      plot = "tau", cutoff = 0),
          file = paste0(out.dir, "3_parameters-b1_chains-tau-",fold,".jpg"),
          height = 6, width = 8)
-
+  
   # Posteriors ----
   ggsave(plot_posteriors(samples, data = data, cov.labs = cov.labs,
                          plot = "B", cutoff = 0),
@@ -973,9 +965,9 @@ if (fold.out == "none") {
                          plot = "alpha", cutoff = 0),
          file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"),
          height = 6, width = 8)
-
-
-
+  
+  
+  
   ### Parameter estimates ----
   ggsave(plot_pars(out,
                    plot.type = "full",
@@ -984,14 +976,14 @@ if (fold.out == "none") {
                    cov.labs = cov.labs),
          file = paste0(out.dir, "3_parameters-a3_B.jpg"),
          height = 6, width = 10)
-
+  
   ggsave(plot_pars(out,
                    plot.type = "full",
                    plot.group = "dataset",
                    title = "Dataset parameter estimates"),
          file = paste0(out.dir, "3_parameters-b3_alpha.jpg"),
          height = 6, width = 10)
-
+  
   ggsave(plot_pars(out,
                    plot.type = "full",
                    plot.group = "observation",
@@ -999,20 +991,20 @@ if (fold.out == "none") {
                    cov.labs = cov.labs),
          file = paste0(out.dir, "3_parameters-c3_observation.jpg"),
          height = 6, width = 10)
-
+  
   ggsave(plot_pars(out,
                    plot.type = "full",
                    plot.group = "tau",
                    title = "Tau estimate"),
          file = paste0(out.dir, "3_parameters-c3_tau.jpg"),
          height = 6, width = 10)
-
+  
   ### Marginal effects ----
   ggsave(plot_effects(data, out, breaks = 0.001),
          file = paste0(out.dir, "/3_parameters-a4-effects.jpg"),
          height = 7, width = 10)
-
-
+  
+  
   ### Maps ----
   # Current
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
@@ -1021,7 +1013,7 @@ if (fold.out == "none") {
                          out = out)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "lambda",
@@ -1029,7 +1021,7 @@ if (fold.out == "none") {
                          plot.uncertainty = "unc.range")
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncabs.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "lambda",
@@ -1037,14 +1029,14 @@ if (fold.out == "none") {
                          plot.uncertainty = "unc.rel")
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-a_lambda-uncrel.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "psi",
                          out = out)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "psi",
@@ -1052,7 +1044,7 @@ if (fold.out == "none") {
                          plot.uncertainty = "unc.range")
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncabs.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "psi",
@@ -1060,7 +1052,7 @@ if (fold.out == "none") {
                          plot.uncertainty = "unc.rel")
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-b_psi-uncrel.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "boundary",
@@ -1068,7 +1060,7 @@ if (fold.out == "none") {
                          threshold = 0.25)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c1_boundary-0.25.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "boundary",
@@ -1076,7 +1068,7 @@ if (fold.out == "none") {
                          threshold = 0.5)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c2_boundary-0.5.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "boundary",
@@ -1084,7 +1076,7 @@ if (fold.out == "none") {
                          threshold = 0.75)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-c3_boundary-0.75.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "spat",
@@ -1093,7 +1085,7 @@ if (fold.out == "none") {
                          spatRegion = spatRegion)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "XB",
@@ -1101,15 +1093,15 @@ if (fold.out == "none") {
                          plot.exp = T)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-d_expXB.jpg"),
          height = 7, width = 9)
-
+  
   pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                          region,
                          plot = "effort",
                          out = out)
   ggsave(pl, file = paste0(out.dir, "4_mapcurrent-e_effort.jpg"),
          height = 7, width = 9)
-
-
+  
+  
   ### Future projections ----
   if (project > 0) {
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
@@ -1121,7 +1113,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "lambda",
@@ -1132,7 +1124,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncabs.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "lambda",
@@ -1143,7 +1135,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-a_lambda-uncrel.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "psi",
@@ -1153,7 +1145,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "psi",
@@ -1164,7 +1156,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncabs.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "psi",
@@ -1175,7 +1167,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-b_psi-uncrel.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "boundary",
@@ -1186,7 +1178,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c1_boundary-0.25.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "boundary",
@@ -1197,7 +1189,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c2_boundary-0.5.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "boundary",
@@ -1208,7 +1200,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-c3_boundary-0.75.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "XB",
@@ -1218,8 +1210,8 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "5_mapfuture-d_expXB-future.jpg"),
            height = 7, width = 9)
-
-
+    
+    
     ### Future absolute change ----
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
@@ -1230,7 +1222,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "6_mapchange-a1_lambda-abs.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "psi",
@@ -1240,7 +1232,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "6_mapchange-b1_psi-abs.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "boundary",
@@ -1251,7 +1243,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "6_mapchange-c1_boundary-abs-0.25.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "boundary",
@@ -1262,7 +1254,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "6_mapchange-c2_boundary-abs-0.5.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "boundary",
@@ -1273,7 +1265,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "6_mapchange-c3_boundary-abs-0.75.jpg"),
            height = 7, width = 9)
-
+    
     ### Future relative change ----
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
@@ -1284,7 +1276,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl, file = paste0(out.dir, "6_mapchange-a2_lambda-rel.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = paste0(common, " (", sp.code, ")"),
                            region,
                            plot = "psi",
@@ -1350,10 +1342,10 @@ The inputs provided to the `.sh` scripts are converted to inputs to the `01-flex
 args = commandArgs(trailingOnly = TRUE)
 
 if (length(args) > 0) {
-
+  
   # Model number to run
   nums.do = as.numeric(args[1])
-
+  
   # Blocks can be run as single jobs or as arrays
   fold = as.numeric(args[2])
   
@@ -1361,10 +1353,10 @@ if (length(args) > 0) {
   if (fold == 4) {
     fold <- 'none'
   }
-
+  
   # Running locally? Yes = 1
   local = as.numeric(args[3])
-
+  
   # If running on an HPC, set the working directory to the project home directory
   if (local == 0) {
     setwd('/home/directory/')
