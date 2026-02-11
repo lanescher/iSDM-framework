@@ -156,7 +156,7 @@ local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
 
-For the purposes of this demonstration, we're going to fit model 3, which uses the centroid of the Cascades frog (RACA) range with a 50km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`.
+For the purposes of this demonstration, we're going to fit model 3, which uses the centroid of the Cascades frog (RACA) range with a 50km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`. We have provided an additional example, model 4, which uses the centroid of the Spring salamander (GPOR) range with a 100km buffer. The output displayed in this file are for the RACA model, but the GPOR model output will look similar.
 
 
 
@@ -654,11 +654,10 @@ if (length(covs.z) < 3) {
 
 ## Step 6: Plot covariates
 
-Now that we've downloaded covariate data, let's take a look at the distribution of each covariate and the correlations between them.
+Now that we've downloaded covariate data, let's take a look at the distribution of each covariate. If there are multiple covariates, we can look at the correlations between them.
 
 ```{r plot-covs, results = 'hide'}
 
-# ISSUE RILEY - functions don't auto-save figures anymore, do we want to save the figures and then display them from their file location or just display them from within r
 if (fold.out == "none") {
   
   ## Distribution covariates
@@ -670,10 +669,12 @@ if (fold.out == "none") {
                     region,
                     cov.labs = covlabs,
                     scaled = T)
+  ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_process-map.jpg"))
   
   out <- cor_covar(covar, 
                    cov.labs = covlabs,
                    color.threshold = 0.25)
+  ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_process-cors.jpg"))
   
   ## iNat covariates
   if ("iNaturalist" %in% names(species.data$obs)) {
@@ -685,11 +686,13 @@ if (fold.out == "none") {
                       region,
                       cov.labs = covlabs,
                       scaled = T)
+    ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_POinat-map.jpg"))
     
     if (length(covs.inat) > 1) {
       out <- cor_covar(covar, 
                        cov.labs = covlabs,
                        color.threshold = 0.25)
+      ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_POinat-cors.jpg"))
     }
   }
   
@@ -703,11 +706,13 @@ if (fold.out == "none") {
                     region,
                     cov.labs = covlabs,
                     scaled = T)
+  ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_PO-map.jpg"))
   
   if (length(covs.PO) > 1) {
     out <- cor_covar(covar, 
                      cov.labs = covlabs,
                      color.threshold = 0.25)
+    ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_PO-cors.jpg"))
   }
 }
 ```
@@ -819,8 +824,8 @@ Remove objects that are large and are not required for further steps, save the w
 ```{r clean-up}
 # Remove local and fold in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
-rm(list=c('local','fold','args','conus.covar.grid','conus.grid', 'conus.huc',
-          'usa','conus', 'pl','centroid'))
+suppressWarnings(rm(list=c('local','fold','args','conus.covar.grid','conus.grid', 'conus.huc',
+                           'usa','conus', 'pl','centroid')))
 
 
 # Save environment and full set up
@@ -1087,77 +1092,98 @@ Here are some examples:
 
 # A few ways to look at relative abundance
 outplot <- map_species_data(title = "Lambda, mean estimate", region = region, plot = "lambda",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "none", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "none", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-a_lambda.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 outplot <- map_species_data(title = "Lambda, relative uncertainty", region = region, plot = "lambda",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = "unc.rel",
-                          transform = "none", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = "unc.rel",
+                            transform = "none", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-a_lambda-relunc.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 
 outplot <- map_species_data(title = "Log(lambda)", region = region, plot = "lambda",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "log", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "log", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-a_lambdalog.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 # Occupancy probability
 outplot <- map_species_data(title = "Psi, mean estimate", region = region, plot = "psi",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "none", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "none", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-b_psi.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 # Occupied range boundary
 outplot <- map_species_data(title = "Boundary, threshold = 0.75", region = region, plot = "boundary",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "none", plot.change = F,
-                        threshold = 0.75)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "none", plot.change = F,
+                            threshold = 0.75)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-c_boundary.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 # Spatial effect
 outplot <- map_species_data(title = "Spatial effect, mean estimate", region = region, plot = "spat",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "none", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "none", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-d_spat.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 # X * B (i.e., variation in relative abundance from covariates)
 outplot <- map_species_data(title = "XB, mean estimate", region = region, plot = "XB",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "none", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "none", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-e_xb.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 # Effort
 outplot <- map_species_data(title = "Effort, mean estimate", region = region, plot = "effort",
-                          out = out,
-                          plot.range = F, plot.region = F, plot.cells = F,
-                          plot.current = T, plot.uncertainty = F,
-                          transform = "none", plot.change = F)
+                            out = out,
+                            plot.range = F, plot.region = F, plot.cells = F,
+                            plot.current = T, plot.uncertainty = F,
+                            transform = "none", plot.change = F)
 ggsave(outplot$plot, file = paste0(out.dir, "4_mapcurrent-f_effort.jpg"),
-         height = 7, width = 9)
+       height = 7, width = 9)
 
 ```
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-a_lambda.jpg)
+
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-a_lambda-relunc.jpg)
+
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-a_lambdalog.jpg)
+
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-b_psi.jpg)
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-c_boundary.jpg)
+
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-d_spat.jpg)
+
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-e_xb.jpg)
+
+![Map of relative intensity](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/4_mapcurrent-f_effort.jpg)
 
 
 
