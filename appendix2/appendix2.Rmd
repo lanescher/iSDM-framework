@@ -50,6 +50,7 @@ Let's first load the libraries we'll need to set up, visualize, fit, and summari
 library(tidyverse)
 library(sf)
 library(nimble)
+library(rnaturalearth)
 
 ## To install SpFut.flexiSDM or check for updates, use the commented code below:
 # remotes::install_github("rileymummah/SpFut.flexiSDM", build_vignettes = T)
@@ -150,14 +151,13 @@ The following table describes the column names, data type, and description found
 We have set up the scripts in the flexiSDM workflow so that a minimum number of parameters needs to be changed among them. To run this script in full (using our file arrangement), you only need to edit the following parameters:
 
 ```{r param.edit}
-nums.do <- 4 # model number to run
+nums.do <- 3 # model number to run
 fold <- 'none' # CV fold to exclude ('none', 1, 2, or 3)
 local <- 1 # are you running the code locally (1) or on an HPC (0)?
 ```
 
 
-For the purposes of this demonstration, we're going to fit model 3, which uses the centroid of the Cascades frog (RACA) range with a 50km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`. We have provided an additional example, model 4, which uses the centroid of the Spring salamander (GPOR) range with a 100km buffer. The output displayed in this file are for the RACA model, but the GPOR model output will look similar.
-
+For the purposes of this demonstration, we're going to fit model 3, which uses the centroid of the Cascades frog (RACA) range with a 50km buffer. This will allow us to easily visualize the datasets and spatial grid, while maintaining local computational capabilities. You can see all of the specifications for this model in the third row of `mods`. We have provided an additional example, model 4, which uses the centroid of the Spring salamander (GPOR) range with a 100km buffer. 
 
 
 Now that we have loaded our model specifications, we can use them to define a series of inputs for the setup script.
@@ -686,13 +686,13 @@ if (fold.out == "none") {
                       region,
                       cov.labs = covlabs,
                       scaled = T)
-    ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_POinat-map.jpg"))
+    ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-b_POinat-map.jpg"))
     
     if (length(covs.inat) > 1) {
       out <- cor_covar(covar, 
                        cov.labs = covlabs,
                        color.threshold = 0.25)
-      ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_POinat-cors.jpg"))
+      ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-b_POinat-cors.jpg"))
     }
   }
   
@@ -706,13 +706,13 @@ if (fold.out == "none") {
                     region,
                     cov.labs = covlabs,
                     scaled = T)
-  ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_PO-map.jpg"))
+  ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-c_PO-map.jpg"))
   
   if (length(covs.PO) > 1) {
     out <- cor_covar(covar, 
                      cov.labs = covlabs,
                      color.threshold = 0.25)
-    ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_PO-cors.jpg"))
+    ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-c_PO-cors.jpg"))
   }
 }
 ```
@@ -842,7 +842,7 @@ The goal of this script is solely to fit the model via NIMBLE. The code is set u
 Because this script can be run independently of `01-flexiSDM.R`, we set some key parameters manually and load the setup file created previously.
 
 ```{r param.edit2}
-num <- 4 # model number
+num <- 3 # model number
 fold <- "none" # CV fold
 
 mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num) # get species code and model name from csv file
@@ -930,7 +930,7 @@ library(SpFut.flexiSDM)
 
 
 ```{r params.edit3}
-num <- 4 # model number
+num <- 3 # model number
 fold <- "none" # CV fold
 
 mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num) # get species code and model name from csv file
