@@ -57,7 +57,7 @@ library(sf)
 library(nimble)
 library(SpFut.flexiSDM)
 library(SpFut.covariates)
-library(SpFut.processGBIF)
+# library(SpFut.processGBIF)
 
 
 # Set up model variables ----
@@ -79,7 +79,7 @@ year.start <- mods$year.start[a]
 year.end <- mods$year.end[a]
 buffer <- mods$buffer[a]
 filter.region <- mods$filter.region[a]
-spat.bal <- mods$spat.bal[a]
+spat.thin <- mods$spat.thin[a]
 coordunc <- mods$coordunc[a]
 coordunc_na.rm <- mods$coordunc_na.rm[a]
 block.folds <- mods$block.folds[a]
@@ -285,7 +285,7 @@ species.data <- load_species_data(sp.code,
                                   year.end = year.end,
                                   coordunc = coordunc,
                                   coordunc_na.rm = coordunc_na.rm,
-                                  spat.thin = spat.bal,
+                                  spat.thin = spat.thin,
                                   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 
