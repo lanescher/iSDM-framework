@@ -61,7 +61,7 @@ library(SpFut.covariates)
 ## There are two custom functions that are needed to fit the data in NIMBLE
 source("code/FXN-nimbleParallel.R")
 
-# External path for large datasets
+# External path for large covariate datasets
 ext.path <- '~/GitHub/species-futures/data/USA/'
 ```
 
@@ -446,553 +446,559 @@ We can now use `allfiles` to load all of the species data sources. We have devel
 
 ```{r load-species-data}
 species.data <- load_species_data(sp.code,
-                                  sp.code.all,
-                                  file.info = allfiles,
-                                  file.path = "data/data-ready/",
-                                  region = region,
-                                  filter.region = filter.region,
-                                  year.start = year.start,
-                                  year.end = year.end,
-                                  coordunc = coordunc,
-                                  coordunc_na.rm = coordunc_na.rm,
-                                  spat.thin = spat.thin,
-                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+                  sp.code.all,
+                  file.info = allfiles,
+                  file.path = "data/data-ready/",
+                  region = region,
+                  filter.region = filter.region,
+                  year.start = year.start,
+                  year.end = year.end,
+                  coordunc = coordunc,
+                  coordunc_na.rm = coordunc_na.rm,
+                  spat.thin = spat.thin,
+                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 ```
 
 
 
 
-<!-- ## Step 4: Plot species data -->
-
-<!-- Next let's plot the species data to visualize where the data occur in the subrange.   -->
-
-<!-- ```{r plot-species-data-samples} -->
-<!-- ## Quick title to be used across figures -->
-<!-- if (fold == "none") { -->
-<!--   title <- ", full model" -->
-<!-- } else { -->
-<!--   title <- paste0(", excluding fold ", fold) -->
-<!-- } -->
-
-<!-- ## Plot data samples -->
-<!-- out <- map_species_data(region = region, -->
-<!--                         species.data = species.data, -->
-<!--                         year.start = year.start, -->
-<!--                         year.end = year.end, -->
-<!--                         plot = "samples", -->
-<!--                         plot.region = T, -->
-<!--                         details = F, -->
-<!--                         title = paste0(common, " (", sp.code, ")", title)) -->
-
-<!-- ## Save plot -->
-<!-- ggsave(out$plot, file = paste0(out.dir, "2_inputmap-a_data-", foldname, ".jpg"), -->
-<!--        height = 8, width = 10) -->
-<!-- ``` -->
-
-
-<!-- ![Distribution of species data across the subrange](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg) -->
-
-<!-- We can also take a look at the distribution of data across the cross-validation folds. -->
-
-
-<!-- ```{r cv-plots} -->
-<!-- ## Cross-validation fold-specific plots -->
-<!-- if (fold.out != "none") { -->
-
-<!--   out <- map_species_data(region = region, -->
-<!--                           species.data = species.data, -->
-<!--                           year.start = year.start, -->
-<!--                           year.end = year.end, -->
-<!--                           plot = "samples", -->
-<!--                           blocks = spatblocks[which(spatblocks$folds == fold),], -->
-<!--                           plot.region = T, -->
-<!--                           details = F, -->
-<!--                           title = paste0(common, " (", sp.code, ")", title)) -->
-<!--   ggsave(out$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"), -->
-<!--          height = 8, width = 10) -->
-<!-- } else { -->
-<!--   # Plot -->
-<!--   out <- map_species_data(region = region, -->
-<!--                           species.data = species.data, -->
-<!--                           year.start = year.start, -->
-<!--                           year.end = year.end, -->
-<!--                           plot = "samples", -->
-<!--                           blocks = spatblocks, -->
-<!--                           plot.region = T, -->
-<!--                           details = F, -->
-<!--                           title = paste0(common, " (", sp.code, ")", title)) -->
-<!--   ggsave(out$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"), -->
-<!--          height = 8, width = 10) -->
-<!-- } -->
-<!-- ``` -->
-
-<!-- ![Distribution of data with overlaid cross-validation blocks](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg) -->
-
-<!-- ## Step 5: Load covariate data -->
-
-<!-- We're now ready to set up the covariate data. The dataframe `covar` needs to contain all covariates needed for the distribution model (`covs.z`), as well as all covariates needed for the PO effort models (`covs.PO` and `covs.inat`). These covariates vary across species. Any method can be used to derive the covariates, as long as it is aggregated to the spatial unit and contains a column for `conus.grid.id`. -->
-
-<!-- We download and process covariates using functions from the `SpFut.covariates` package (ISSUE - cite). These functions consist of wrappers for other data sources (e.g., National Hydrography Database and  the `geodata` R package (ISSUE - cite)) that download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly. -->
-
-<!-- Note: Downloading and assembling the covariate data can take significant time depending on the size of the range and your internet connection. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step. -->
-
-<!-- ```{r cov-data} -->
-
-<!-- # ISSUE - re-download covariates with CRAN package -->
-<!-- if (sp.code == "RACA") { -->
-
-<!--   if (file.exists(paste0(data.dir, "covariates.rds"))) { -->
-<!--     covar <- read_rds(paste0(data.dir, "covariates.rds")) -->
-<!--   } else { -->
-
-<!--     # Note that elevation data must be downloaded before running get_elevation() -->
-<!--     # We have downloaded the elevation and waterbody data outside of this repo -->
-<!--     # See documentation for details. -->
-<!--     tri <- get_elevation(locs = region$sp.grid,  -->
-<!--                          path = "~/GitHub/species-futures/data/USA/", -->
-<!--                          id.label = "conus.grid.id") -->
-<!--     waterbody <- get_waterbodies(locs = region$sp.grid,  -->
-<!--                                  path = "~/GitHub/species-futures/data/USA/", -->
-<!--                                  id.label = "conus.grid.id") -->
-
-<!--     footprint <- get_footprint(locs = region$sp.grid, id.label = "conus.grid.id") -->
-<!--     climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id") -->
-<!--     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id") -->
-
-<!--     covar <- full_join(tri, footprint, by = "conus.grid.id") %>% -->
-<!--       full_join(climate, by = "conus.grid.id") %>% -->
-<!--       full_join(waterbody, by = "conus.grid.id") %>% -->
-<!--       full_join(traveltime, by = "conus.grid.id") %>% -->
-<!--       mutate(sqrtarea_small = sqrt(area_small), -->
-<!--              sqrtarea_medium = sqrt(area_medium)) %>% -->
-<!--       select(conus.grid.id, sqrtarea_small, sqrtarea_medium,  -->
-<!--              footprint, TRI, tmin, traveltime) -->
+## Step 4: Plot species data
+
+Next let's plot the species data to visualize where the data occur in the subrange.
+
+```{r plot-species-data-samples}
+## Quick title to be used across figures
+if (fold == "none") {
+  title <- ", full model"
+} else {
+  title <- paste0(", excluding fold ", fold)
+}
+
+## Plot data samples
+out <- map_species_data(region = region,
+                        species.data = species.data,
+                        year.start = year.start,
+                        year.end = year.end,
+                        plot = "samples",
+                        plot.region = T,
+                        details = F,
+                        title = paste0(common, " (", sp.code, ")", title))
+
+## Save plot
+ggsave(out$plot, file = paste0(out.dir, "2_inputmap-a_data-", foldname, ".jpg"),
+       height = 8, width = 10)
+```
+
+
+![Distribution of species data across the subrange](../outputs/3_RACA_subrange/2_inputmap-a_data-full.jpg)
+
+We can also take a look at the distribution of data across the cross-validation folds.
+
+
+```{r cv-plots}
+## Cross-validation fold-specific plots
+if (fold.out != "none") {
+
+  out <- map_species_data(region = region,
+                          species.data = species.data,
+                          year.start = year.start,
+                          year.end = year.end,
+                          plot = "samples",
+                          blocks = spatblocks[which(spatblocks$folds == fold),],
+                          plot.region = T,
+                          details = F,
+                          title = paste0(common, " (", sp.code, ")", title))
+  ggsave(out$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
+         height = 8, width = 10)
+} else {
+  # Plot
+  out <- map_species_data(region = region,
+                          species.data = species.data,
+                          year.start = year.start,
+                          year.end = year.end,
+                          plot = "samples",
+                          blocks = spatblocks,
+                          plot.region = T,
+                          details = F,
+                          title = paste0(common, " (", sp.code, ")", title))
+  ggsave(out$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", foldname, ".jpg"),
+         height = 8, width = 10)
+}
+```
+
+![Distribution of data with overlaid cross-validation blocks](../outputs/3_RACA_subrange/2_inputmap-c_blocks-full.jpg)
+
+## Step 5: Load covariate data
+
+We're now ready to set up the covariate data. The dataframe `covar` needs to contain all covariates needed for the distribution model (`covs.z`), as well as all covariates needed for the PO effort models (`covs.PO` and `covs.inat`). These covariates vary across species. Any method can be used to derive the covariates, as long as it is aggregated to the spatial unit and contains a column for `conus.grid.id`.
+
+We download and process covariates using functions from the `SpFut.covariates` package (ISSUE - cite). These functions consist of wrappers for other data sources (e.g., National Hydrography Database and  the `geodata` R package (ISSUE - cite)) that download and format the data for our purposes. See the documentation for the `SpFut.covariates` package for more information on how to use the functions properly.
+
+Note: Downloading and assembling the covariate data can take significant time depending on the size of the range and your internet connection. We demonstrate how we downloaded the data below but provide the `covariates.rds` file to proceed to the next step.
+
+```{r cov-data}
+
+# ISSUE - re-download covariates with CRAN package
+if (sp.code == "RACA") {
+
+  if (file.exists(paste0(data.dir, "covariates.rds"))) {
+    covar <- read_rds(paste0(data.dir, "covariates.rds"))
+  } else {
+
+    # Note that elevation data must be downloaded before running get_elevation()
+    # We have downloaded the elevation and waterbody data outside of this repo
+    # See documentation for details.
+    tri <- get_elevation(locs = region$sp.grid,
+                         path = "~/GitHub/species-futures/data/USA/",
+                         id.label = "conus.grid.id")
+    waterbody <- get_waterbodies(locs = region$sp.grid,
+                                 path = "~/GitHub/species-futures/data/USA/",
+                                 id.label = "conus.grid.id")
+
+    footprint <- get_footprint(locs = region$sp.grid, id.label = "conus.grid.id")
+    climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
+    traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
+
+    covar <- full_join(tri, footprint, by = "conus.grid.id") %>%
+      full_join(climate, by = "conus.grid.id") %>%
+      full_join(waterbody, by = "conus.grid.id") %>%
+      full_join(traveltime, by = "conus.grid.id") %>%
+      mutate(sqrtarea_small = sqrt(area_small),
+             sqrtarea_medium = sqrt(area_medium)) %>%
+      select(conus.grid.id, sqrtarea_small, sqrtarea_medium,
+             footprint, TRI, tmin, traveltime)
 
-<!--     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),] -->
-<!--     write_rds(covar, file = paste0(data.dir, "covariates.rds")) -->
+    covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
+    write_rds(covar, file = paste0(data.dir, "covariates.rds"))
 
-<!--   } -->
+  }
 
-<!-- } -->
+}
 
 
-<!-- if (sp.code == "GPOR") { -->
+if (sp.code == "GPOR") {
 
-<!--   if (file.exists(paste0(data.dir, "covariates.rds"))) { -->
-<!--     covar <- read_rds(paste0(data.dir, "covariates.rds")) -->
-<!--   } else { -->
+  if (file.exists(paste0(data.dir, "covariates.rds"))) {
+    covar <- read_rds(paste0(data.dir, "covariates.rds"))
+  } else {
 
-<!--     # Note that elevation and flowlines data must be downloaded before running  -->
-<!--     # get_elevation() and get_flowlines(). See documentation for details. -->
-<!--     tri <- get_elevation(locs = region$sp.grid,  -->
-<!--                          path = "~/GitHub/species-futures/data/USA/",  -->
-<!--                          id.label = "conus.grid.id") -->
-<!--     stream <- get_flowlines(locs = region$sp.grid,  -->
-<!--                             path = "~/GitHub/species-futures/data/USA/",  -->
-<!--                             id.label = "conus.grid.id") -->
-<!--     landcover <- get_landcover(locs = region$sp.grid,  -->
-<!--                                path = "~/GitHub/species-futures/data/USA/",  -->
-<!--                                id.label = "conus.grid.id") -->
+    # Note that elevation and flowlines data must be downloaded before running
+    # get_elevation() and get_flowlines(). See documentation for details.
+    tri <- get_elevation(locs = region$sp.grid,
+                         path = "~/GitHub/species-futures/data/USA/",
+                         id.label = "conus.grid.id")
+    stream <- get_flowlines(locs = region$sp.grid,
+                            path = "~/GitHub/species-futures/data/USA/",
+                            id.label = "conus.grid.id")
+    landcover <- get_landcover(locs = region$sp.grid,
+                               path = "~/GitHub/species-futures/data/USA/",
+                               id.label = "conus.grid.id")
 
-<!--     climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id") -->
-<!--     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id") -->
+    climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
+    traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
 
 
 
-<!--     # Combine -->
-<!--     covar <- full_join(tri, stream, by = "conus.grid.id") %>% -->
-<!--       full_join(landcover, by = "conus.grid.id") %>% -->
-<!--       full_join(climate, by = "conus.grid.id") %>% -->
-<!--       full_join(traveltime, by = "conus.grid.id") %>% -->
-<!--       select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime) -->
+    # Combine
+    covar <- full_join(tri, stream, by = "conus.grid.id") %>%
+      full_join(landcover, by = "conus.grid.id") %>%
+      full_join(climate, by = "conus.grid.id") %>%
+      full_join(traveltime, by = "conus.grid.id") %>%
+      select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime)
 
-<!--     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),] -->
-<!--     write_rds(covar, file = paste0(data.dir, "covariates.rds")) -->
+    covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
+    write_rds(covar, file = paste0(data.dir, "covariates.rds"))
 
 
-<!--   } -->
-<!-- } -->
-<!-- ``` -->
+  }
+}
+```
 
-<!-- Next we remove grid cells that do not have complete covariates. -->
+Next we remove grid cells that do not have complete covariates.
 
-<!-- ```{r incomplete-covs} -->
-<!-- ## Remove incomplete cases -->
-<!-- rm <- which(complete.cases(covar[,covs.z]) == F) -->
-<!-- if (length(rm) > 0) { -->
-<!--   covar <- covar[-rm,] -->
-<!--   region$sp.grid <- region$sp.grid[-rm,] -->
-<!-- } -->
-<!-- ``` -->
+```{r incomplete-covs}
+## Remove incomplete cases
+rm <- which(complete.cases(covar[,covs.z]) == F)
+if (length(rm) > 0) {
+  covar <- covar[-rm,]
+  region$sp.grid <- region$sp.grid[-rm,]
+}
+```
 
-<!-- Then we scale all covariates to have a mean of 1 and a standard deviation of 0. -->
+Then we scale all covariates to have a mean of 1 and a standard deviation of 0.
 
-<!-- ```{r scale-covs} -->
-<!-- ## Scale covariates  -->
-<!-- covar_unscaled <- covar -->
-<!-- numcols <- sapply(covar, is.numeric) -->
-<!-- numcols <- which(numcols) -->
-<!-- covar[,numcols] <- sapply(covar[,numcols], scale_this) -->
-<!-- ``` -->
+```{r scale-covs}
+## Scale covariates
+covar_unscaled <- covar
+numcols <- sapply(covar, is.numeric)
+numcols <- which(numcols)
+covar[,numcols] <- sapply(covar[,numcols], scale_this)
+```
 
-<!-- Finally we create the quadratic covariates (as defined in `model-specs.csv`). -->
+Finally we create the quadratic covariates (as defined in `model-specs.csv`).
+
+```{r quad-covs}
+if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") {
+  for (c in 1:length(covs.quad)) {
+    covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]]
+    covs.z <- c(covs.z, paste0(covs.quad[c], "2"))
+  }
+}
+```
 
-<!-- ```{r quad-covs} -->
-<!-- if (length(covs.quad) > 0 & paste0(covs.quad, collapse = "") != "") { -->
-<!--   for (c in 1:length(covs.quad)) { -->
-<!--     covar[,paste0(covs.quad[c], "2")] <- covar[,covs.quad[c]] * covar[,covs.quad[c]] -->
-<!--     covs.z <- c(covs.z, paste0(covs.quad[c], "2")) -->
-<!--   } -->
-<!-- } -->
-<!-- ``` -->
 
+There's one additional step that could be done here. If removing multicollinearity is desired, the following piece of code would check and remove covariates that violate a certain correlation threshold (we use 0.4). If there are fewer than 3 covariates remaining after the procedure, then a message will alert you.
 
-<!-- There's one additional step that could be done here. If removing multicollinearity is desired, the following piece of code would check and remove covariates that violate a certain correlation threshold (we use 0.4). If there are fewer than 3 covariates remaining after the procedure, then a message will alert you. -->
+```{r collinearity, eval=F}
+# remove covariates that are correlated > 0.4
+if (check.covs == T){
 
-<!-- ```{r collinearity, eval=F} -->
-<!-- # remove covariates that are correlated > 0.4 -->
-<!-- if (check.covs == T){ -->
+  threshold <- 0.4
 
-<!--   threshold <- 0.4 -->
+  covs.rm <- select_covar(covs.z, threshold = threshold)
+  covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
+  covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
 
-<!--   covs.rm <- select_covar(covs.z, threshold = threshold) -->
-<!--   covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)] -->
-<!--   covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)] -->
+  covs.z <- c(covs.lin, covs.quad)
+}
 
-<!--   covs.z <- c(covs.lin, covs.quad) -->
-<!-- } -->
+if (length(covs.z) < 3) {
+  stop("There are fewer than 3 covariates remaining! This probably isn't a good model")
+}
+```
 
-<!-- if (length(covs.z) < 3) { -->
-<!--   stop("There are fewer than 3 covariates remaining! This probably isn't a good model") -->
-<!-- } -->
-<!-- ``` -->
 
+## Step 6: Plot covariates
 
-<!-- ## Step 6: Plot covariates -->
+Now that we've downloaded covariate data, let's take a look at the distribution of each covariate. If there are multiple covariates, we can look at the correlations between them.
 
-<!-- Now that we've downloaded covariate data, let's take a look at the distribution of each covariate. If there are multiple covariates, we can look at the correlations between them. -->
+```{r plot-covs, results = 'hide'}
 
-<!-- ```{r plot-covs, results = 'hide'} -->
+if (fold.out == "none") {
 
-<!-- if (fold.out == "none") { -->
+  ## Distribution covariates
 
-<!--   ## Distribution covariates -->
+  ## Define covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>% filter(covariate %in% covs.z)
 
-<!--   ## Define covariate labels -->
-<!--   covlabs <- read.csv("data/covariate-labels.csv") %>% filter(covariate %in% covs.z) -->
+  out <- plot_covar(covar,
+                    region,
+                    cov.labs = covlabs,
+                    scaled = T)
+  ggsave(out$plot, height = 12, width = 12, 
+         file = paste0(out.dir, "1_covariates-a_process-map.jpg"))
 
-<!--   out <- plot_covar(covar, -->
-<!--                     region, -->
-<!--                     cov.labs = covlabs, -->
-<!--                     scaled = T) -->
-<!--   ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_process-map.jpg")) -->
+  out <- cor_covar(covar,
+                   cov.labs = covlabs,
+                   color.threshold = 0.25)
+  ggsave(out$plot, height = 12, width = 12, 
+         file = paste0(out.dir, "1_covariates-a_process-cors.jpg"))
 
-<!--   out <- cor_covar(covar,  -->
-<!--                    cov.labs = covlabs, -->
-<!--                    color.threshold = 0.25) -->
-<!--   ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-a_process-cors.jpg")) -->
+  ## iNat covariates
+  if ("iNaturalist" %in% names(species.data$obs)) {
+    ## Define covariate labels
+    covlabs <- read.csv("data/covariate-labels.csv") %>%
+      filter(covariate %in% covs.inat)
 
-<!--   ## iNat covariates -->
-<!--   if ("iNaturalist" %in% names(species.data$obs)) { -->
-<!--     ## Define covariate labels -->
-<!--     covlabs <- read.csv("data/covariate-labels.csv") %>% -->
-<!--       filter(covariate %in% covs.inat) -->
+    out <- plot_covar(covar,
+                      region,
+                      cov.labs = covlabs,
+                      scaled = T)
+    ggsave(out$plot, height = 12, width = 12, 
+           file = paste0(out.dir, "1_covariates-b_POinat-map.jpg"))
 
-<!--     out <- plot_covar(covar, -->
-<!--                       region, -->
-<!--                       cov.labs = covlabs, -->
-<!--                       scaled = T) -->
-<!--     ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-b_POinat-map.jpg")) -->
+    if (length(covs.inat) > 1) {
+      out <- cor_covar(covar,
+                       cov.labs = covlabs,
+                       color.threshold = 0.25)
+      ggsave(out$plot, height = 12, width = 12, 
+             file = paste0(out.dir, "1_covariates-b_POinat-cors.jpg"))
+    }
+  }
 
-<!--     if (length(covs.inat) > 1) { -->
-<!--       out <- cor_covar(covar,  -->
-<!--                        cov.labs = covlabs, -->
-<!--                        color.threshold = 0.25) -->
-<!--       ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-b_POinat-cors.jpg")) -->
-<!--     } -->
-<!--   } -->
+  ## PO covs
 
-<!--   ## PO covs -->
+  ## Define covariate labels
+  covlabs <- read.csv("data/covariate-labels.csv") %>%
+    filter(covariate %in% covs.PO)
 
-<!--   ## Define covariate labels -->
-<!--   covlabs <- read.csv("data/covariate-labels.csv") %>% -->
-<!--     filter(covariate %in% covs.PO) -->
+  out <- plot_covar(covar,
+                    region,
+                    cov.labs = covlabs,
+                    scaled = T)
+  ggsave(out$plot, height = 12, width = 12, 
+         file = paste0(out.dir, "1_covariates-c_PO-map.jpg"))
 
-<!--   out <- plot_covar(covar, -->
-<!--                     region, -->
-<!--                     cov.labs = covlabs, -->
-<!--                     scaled = T) -->
-<!--   ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-c_PO-map.jpg")) -->
+  if (length(covs.PO) > 1) {
+    out <- cor_covar(covar,
+                     cov.labs = covlabs,
+                     color.threshold = 0.25)
+    ggsave(out$plot, height = 12, width = 12, 
+           file = paste0(out.dir, "1_covariates-c_PO-cors.jpg"))
+  }
+}
+```
 
-<!--   if (length(covs.PO) > 1) { -->
-<!--     out <- cor_covar(covar,  -->
-<!--                      cov.labs = covlabs, -->
-<!--                      color.threshold = 0.25) -->
-<!--     ggsave(out$plot, height = 12, width = 12, file = paste0(out.dir, "1_covariates-c_PO-cors.jpg")) -->
-<!--   } -->
-<!-- } -->
-<!-- ``` -->
 
+![Distribution of distribution-level covariates across the subrange](../outputs/3_RACA_subrange/1_covariates-a_process-map.jpg)
 
-<!-- ![Distribution of distribution-level covariates across the subrange](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-map.jpg) -->
+![Correlation between distribution-level covariates](../outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg)
 
-<!-- ![Correlation between distribution-level covariates](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-a_process-correlations.jpg) -->
+![Distribution of presence-only (PO) effort covariates](../outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg)
 
-<!-- ![Distribution of presence-only (PO) effort covariates](~/GitHub/iSDM-framework/outputs/3_RACA_subrange/1_covariates-c_PO-map.jpg) -->
+## Step 7: NIMBLE
 
-<!-- ## Step 7: NIMBLE -->
+To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function that combines and formats species datasets (`allfiles`) and their associated covariates (contained in `allfiles`, `covs.inat`, and `covs.PO`)
 
-<!-- To load the data into NIMBLE, the data must be formatted in a specific way. We have wrapped this process in a function that combines and formats species datasets (`allfiles`) and their associated covariates (contained in `allfiles`, `covs.inat`, and `covs.PO`) -->
+```{r spdata}
+sp.data <- sppdata_for_nimble(
+  species.data,
+  region,
+  file.info = allfiles,
+  covar = covar,
+  covs.inat = covs.inat,
+  covs.PO = covs.PO,
+  DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
+  # Only keep PO cells that training grid cells
+  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+```
 
-<!-- ```{r spdata} -->
-<!-- sp.data <- sppdata_for_nimble( -->
-<!--   species.data, -->
-<!--   region, -->
-<!--   file.info = allfiles, -->
-<!--   covar = covar, -->
-<!--   covs.inat = covs.inat, -->
-<!--   covs.PO = covs.PO, -->
-<!--   DND.maybe = 1,  # treat "maybe" detections as 1 or 0? -->
-<!--   # Only keep PO cells that training grid cells -->
-<!--   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])  -->
-<!-- ``` -->
+Next, the distribution-level covariates (`covar`) are combined with the formatted species data. This combined data is then broken into `data` and `constants` which are the inputs for the NIMBLE model. As their names imply, the `data` list object contains values which vary over space or time (e.g., species data, distribution-level covariates, and detection covariates). The `constants` list object contains fixed values such as the number of cells in the grid, grid indices for specific datasets, names of datasets, and parameters for the spatial model.
 
-<!-- Next, the distribution-level covariates (`covar`) are combined with the formatted species data. This combined data is then broken into `data` and `constants` which are the inputs for the NIMBLE model. As their names imply, the `data` list object contains values which vary over space or time (e.g., species data, distribution-level covariates, and detection covariates). The `constants` list object contains fixed values such as the number of cells in the grid, grid indices for specific datasets, names of datasets, and parameters for the spatial model. -->
+```{r data-constants}
+tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
+                       sp.auto = sp.auto, coarse.grid = coarse.grid,
+                       region = region, process.intercept = F,
+                       gridkey = gridkey, spatRegion = spatRegion)
 
-<!-- ```{r data-constants} -->
-<!-- tmp <- data_for_nimble(sp.data, covar = covar, covs.z, -->
-<!--                        sp.auto = sp.auto, coarse.grid = coarse.grid,  -->
-<!--                        region = region, process.intercept = F, -->
-<!--                        gridkey = gridkey, spatRegion = spatRegion) -->
+data <- tmp$data
+constants <- tmp$constants
+```
 
-<!-- data <- tmp$data -->
-<!-- constants <- tmp$constants -->
-<!-- ``` -->
 
+The model structure allows for an indicator variable to indicate whether a cell is in a state with PO effort or not. There are generally two cases where this is useful:
 
-<!-- The model structure allows for an indicator variable to indicate whether a cell is in a state with PO effort or not. There are generally two cases where this is useful:  -->
+- If a state agency has collected PO only from within its state, by definition there is effort within that state but not outside of it. This information is already stored in `constants`, which pulled it from `allfiles$POextent`
+- In iNaturalist data, if a species has taxon geoprivacy (i.e., obscured locations due to listing status) within a state, all records from that state will be removed by `load_species_data()` due to high coordinate uncertainty. The effort in that state is therefore effectively 0.
 
-<!-- - If a state agency has collected PO only from within its state, by definition there is effort within that state but not outside of it. This information is already stored in `constants`, which pulled it from `allfiles$POextent` -->
-<!-- - In iNaturalist data, if a species has taxon geoprivacy (i.e., obscured locations due to listing status) within a state, all records from that state will be removed by `load_species_data()` due to high coordinate uncertainty. The effort in that state is therefore effectively 0.  -->
+The following code adds the state indicator variable to `constants`.
 
-<!-- The following code adds the state indicator variable to `constants`. -->
+```{r state-indicator}
 
-<!-- ```{r state-indicator} -->
+# GPOR has taxon geoprivacy in four states
+if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
 
-<!-- # GPOR has taxon geoprivacy in four states -->
-<!-- if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI") -->
+# RACA has no iNat data
+if (sp.code == "RACA") obsc.state <- NA
 
-<!-- # RACA has no iNat data -->
-<!-- if (sp.code == "RACA") obsc.state <- NA -->
+constants <- add_state_ind(
+  species.data,
+  region,
+  gridkey,
+  constants,
+  stategrid = stategrid,
+  obsc.state = obsc.state,
+  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+```
 
-<!-- constants <- add_state_ind( -->
-<!--   species.data, -->
-<!--   region, -->
-<!--   gridkey, -->
-<!--   constants, -->
-<!--   stategrid = stategrid, -->
-<!--   obsc.state = obsc.state, -->
-<!--   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")]) -->
-<!-- ``` -->
 
+Once `data` and `constants` are created for NIMBLE, the function `nimble_code()` writes the NIMBLE code using the information contained in those objects as well several other specificiations defined earlier in the code. The NIMBLE code is saved as a .R file in the location defined by the `path` argument, and in the object `code`.
 
-<!-- Once `data` and `constants` are created for NIMBLE, the function `nimble_code()` writes the NIMBLE code using the information contained in those objects as well several other specificiations defined earlier in the code. The NIMBLE code is saved as a .R file in the location defined by the `path` argument, and in the object `code`. -->
 
+```{r code}
+code <- nimble_code(data,
+                    constants,
+                    path = out.dir,
+                    sp.auto = sp.auto,
+                    coarse.grid = coarse.grid,
+                    Bprior = Bprior,
+                    block.out = fold.out,
+                    zero_mean = zero_mean,
+                    rm.state = F,
+                    tau = tau)
+```
 
-<!-- ```{r code} -->
-<!-- code <- nimble_code(data, -->
-<!--                     constants,  -->
-<!--                     path = out.dir, -->
-<!--                     sp.auto = sp.auto,  -->
-<!--                     coarse.grid = coarse.grid, -->
-<!--                     Bprior = Bprior, -->
-<!--                     block.out = fold.out, -->
-<!--                     zero_mean = zero_mean, -->
-<!--                     rm.state = F, -->
-<!--                     tau = tau) -->
-<!-- ``` -->
+Next, set up the initial values, also based on the information in `data` and `constants`.
 
-<!-- Next, set up the initial values, also based on the information in `data` and `constants`. -->
+```{r inits}
+inits <- function(x){nimble_inits(data,
+                                  constants,
+                                  sp.auto = sp.auto,
+                                  seed = x)}
+```
 
-<!-- ```{r inits} -->
-<!-- inits <- function(x){nimble_inits(data, -->
-<!--                                   constants, -->
-<!--                                   sp.auto = sp.auto, -->
-<!--                                   seed = x)} -->
-<!-- ``` -->
+Finally, identify for which parameters the model should save chains. By default, distribution model parameters ($\beta$) and dataset intercepts ($\alpha$) are saved. Parameters that are estimated for each hexbin ($\lambda$, $XB$, effort) require more storage, so there are options to disable them. If `sp.auto = T`, then the spatial random effect and $\tau$ are also saved.
 
-<!-- Finally, identify for which parameters the model should save chains. By default, distribution model parameters ($\beta$) and dataset intercepts ($\alpha$) are saved. Parameters that are estimated for each hexbin ($\lambda$, $XB$, effort) require more storage, so there are options to disable them. If `sp.auto = T`, then the spatial random effect and $\tau$ are also saved. -->
+```{r params}
+params <- nimble_params(data,
+                        constants,
+                        lambda = T,
+                        XB = T,
+                        effort = T,
+                        sp.auto = sp.auto)
+```
 
-<!-- ```{r params} -->
-<!-- params <- nimble_params(data, -->
-<!--                         constants, -->
-<!--                         lambda = T, -->
-<!--                         XB = T, -->
-<!--                         effort = T, -->
-<!--                         sp.auto = sp.auto) -->
-<!-- ``` -->
 
+## Step 8: Clean up and save
 
-<!-- ## Step 8: Clean up and save -->
+Remove objects that are large and are not required for further steps, save the workspace, and move on to `02-flexiSDM.R`.
 
-<!-- Remove objects that are large and are not required for further steps, save the workspace, and move on to `02-flexiSDM.R`. -->
+```{r clean-up}
+# Remove local and fold in case the setup is run locally but the model is fit on the HPC.
+# Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
+suppressWarnings(rm(list=c('local','fold','args','conus.covar.grid','conus.grid', 'conus.huc',
+                           'usa','conus', 'pl','centroid')))
 
-<!-- ```{r clean-up} -->
-<!-- # Remove local and fold in case the setup is run locally but the model is fit on the HPC. -->
-<!-- # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata -->
-<!-- suppressWarnings(rm(list=c('local','fold','args','conus.covar.grid','conus.grid', 'conus.huc', -->
-<!--                            'usa','conus', 'pl','centroid'))) -->
 
+# Save environment and full set up
+save.image(paste0(out.dir, "setup_",fold.out,".Rdata"))
+```
 
-<!-- # Save environment and full set up -->
-<!-- save.image(paste0(out.dir, "setup_",fold.out,".Rdata")) -->
-<!-- ``` -->
 
 
+# Part 2: 02-flexiSDM.R
 
-<!-- # Part 2: 02-flexiSDM.R -->
+The goal of this script is solely to fit the model via NIMBLE. The code is set up to allow for parallelization of the MCMC chains so they can be fit simultaneously on either a local computer or a high performance computing system.
 
-<!-- The goal of this script is solely to fit the model via NIMBLE. The code is set up to allow for parallelization of the MCMC chains so they can be fit simultaneously on either a local computer or a high performance computing system. -->
 
+Because this script can be run independently of `01-flexiSDM.R`, we set some key parameters manually and load the setup file created previously.
 
-<!-- Because this script can be run independently of `01-flexiSDM.R`, we set some key parameters manually and load the setup file created previously. -->
+```{r param.edit2}
+num <- 3 # model number
+fold <- "none" # CV fold
 
-<!-- ```{r param.edit2} -->
-<!-- num <- 3 # model number -->
-<!-- fold <- "none" # CV fold -->
+mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num) # get species code and model name from csv file
+sp.code <- mods$sp.code[1] # species code
+model <- mods$model[1] # model name
 
-<!-- mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num) # get species code and model name from csv file -->
-<!-- sp.code <- mods$sp.code[1] # species code -->
-<!-- model <- mods$model[1] # model name -->
+# Set output directory and load setup file
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
+load(paste0(out.dir,'setup_',fold,'.Rdata'))
 
-<!-- # Set output directory and load setup file -->
-<!-- out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/') -->
-<!-- load(paste0(out.dir,'setup_',fold,'.Rdata')) -->
 
+local <- 1 # are you fitting the model locally (1) or on an HPC (0)?
+chain <- 1 # chain number (only needed if fitting as an array job on an HPC)
+```
 
-<!-- local <- 1 # are you fitting the model locally (1) or on an HPC (0)? -->
-<!-- chain <- 1 # chain number (only needed if fitting as an array job on an HPC) -->
-<!-- ``` -->
 
+```{r load-packages2, results = 'hide'}
+# Load functions and packages
+source("code/FXN-nimbleParallel.R")
+library(SpFut.flexiSDM)
+```
 
-<!-- ```{r load-packages2, results = 'hide'} -->
-<!-- # Load functions and packages -->
-<!-- source("code/FXN-nimbleParallel.R")  -->
-<!-- library(SpFut.flexiSDM) -->
-<!-- ``` -->
 
 
+## Fit NIMBLE model
 
-<!-- ## Fit NIMBLE model -->
+If you intend to fit the model locally, the function `nimbleParallel()` will create a local cluster on your computer with a default of 3 cores (this can be changed using the `cores` argument). It then configures, compiles, and runs the MCMC in parallel for the number of chains you have defined. The output is then saved as a single output object.
 
-<!-- If you intend to fit the model locally, the function `nimbleParallel()` will create a local cluster on your computer with a default of 3 cores (this can be changed using the `cores` argument). It then configures, compiles, and runs the MCMC in parallel for the number of chains you have defined. The output is then saved as a single output object.  -->
+If you intend to use an HPC to fit the model, please see the section below on high performance computing.
 
-<!-- If you intend to use an HPC to fit the model, please see the section below on high performance computing. -->
+```{r fit-nimble}
+if (local == 1) {
+  start.nim <- Sys.time()
+  samples <- nimbleParallel(code = code,
+                            data = data,
+                            constants = constants,
+                            inits = inits,
+                            param = params,
+                            iter = iter,
+                            burnin = burnin,
+                            thin = thin)
 
-<!-- ```{r fit-nimble} -->
-<!-- if (local == 1) { -->
-<!--   start.nim <- Sys.time() -->
-<!--   samples <- nimbleParallel(code = code, -->
-<!--                             data = data, -->
-<!--                             constants = constants, -->
-<!--                             inits = inits, -->
-<!--                             param = params, -->
-<!--                             iter = iter, -->
-<!--                             burnin = burnin, -->
-<!--                             thin = thin) -->
+  end.nim <- Sys.time() - start.nim
+  print(end.nim)
 
-<!--   end.nim <- Sys.time() - start.nim -->
-<!--   print(end.nim) -->
+  saveRDS(samples, paste0(out.dir,'samples_',fold,'.rds'))
+} else {
 
-<!--   saveRDS(samples, paste0(out.dir,'samples_',fold,'.rds')) -->
-<!-- } else { -->
+  info <- list(seed = chain,
+               inits = inits(chain))
 
-<!--   info <- list(seed = chain, -->
-<!--                inits = inits(chain)) -->
+  start.nim <- Sys.time()
+  samples <- run_nimbleMCMC(info = info,
+                            code = code,
+                            constants = constants,
+                            data = data,
+                            param = params,
+                            iter = iter,
+                            burnin = burnin,
+                            thin = thin)
 
-<!--   start.nim <- Sys.time() -->
-<!--   samples <- run_nimbleMCMC(info = info, -->
-<!--                             code = code, -->
-<!--                             constants = constants, -->
-<!--                             data = data, -->
-<!--                             param = params, -->
-<!--                             iter = iter, -->
-<!--                             burnin = burnin, -->
-<!--                             thin = thin) -->
+  end.nim <- Sys.time() - start.nim
+  print(end.nim)
 
-<!--   end.nim <- Sys.time() - start.nim -->
-<!--   print(end.nim) -->
+  saveRDS(samples, paste0(out.dir,'samples_',fold,'_',chain,'.rds'))
+}
+```
 
-<!--   saveRDS(samples, paste0(out.dir,'samples_',fold,'_',chain,'.rds')) -->
-<!-- } -->
-<!-- ``` -->
 
 
+# Part 3: 03-flexiSDM.R
 
-<!-- # Part 3: 03-flexiSDM.R -->
+The goal of this script is to summarize the chains from the NIMBLE MCMC model and visualize the output in a series of figures.
 
-<!-- The goal of this script is to summarize the chains from the NIMBLE MCMC model and visualize the output in a series of figures.  -->
+Because this script can be run independently of `02-flexiSDM.R`, we set load packages, set some key parameters manually, and load the setup file created in the first script before proceeding.
 
-<!-- Because this script can be run independently of `02-flexiSDM.R`, we set load packages, set some key parameters manually, and load the setup file created in the first script before proceeding. -->
 
+```{r load-packages3, results = 'hide', eval = F}
+## load packages ----
+library(tidyverse, quietly = T)
+library(magrittr, quietly = T)
+library(sf, quietly = T)
+library(SpFut.flexiSDM)
+```
 
-<!-- ```{r load-packages3, results = 'hide', eval = F} -->
-<!-- ## load packages ---- -->
-<!-- library(tidyverse, quietly = T) -->
-<!-- library(magrittr, quietly = T) -->
-<!-- library(sf, quietly = T) -->
-<!-- library(SpFut.flexiSDM) -->
-<!-- ``` -->
 
+```{r params.edit3}
+num <- 3 # model number
+fold <- "none" # CV fold
 
-<!-- ```{r params.edit3} -->
-<!-- num <- 3 # model number -->
-<!-- fold <- "none" # CV fold -->
+mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num) # get species code and model name from csv file
+sp.code <- mods$sp.code[1] # species code
+model <- mods$model[1] # model name
 
-<!-- mods <- read.csv("code/model-specs.csv") %>% filter(number %in% num) # get species code and model name from csv file -->
-<!-- sp.code <- mods$sp.code[1] # species code -->
-<!-- model <- mods$model[1] # model name -->
+# Set output directory and load setup file
+out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
+load(paste0(out.dir,'setup_',fold,'.Rdata'))
 
-<!-- # Set output directory and load setup file -->
-<!-- out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/') -->
-<!-- load(paste0(out.dir,'setup_',fold,'.Rdata')) -->
+local <- 1 # are you fitting the model locally (1) or on an HPC (0)?
+maxchain <- 3 # the total number of chains that were fit
+```
 
-<!-- local <- 1 # are you fitting the model locally (1) or on an HPC (0)? -->
-<!-- maxchain <- 3 # the total number of chains that were fit -->
-<!-- ``` -->
 
+First we'll load the MCMC samples created by `02-flexiSDM.R`, assuming the model was fit on your local computer. Instructions for models fit with a high performance computing are below. To save time in fitting the model and reduce the size of the samples.rds file, we removed all derived quantities (e.g., occupancy probability ($\psi$) and projections) from the NIMBLE code. We can calculate those derived quantities now by using the `get_derived()` function, which will create a derived quantity for each step in the MCMC chain.
 
-<!-- First we'll load the MCMC samples created by `02-flexiSDM.R`, assuming the model was fit on your local computer. Instructions for models fit with a high performance computing are below. To save time in fitting the model and reduce the size of the samples.rds file, we removed all derived quantities (e.g., occupancy probability ($\psi$) and projections) from the NIMBLE code. We can calculate those derived quantities now by using the `get_derived()` function, which will create a derived quantity for each step in the MCMC chain. -->
+```{r load-chains, eval=F}
+# Load chains (samples) ----
+samples <- readRDS(paste0(out.dir,'samples_',fold,'.rds'))
 
-<!-- ```{r load-chains, eval=F} -->
-<!-- # Load chains (samples) ---- -->
-<!-- samples <- readRDS(paste0(out.dir,'samples_',fold,'.rds')) -->
+## Calculate derived quantities ----
+samples <- lapply(samples, get_derived, data = data, project = project,
+                  coarse.grid = coarse.grid, spatRegion = spatRegion)
+```
 
-<!-- ## Calculate derived quantities ---- -->
-<!-- samples <- lapply(samples, get_derived, data = data, project = project, -->
-<!--                   coarse.grid = coarse.grid, spatRegion = spatRegion) -->
-<!-- ``` -->
+Our next step is to summarize the MCMC chains using the `summarize_samples` function. This function also creates a local cluster on your machine to parallelize the summarization. In this step, you will be summarizing a matrix of
 
-<!-- Our next step is to summarize the MCMC chains using the `summarize_samples` function. This function also creates a local cluster on your machine to parallelize the summarization. In this step, you will be summarizing a matrix of  -->
+```{r summarize-chains, eval = F}
+## Summarize chains ----
+out <- summarize_samples(samples,
+                         data,
+                         constants,
+                         project = project,
+                         coarse.grid = coarse.grid,
+                         block.out = fold.out,
+                         gridkey = gridkey,
+                         spatkey = spatRegion$spatkey,
+                         effort = T,
+                         SLURM = ifelse(local == 1, F, T))
 
-<!-- ```{r summarize-chains, eval = F} -->
-<!-- ## Summarize chains ---- -->
-<!-- out <- summarize_samples(samples, -->
-<!--                          data, -->
-<!--                          constants, -->
-<!--                          project = project, -->
-<!--                          coarse.grid = coarse.grid, -->
-<!--                          block.out = fold.out, -->
-<!--                          gridkey = gridkey, -->
-<!--                          spatkey = spatRegion$spatkey, -->
-<!--                          effort = T, -->
-<!--                          SLURM = ifelse(local == 1, F, T)) -->
+save(out, file = paste0(out.dir, "data", foldname, ".rdata"))
+```
 
-<!-- save(out, file = paste0(out.dir, "data", foldname, ".rdata")) -->
-<!-- ``` -->
-
-<!-- All plotting functions all produce a list with two objects: `plot`, a ggplot object with our preset formatting, and `dat`, a dataframe containing the data visualized in `plot`. -->
+All plotting functions all produce a list with two objects: `plot`, a ggplot object with our preset formatting, and `dat`, a dataframe containing the data visualized in `plot`.
 
 <!-- First, view the chains and convergence metrics to assess whether the chains are sufficiently long. -->
 <!-- ```{r plot-sum-output} -->
@@ -1007,7 +1013,7 @@ species.data <- load_species_data(sp.code,
 <!--        height = 5, width = 12) -->
 
 
-<!-- # Beta  -->
+<!-- # Beta -->
 <!-- outplot <- plot_chains(samples, data = data, cov.labs = cov.labs, -->
 <!--                        plot = "B", cutoff = 0) -->
 <!-- ggsave(outplot$plot, -->
@@ -1029,7 +1035,7 @@ species.data <- load_species_data(sp.code,
 
 <!-- outplot <- plot_posteriors(samples, data = data, constants = constants, cov.labs = cov.labs, -->
 <!--                            plot = "alpha", cutoff = 0) -->
-<!-- ggsave(outplot,  -->
+<!-- ggsave(outplot, -->
 <!--        file = paste0(out.dir, "3_parameters-b2_posteriors-alpha.jpg"), -->
 <!--        height = 6, width = 8) -->
 

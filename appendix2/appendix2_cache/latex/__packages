@@ -10,6 +10,6 @@ forcats
 lubridate
 sf
 nimble
+rnaturalearth
 SpFut.flexiSDM
 SpFut.covariates
-rnaturalearth
