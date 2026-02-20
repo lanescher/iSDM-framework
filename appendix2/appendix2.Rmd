@@ -282,8 +282,8 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   exclude <- c("Alaska", "Hawaii", "Commonwealth of the Northern Mariana Islands",
                "American Samoa", "United States Virgin Islands", "Guam", "Puerto Rico")
   usa <- st_read(paste0(ext.path,"maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp")) %>%
-          filter((NAME %in% exclude) == F) %>%
-          st_union()
+    filter((NAME %in% exclude) == F) %>%
+    st_union()
   ## CONUS grid
   load(paste0(ext.path,"grid-and-huc.rdata"))
   
@@ -326,10 +326,10 @@ statemap <- ne_states(country = c("Canada", "Mexico", "United States of America"
 stategrid <- get_state_grid(region, statemap)
 
 xstate <- stategrid %>% 
-          group_by(conus.grid.id) %>% 
-          summarize(nstate = n()) %>% 
-          filter(nstate > 1) %>% 
-          pull(conus.grid.id)
+  group_by(conus.grid.id) %>% 
+  summarize(nstate = n()) %>% 
+  filter(nstate > 1) %>% 
+  pull(conus.grid.id)
 region$sp.grid <- region$sp.grid %>%
   mutate(nstate = case_when(conus.grid.id %in% xstate ~ "multi",
                             T ~ "single"))
@@ -372,10 +372,10 @@ After the cross-validation blocks are assembled, the cells are assigned to "trai
 ```{r gridkey}
 # Make gridkey ----
 gridkey <- select(region$sp.grid, conus.grid.id) %>%
-            st_drop_geometry() %>%
-            mutate(grid.id = 1:nrow(.),
-                   group = case_when(conus.grid.id %in% train.i ~ "train",
-                                     conus.grid.id %in% test.i ~ "test"))
+  st_drop_geometry() %>%
+  mutate(grid.id = 1:nrow(.),
+         group = case_when(conus.grid.id %in% train.i ~ "train",
+                           conus.grid.id %in% test.i ~ "test"))
 ```
 
 
@@ -429,14 +429,14 @@ For additional clarification, sometimes it is more appropriate to summarize dete
 ```{r species-data}
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-            filter(Species == sp.code) %>%
-            rename(file.name = Data.Swamp.file.name,
-                   file.label = Name,
-                   covar.mean = Covar.mean,
-                   covar.sum = Covar.sum,
-                   data.type = Type.true) %>%
-            select(file.name, file.label, covar.mean, covar.sum, 
-                   data.type, PO.extent)
+  filter(Species == sp.code) %>%
+  rename(file.name = Data.Swamp.file.name,
+         file.label = Name,
+         covar.mean = Covar.mean,
+         covar.sum = Covar.sum,
+         data.type = Type.true) %>%
+  select(file.name, file.label, covar.mean, covar.sum, 
+         data.type, PO.extent)
 
 head(allfiles)
 ```
@@ -446,17 +446,18 @@ We can now use `allfiles` to load all of the species data sources. We have devel
 
 ```{r load-species-data}
 species.data <- load_species_data(sp.code,
-                  sp.code.all,
-                  file.info = allfiles,
-                  file.path = "data/data-ready/",
-                  region = region,
-                  filter.region = filter.region,
-                  year.start = year.start,
-                  year.end = year.end,
-                  coordunc = coordunc,
-                  coordunc_na.rm = coordunc_na.rm,
-                  spat.thin = spat.thin,
-                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
+                                  sp.code.all,
+                                  file.info = allfiles,
+                                  file.path = "data/data-ready/",
+                                  region = region,
+                                  filter.region = filter.region,
+                                  year.start = year.start,
+                                  year.end = year.end,
+                                  coordunc = coordunc,
+                                  coordunc_na.rm = coordunc_na.rm,
+                                  spat.thin = spat.thin,
+                                  statelines.rm = T,
+                                  keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
 ```
 
@@ -499,7 +500,7 @@ We can also take a look at the distribution of data across the cross-validation 
 ```{r cv-plots}
 ## Cross-validation fold-specific plots
 if (fold.out != "none") {
-
+  
   out <- map_species_data(region = region,
                           species.data = species.data,
                           year.start = year.start,
@@ -541,11 +542,11 @@ Note: Downloading and assembling the covariate data can take significant time de
 
 # ISSUE - re-download covariates with CRAN package
 if (sp.code == "RACA") {
-
+  
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
     covar <- read_rds(paste0(data.dir, "covariates.rds"))
   } else {
-
+    
     # Note that elevation data must be downloaded before running get_elevation()
     # We have downloaded the elevation and waterbody data outside of this repo
     # See documentation for details.
@@ -555,11 +556,11 @@ if (sp.code == "RACA") {
     waterbody <- get_waterbodies(locs = region$sp.grid,
                                  path = "~/GitHub/species-futures/data/USA/",
                                  id.label = "conus.grid.id")
-
+    
     footprint <- get_footprint(locs = region$sp.grid, id.label = "conus.grid.id")
     climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
-
+    
     covar <- full_join(tri, footprint, by = "conus.grid.id") %>%
       full_join(climate, by = "conus.grid.id") %>%
       full_join(waterbody, by = "conus.grid.id") %>%
@@ -568,21 +569,21 @@ if (sp.code == "RACA") {
              sqrtarea_medium = sqrt(area_medium)) %>%
       select(conus.grid.id, sqrtarea_small, sqrtarea_medium,
              footprint, TRI, tmin, traveltime)
-
+    
     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
     write_rds(covar, file = paste0(data.dir, "covariates.rds"))
-
+    
   }
-
+  
 }
 
 
 if (sp.code == "GPOR") {
-
+  
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
     covar <- read_rds(paste0(data.dir, "covariates.rds"))
   } else {
-
+    
     # Note that elevation and flowlines data must be downloaded before running
     # get_elevation() and get_flowlines(). See documentation for details.
     tri <- get_elevation(locs = region$sp.grid,
@@ -594,23 +595,23 @@ if (sp.code == "GPOR") {
     landcover <- get_landcover(locs = region$sp.grid,
                                path = "~/GitHub/species-futures/data/USA/",
                                id.label = "conus.grid.id")
-
+    
     climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
-
-
-
+    
+    
+    
     # Combine
     covar <- full_join(tri, stream, by = "conus.grid.id") %>%
       full_join(landcover, by = "conus.grid.id") %>%
       full_join(climate, by = "conus.grid.id") %>%
       full_join(traveltime, by = "conus.grid.id") %>%
       select(conus.grid.id, streamLength.km, prec, forest, elevation, traveltime)
-
+    
     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
     write_rds(covar, file = paste0(data.dir, "covariates.rds"))
-
-
+    
+    
   }
 }
 ```
@@ -653,13 +654,13 @@ There's one additional step that could be done here. If removing multicollineari
 ```{r collinearity, eval=F}
 # remove covariates that are correlated > 0.4
 if (check.covs == T){
-
+  
   threshold <- 0.4
-
+  
   covs.rm <- select_covar(covs.z, threshold = threshold)
   covs.lin <- covs.lin[-which(covs.lin %in% covs.rm)]
   covs.quad <- covs.quad[-which(covs.quad %in% covs.rm)]
-
+  
   covs.z <- c(covs.lin, covs.quad)
 }
 
@@ -676,38 +677,38 @@ Now that we've downloaded covariate data, let's take a look at the distribution 
 ```{r plot-covs, results = 'hide'}
 
 if (fold.out == "none") {
-
+  
   ## Distribution covariates
-
+  
   ## Define covariate labels
   covlabs <- read.csv("data/covariate-labels.csv") %>% filter(covariate %in% covs.z)
-
+  
   out <- plot_covar(covar,
                     region,
                     cov.labs = covlabs,
                     scaled = T)
   ggsave(out$plot, height = 12, width = 12, 
          file = paste0(out.dir, "1_covariates-a_process-map.jpg"))
-
+  
   out <- cor_covar(covar,
                    cov.labs = covlabs,
                    color.threshold = 0.25)
   ggsave(out$plot, height = 12, width = 12, 
          file = paste0(out.dir, "1_covariates-a_process-cors.jpg"))
-
+  
   ## iNat covariates
   if ("iNaturalist" %in% names(species.data$obs)) {
     ## Define covariate labels
     covlabs <- read.csv("data/covariate-labels.csv") %>%
       filter(covariate %in% covs.inat)
-
+    
     out <- plot_covar(covar,
                       region,
                       cov.labs = covlabs,
                       scaled = T)
     ggsave(out$plot, height = 12, width = 12, 
            file = paste0(out.dir, "1_covariates-b_POinat-map.jpg"))
-
+    
     if (length(covs.inat) > 1) {
       out <- cor_covar(covar,
                        cov.labs = covlabs,
@@ -716,20 +717,20 @@ if (fold.out == "none") {
              file = paste0(out.dir, "1_covariates-b_POinat-cors.jpg"))
     }
   }
-
+  
   ## PO covs
-
+  
   ## Define covariate labels
   covlabs <- read.csv("data/covariate-labels.csv") %>%
     filter(covariate %in% covs.PO)
-
+  
   out <- plot_covar(covar,
                     region,
                     cov.labs = covlabs,
                     scaled = T)
   ggsave(out$plot, height = 12, width = 12, 
          file = paste0(out.dir, "1_covariates-c_PO-map.jpg"))
-
+  
   if (length(covs.PO) > 1) {
     out <- cor_covar(covar,
                      cov.labs = covlabs,
@@ -760,6 +761,7 @@ sp.data <- sppdata_for_nimble(
   covs.inat = covs.inat,
   covs.PO = covs.PO,
   DND.maybe = 1,  # treat "maybe" detections as 1 or 0?
+  statelines.rm = T,
   # Only keep PO cells that training grid cells
   keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 ```
@@ -907,16 +909,16 @@ if (local == 1) {
                             iter = iter,
                             burnin = burnin,
                             thin = thin)
-
+  
   end.nim <- Sys.time() - start.nim
   print(end.nim)
-
+  
   saveRDS(samples, paste0(out.dir,'samples_',fold,'.rds'))
 } else {
-
+  
   info <- list(seed = chain,
                inits = inits(chain))
-
+  
   start.nim <- Sys.time()
   samples <- run_nimbleMCMC(info = info,
                             code = code,
@@ -926,10 +928,10 @@ if (local == 1) {
                             iter = iter,
                             burnin = burnin,
                             thin = thin)
-
+  
   end.nim <- Sys.time() - start.nim
   print(end.nim)
-
+  
   saveRDS(samples, paste0(out.dir,'samples_',fold,'_',chain,'.rds'))
 }
 ```
@@ -957,7 +959,7 @@ num <- 3 # model number
 fold <- "none" # CV fold
 
 mods <- read.csv("code/model-specs.csv") %>% 
-        filter(number %in% num) # get species code and model name from csv file
+  filter(number %in% num) # get species code and model name from csv file
 sp.code <- mods$sp.code[1] # species code
 model <- mods$model[1] # model name
 
@@ -1280,7 +1282,7 @@ project = 2
 proj.names = c('proj1','proj2')
 
 if (fold.out == "none") {
-
+  
   ### Future projections ----
   if (project > 0) {
     pl <- map_species_data(title = "Projected lambda, mean estimate",
@@ -1293,7 +1295,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "5_mapfuture-a_lambda.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = "Projected lambda, relative uncertainty",
                            region,
                            plot = "lambda",
@@ -1305,7 +1307,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "5_mapfuture-a_lambda-uncrel.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = "Projected occupancy probability, mean estimate",
                            region,
                            plot = "psi",
@@ -1316,7 +1318,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "5_mapfuture-b_psi.jpg"),
            height = 7, width = 9)
-
+    
     
     pl <- map_species_data(title = "Projected XB, mean estimate",
                            region,
@@ -1327,8 +1329,8 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "5_mapfuture-d_expXB-future.jpg"),
            height = 7, width = 9)
-
-
+    
+    
     ### Future absolute change ----
     pl <- map_species_data(title = "Projected absolute change in lambda",
                            region,
@@ -1340,7 +1342,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "6_mapchange-a1_lambda-abs.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = "Projected absolute change in psi",
                            region,
                            plot = "psi",
@@ -1351,7 +1353,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "6_mapchange-b1_psi-abs.jpg"),
            height = 7, width = 9)
-
+    
     ### Future relative change ----
     pl <- map_species_data(title = "Projected relative change in lambda",
                            region,
@@ -1363,7 +1365,7 @@ if (fold.out == "none") {
                            proj.names = proj.names)
     ggsave(pl$plot, file = paste0(out.dir, "6_mapchange-a2_lambda-rel.jpg"),
            height = 7, width = 9)
-
+    
     pl <- map_species_data(title = "Projected relative change in lambda",
                            region,
                            plot = "psi",
