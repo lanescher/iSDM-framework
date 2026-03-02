@@ -35,13 +35,8 @@ args = commandArgs(trailingOnly = TRUE)
 if (length(args) > 0) {
   num = as.numeric(args[1])
   block = as.numeric(args[2])
-  maxchain = as.numeric(args[3])
-  local = as.numeric(args[4])
-  
-  if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/')
-  } 
-  
+  maxchain = 3
+  local = 0
 }
 
 # Ensure block is coded correctly

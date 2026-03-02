@@ -28,12 +28,7 @@ if (length(args) > 0) {
   num = as.numeric(args[1])
   block = as.numeric(args[2])
   chain = as.numeric(args[3])
-  local = as.numeric(args[4]) 
-  
-  # If running on HPC, set working directory
-  if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/')
-  } 
+  local = 0
 }
 
 # Ensure block is coded correctly

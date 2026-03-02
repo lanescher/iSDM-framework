@@ -20,13 +20,12 @@ module load cray-R-spatial
 
 
 ## Set the name of the R script to run, and the directory in which to save outputs
-script=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/code/02-flexiSDM.R
+script=iSDM-framework/code/02-flexiSDM.R
 
 
 # Inputs
 num=$1
 block=$2
-local=$3
 
 # run your script with inputs
-srun --cpu-bind=none Rscript $script $num $block $SLURM_ARRAY_TASK_ID $local
+srun --cpu-bind=none Rscript $script $num $block $SLURM_ARRAY_TASK_ID

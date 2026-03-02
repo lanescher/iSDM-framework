@@ -25,8 +25,6 @@ script=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/co
 # Inputs
 num=$1
 block=$2
-maxchain=$3
-local=$4
 
 # run your script with inputs
-srun --cpu-bind=none Rscript $script $num $block $maxchain $local
+srun --cpu-bind=none Rscript $script $num $block

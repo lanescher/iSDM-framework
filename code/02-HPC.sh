@@ -7,14 +7,6 @@ block=$2 # Block to run
 
 days=$3
 
-# Fixed inputs
-local=0
-chains=3
-
-# Set working directory
-home=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework
-
-
 # Pull species code from MVPv1.csv
 while IFS=, read number code model nim stuff; do
   if [[ $num == $number ]]; then
@@ -29,7 +21,7 @@ echo "Running model: $num $spcode $mod"
 
 
 # Run model with number input and local=0
-sbatch --qos=seven_days_max --mem-per-cpu $memnim --time=$days-00:00:00 --array=1-$chains:1 -J $num-$spcode-$block-nim $home/code/02-flexiSDM.sh $num $block $local
+sbatch --qos=seven_days_max --mem-per-cpu $memnim --time=$days-00:00:00 --array=1-$chains:1 -J $num-$spcode-$block-nim $home/code/02-flexiSDM.sh $num $block
 
 
 # End script

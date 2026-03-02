@@ -27,7 +27,6 @@ script=/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/co
 # Inputs
 num=$1
 # block = array number $SLURM_ARRAY_TASK_ID
-local=$2
 
 # run your script with inputs
-srun --cpu-bind=none Rscript $script $num $SLURM_ARRAY_TASK_ID $local
+srun --cpu-bind=none Rscript $script $num $SLURM_ARRAY_TASK_ID

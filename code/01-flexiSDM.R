@@ -42,13 +42,6 @@ if (length(args) > 0) {
   if (block == 4) {
     block <- 'none'
   }  
-  
-  # Running locally? Yes = 1
-  local = as.numeric(args[3])
-  
-  if (local == 0) {
-    setwd('/caldera/hovenweep/projects/usgs/ecosystems/eesc/cscher/iSDM-framework/')
-  } 
 } 
 
 # Load libraries ----
@@ -651,7 +644,7 @@ end1 <- Sys.time() - start1
 
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
 # Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
-rm(list=c('local','block','args','pl','a','c','rm','tmp'))
+rm(list=c('block','args','pl','a','c','rm','tmp'))
 
 
 # Save environment and full set up
