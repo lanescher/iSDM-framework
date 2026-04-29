@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 3
+nums.do <- 1
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -162,9 +162,14 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   usa <- st_read("../species-futures/data/USA/maps/cb_2018_us_state_500k/cb_2018_us_state_500k.shp") %>%
           filter((NAME %in% exclude) == F) %>%
           st_union()
-  # CONUS grid
-  load("../species-futures/data/USA/grid-and-huc.rdata")
-
+  
+  gridstart <- rangelist$IUCN %>% st_transform(crs = 3857) %>% st_buffer(buffer)
+  
+  # 25sqkm
+  cellarea <- 25e6
+  cellsize <- 2 * sqrt(cellarea/((3*sqrt(3)/2))) * sqrt(3)/2
+  grid <- st_make_grid(gridstart, cellsize = cellsize, square = F) %>% st_as_sf() %>% rename(geometry = x) %>% mutate(conus.grid.id = 1:nrow(.))
+  
   # Region - LANE CHECK 
   region <- make_region(rangelist,
                         buffer = buffer,
@@ -173,7 +178,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         grid = conus.grid,
                         rm.clumps = T,
                         clump.size = 50, 
-                        continuous = T)
+                        continuous = F)
   
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
@@ -259,7 +264,7 @@ if (gen %in% c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
 
 # get all files that have data for that species
 allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
-            filter(Species == sp.code) %>%
+            # filter(Species == sp.code) %>%
             rename(file.name = Data.Swamp.file.name,
                    file.label = Name,
                    covar.mean = Covar.mean,
@@ -300,7 +305,7 @@ pl <- map_species_data(region = region,
                        plot.region = T,
                        details = T,
                        title = paste0(common, " (", sp.code, ")", title))
-ggsave(pl, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
+ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-b_data-", blockname, "-details.jpg"), height = 8, width = 10)
 
 pl <- map_species_data(region = region,
                        species.data = species.data,
@@ -310,7 +315,7 @@ pl <- map_species_data(region = region,
                        plot.region = T,
                        details = F,
                        title = paste0(common, " (", sp.code, ")", title))
-ggsave(pl, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10)
+ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10)
 
 
 if (block.out != "none") {
@@ -320,7 +325,6 @@ if (block.out != "none") {
                          year.start = year.start,
                          year.end = year.end,
                          plot = "samples",
-                         plot.blocks = T,
                          blocks = spatblocks[which(spatblocks$folds == block),],
                          plot.region = T,
                          details = T,
@@ -332,7 +336,6 @@ if (block.out != "none") {
                          year.start = year.start,
                          year.end = year.end,
                          plot = "samples",
-                         plot.blocks = T,
                          blocks = spatblocks[which(spatblocks$folds == block),],
                          plot.region = T,
                          details = F,
@@ -346,24 +349,24 @@ if (block.out != "none") {
                          year.start = year.start,
                          year.end = year.end,
                          plot = "samples",
-                         plot.blocks = T,
                          blocks = spatblocks,
                          plot.region = T,
                          details = T,
+                         inat.agg = F,
                          title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+  ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
   
   pl <- map_species_data(region = region,
                          species.data = species.data,
                          year.start = year.start,
                          year.end = year.end,
                          plot = "samples",
-                         plot.blocks = T,
                          blocks = spatblocks,
                          plot.region = T,
-                         details = F,
+                         details = F, 
+                         inat.agg = F,
                          title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+  ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
   
 }
 
@@ -406,7 +409,7 @@ if (sp.code == "RACA") {
 }
 
 
-if (sp.code == "GPOR") {
+if (sp.code == "GPOR" | sp.code == "DMAR") {
   
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
     covar <- read_rds(paste0(data.dir, "covariates.rds"))
