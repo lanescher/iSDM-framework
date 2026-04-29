@@ -11,44 +11,23 @@
 
 library(tidyverse)
 library(SpFut.processGBIF)
+library(rgbif)
 
 
-
-
-# Get iNat data ----
+# Download all of Amphibia ----------------------
+# This step requires GBIF credentials. Alternatively, you can download the 
+# dataset used in our analysis from: https://doi.org/10.15468/dl.38pvuq
+user <- "clanescher"
+pwd <- "0xjFyIlxJoKrNh"
+email <- "clanescher@gmail.com"
 
 if (file.exists("data/gbif-raw.rds")) {
-
-  cat("Loading raw data\n")
   dat <- read_rds("data/gbif-raw.rds")
 } else {
-
-  cat("Downloading raw data\n")
-  
-  x <- rgbif::occ_download(
-    
-    rgbif::pred("hasGeospatialIssue", FALSE),
-    rgbif::pred("hasCoordinate", TRUE),
-    rgbif::pred("occurrenceStatus", "PRESENT"),
-    rgbif::pred("taxonKey", 131),
-    rgbif::pred("country", "US"),
-    rgbif::pred_gte("year", 2010),
-    format = "SIMPLE_CSV",
-    user = "rmummah", pwd = "M@gicPizza1", email = "rileymummah@gmail.com")
-  
-  # get download status
-  dlKey <- rgbif::occ_download_wait(x)
-  
-  # Load data
-  dat.gbif <- rgbif::occ_download_get(dlKey$key, overwrite = T) %>% rgbif::occ_download_import()
-  
-  # get citation
-  cite <- rgbif::gbif_citation(as.character(dlKey$key))[[1]]
-  
-  dat <- list(dat = dat.gbif,
-              citation = cite)
-  
-  write_rds(dat, "data/gbif-raw.rds")
+  dat <- download_gbif(scientificName = "Amphibia", taxonrank = "kingdom",
+                       startYear = 1994, country = "US", source = "iNaturalist",
+                       user = user, pwd = pwd, email = email)
+  write_rds(dat, file = "data/gbif-raw.rds")
 }
 cat(dat$citation, "\n")
 
@@ -56,10 +35,10 @@ cat(dat$citation, "\n")
 table(dat$dat$species)
 
 
-# Isolate GPOR and RACA ----
+# Isolate GPOR and DMAR ----
 
-sp <- c("Gyrinophilus porphyriticus", "Rana cascadae")
-sp.codes <- c("GPOR", "RACA")
+sp <- c("Gyrinophilus porphyriticus", "Desmognathus marmoratus")
+sp.codes <- c("GPOR", "DMAR")
 
 
 for (s in 1:length(sp)) {
