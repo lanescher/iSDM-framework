@@ -17,3 +17,4 @@ GPOR,Dodd,VES,Count,PLSE_Doddlitter_count_2000_2000,1,1,,yday,"surveytime, bagsi
 GPOR,Dodd,VES?,Count,PLSE_Doddterrestrial_count_1998_2001,1,1,,,time,NA,Dodd Terrestrial,N,,1,
 GPOR,Hyde,various,Count,PLSE_Hyde_count_1998_1999,1,1,,,,NA,Hyde,N,,1,
 DMAR,iNaturalist,presence-only,PO,DMAR_iNat_PO,1,1,,,,CONUS,iNaturalist,Y,,,1
+DMAR,Museum,presence-only,PO,DMAR_museum_PO,1,1,,,,CONUS,Museum,Y,,,1
