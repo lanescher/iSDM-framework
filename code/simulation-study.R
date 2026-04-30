@@ -11,29 +11,38 @@ library(tidyverse)
 
 
 
+# parameters for species
+grid.dim <- 20
+shape <- "hexagon"
+covForm <- c("linear", "linear", "quadratic")
+covCorGroup <- c("A", "B", "C")
+spatial <- T
+
+
+
 parall <- c()
 for (s in 1) {
   
   set.seed(s)
   
   # Simulate species ----
-  sp <- sim_species(grid.dim = 20, 
-                    shape = "hexagon",
+  sp <- sim_species(grid.dim = grid.dim, 
+                    shape = shape,
                     cellsize.sim = 1,         
                     cellsize.inf = 1,        
-                    covForm = c("linear", "linear", "quadratic"),
-                    covCorGroup = c("A", "B", "C"),
-                    covType = c("spatial", "spatial", "spatial"),
-                    covNoise = c(NA, NA, NA),
+                    covForm = covForm,
+                    covCorGroup = covCorGroup,
+                    covType = rep("spatial", times = length(covForm)),
+                    covNoise = rep(NA, times = length(covForm)),
                     paramShift = 0,
                     paramSD = 0.1,
-                    spatial = T)
+                    spatial = spatial)
   
   # Simulate data ----
   
-  # PO data
+  ## PO data ----
   po_dat <- sim_POdat(true = sp, 
-                      shape = "hexagon",
+                      shape = shape,
                       link = "log",
                       covForm = c("linear"),
                       covCorGroup = c("A"),
@@ -41,66 +50,123 @@ for (s in 1) {
                       covNoise = c(NA),
                       paramSD = 0.5)
   
-  # count 1 visit
-  count_dat1 <- sim_surveydat(true = sp,
+  ## count 1 visit - no covs ----
+  count_dat1a <- sim_surveydat(true = sp,
                              survey.type = "count",
                              method = "random",
-                             nsite = 10000,
+                             nsite = 1000,
                              nvisit = 1,
                              nvisit.sd = 0,
                              link = "log",
                              min.visits.incl = Inf,
+                             covFormSite = c(""),
+                             covCorGroupSite = c(""),
+                             covFormVisit = c(""),
+                             covCorGroupVisit = c(""))
+  
+  ## count 1 visit ----
+  count_dat1b <- sim_surveydat(true = sp,
+                              survey.type = "count",
+                              method = "random",
+                              nsite = 1000,
+                              nvisit = 1,
+                              nvisit.sd = 0,
+                              link = "log",
+                              min.visits.incl = Inf,
+                              covFormSite = c("linear"),
+                              covCorGroupSite = c("A"),
+                              covFormVisit = c(""),
+                              covCorGroupVisit = c(""))
+  
+  ## count 10 visits - no covs ----
+  count_dat2a <- sim_surveydat(true = sp,
+                              survey.type = "count",
+                              method = "random",
+                              nsite = 1000,
+                              nvisit = 10,
+                              nvisit.sd = 0,
+                              link = "logit",
+                              min.visits.incl = 3,
+                              covFormSite = c(""),
+                              covCorGroupSite = c(""),
+                              covFormVisit = c(""),
+                              covCorGroupVisit = c(""))
+  
+  ## count 10 visits ----
+  count_dat2b <- sim_surveydat(true = sp,
+                             survey.type = "count",
+                             method = "random",
+                             nsite = 1000,
+                             nvisit = 10,
+                             nvisit.sd = 0,
+                             link = "logit",
+                             min.visits.incl = 3,
                              covFormSite = c("linear"),
                              covCorGroupSite = c("A"),
                              covFormVisit = c(""),
                              covCorGroupVisit = c(""))
   
-  # count 100 visits
-  count_dat2 <- sim_surveydat(true = sp,
-                             survey.type = "count",
-                             method = "random",
-                             nsite = 10,
-                             nvisit = 100,
-                             nvisit.sd = 0,
-                             link = "logit",
-                             min.visits.incl = 10,
-                             covFormSite = c(""),
-                             covCorGroupSite = c(""),
-                             covFormVisit = c("linear"),
-                             covCorGroupVisit = c("A"))
-  
-  # DND 1 visit
-  dnd_dat1 <- sim_surveydat(true = sp,
+  ## DND 1 visit - no covs ----
+  dnd_dat1a <- sim_surveydat(true = sp,
                            survey.type = "DND",
                            method = "regular",
-                           nsite = 10000,
+                           nsite = 1000,
                            nvisit = 1,
                            nvisit.sd = 0,
                            link = "log",
                            min.visits.incl = Inf,
-                           covFormSite = c("linear"),
-                           covCorGroupSite = c("A"),
+                           covFormSite = c(""),
+                           covCorGroupSite = c(""),
+                           covFormVisit = c(""),
+                           covCorGroupVisit = c(""))
+  
+  ## DND 1 visit ----
+  dnd_dat1b <- sim_surveydat(true = sp,
+                            survey.type = "DND",
+                            method = "regular",
+                            nsite = 1000,
+                            nvisit = 1,
+                            nvisit.sd = 0,
+                            link = "log",
+                            min.visits.incl = Inf,
+                            covFormSite = c("linear"),
+                            covCorGroupSite = c("A"),
+                            covFormVisit = c(""),
+                            covCorGroupVisit = c(""))
+  
+  
+  ## DND 10 visits - no covs ----
+  dnd_dat2a <- sim_surveydat(true = sp,
+                           survey.type = "DND",
+                           method = "regular",
+                           nsite = 1000,
+                           nvisit = 10,
+                           nvisit.sd = 0,
+                           link = "logit",
+                           min.visits.incl = 3,
+                           covFormSite = c(""),
+                           covCorGroupSite = c(""),
                            covFormVisit = c(""),
                            covCorGroupVisit = c(""))
   
   
-  # DND 100 visits
-  dnd_dat2 <- sim_surveydat(true = sp,
-                           survey.type = "DND",
-                           method = "regular",
-                           nsite = 10,
-                           nvisit = 100,
-                           nvisit.sd = 0,
-                           link = "logit",
-                           min.visits.incl = 10,
-                           covFormSite = c(""),
-                           covCorGroupSite = c(""),
-                           covFormVisit = c("linear"),
-                           covCorGroupVisit = c("A"))
+  ## DND 10 visits ----
+  dnd_dat2b <- sim_surveydat(true = sp,
+                            survey.type = "DND",
+                            method = "regular",
+                            nsite = 1000,
+                            nvisit = 10,
+                            nvisit.sd = 0,
+                            link = "logit",
+                            min.visits.incl = 3,
+                            covFormSite = c("linear"),
+                            covCorGroupSite = c("A"),
+                            covFormVisit = c(""),
+                            covCorGroupVisit = c(""))
   
   # Set up models ----
   
-  for (mod in 1:6) {
+  for (mod in 1:11) {
     
     if (mod == 1) {
       ## PO data ----
@@ -122,10 +188,10 @@ for (s in 1) {
     }
     
     if (mod == 2) {
-      ## count 1 visit data ----
+      ## count 1 visit data, no covs ----
       
       # format data
-      datalist <- list(count = count_dat1)
+      datalist <- list(count = count_dat1a)
       sim_out <- format_sim(true = sp,
                             data = datalist)
       
@@ -135,7 +201,7 @@ for (s in 1) {
       
       file.info <- data.frame(file.label = c("simCount1"),
                               data.type = c("count"),
-                              covar.mean = c("cov.siteA"),
+                              covar.mean = c(""),
                               covar.sum = c(NA),
                               PO.extent = c(NA))
       
@@ -143,10 +209,10 @@ for (s in 1) {
     }
     
     if (mod == 3) {
-      ## count multi visit data ----
+      ## count 1 visit data ----
       
       # format data
-      datalist <- list(count = count_dat2)
+      datalist <- list(count = count_dat1b)
       sim_out <- format_sim(true = sp,
                             data = datalist)
       
@@ -156,18 +222,81 @@ for (s in 1) {
       
       file.info <- data.frame(file.label = c("simCount1"),
                               data.type = c("count"),
-                              covar.mean = c("cov.visitA"),
+                              covar.mean = c("cov.siteA"),
                               covar.sum = c(NA),
                               PO.extent = c(NA))
       
-      min.visits.incl <- 10
+      min.visits.incl <- Inf
     }
     
     if (mod == 4) {
+      ## count multi visit data, no covs ----
+      
+      # format data
+      datalist <- list(count = count_dat2a)
+      sim_out <- format_sim(true = sp,
+                            data = datalist)
+      
+      region       <- sim_out$region
+      species.data <- sim_out$species.data
+      covar        <- sim_out$covar
+      
+      file.info <- data.frame(file.label = c("simCount1"),
+                              data.type = c("count"),
+                              covar.mean = c(""),
+                              covar.sum = c(NA),
+                              PO.extent = c(NA))
+      
+      min.visits.incl <- 3
+    }
+    
+    if (mod == 5) {
+      ## count multi visit data ----
+      
+      # format data
+      datalist <- list(count = count_dat2b)
+      sim_out <- format_sim(true = sp,
+                            data = datalist)
+      
+      region       <- sim_out$region
+      species.data <- sim_out$species.data
+      covar        <- sim_out$covar
+      
+      file.info <- data.frame(file.label = c("simCount1"),
+                              data.type = c("count"),
+                              covar.mean = c("cov.siteA"),
+                              covar.sum = c(NA),
+                              PO.extent = c(NA))
+      
+      min.visits.incl <- 3
+    }
+    
+    if (mod == 6) {
+      ## DND 1 visit data, no covs ----
+      
+      # format data
+      datalist <- list(DND = dnd_dat1a)
+      sim_out <- format_sim(true = sp,
+                            data = datalist)
+      
+      region       <- sim_out$region
+      species.data <- sim_out$species.data
+      covar        <- sim_out$covar
+      
+      file.info <- data.frame(file.label = c("simDND1"),
+                              data.type = c("DND"),
+                              covar.mean = c(""),
+                              covar.sum = c(NA),
+                              PO.extent = c(NA))
+      
+      min.visits.incl <- Inf
+    }
+    
+    if (mod == 7) {
       ## DND 1 visit data ----
       
       # format data
-      datalist <- list(DND = dnd_dat1)
+      datalist <- list(DND = dnd_dat1b)
       sim_out <- format_sim(true = sp,
                             data = datalist)
       
@@ -184,11 +313,11 @@ for (s in 1) {
       min.visits.incl <- Inf
     }
     
-    if (mod == 5) {
-      ## count multi visit data ----
+    if (mod == 8) {
+      ## count multi visit data, no covs ----
       
       # format data
-      datalist <- list(DND = dnd_dat2)
+      datalist <- list(DND = dnd_dat2a)
       sim_out <- format_sim(true = sp,
                             data = datalist)
       
@@ -198,22 +327,43 @@ for (s in 1) {
       
       file.info <- data.frame(file.label = c("simDND1"),
                               data.type = c("DND"),
-                              covar.mean = c("cov.visitA"),
+                              covar.mean = c(""),
                               covar.sum = c(NA),
                               PO.extent = c(NA))
       
-      min.visits.incl <- 10
+      min.visits.incl <- 3
     }
     
-    if (mod == 6) {
-      ## all data ----
+    if (mod == 9) {
+      ## count multi visit data ----
+      
+      # format data
+      datalist <- list(DND = dnd_dat2b)
+      sim_out <- format_sim(true = sp,
+                            data = datalist)
+      
+      region       <- sim_out$region
+      species.data <- sim_out$species.data
+      covar        <- sim_out$covar
+      
+      file.info <- data.frame(file.label = c("simDND1"),
+                              data.type = c("DND"),
+                              covar.mean = c("cov.siteA"),
+                              covar.sum = c(NA),
+                              PO.extent = c(NA))
+      
+      min.visits.incl <- 3
+    }
+    
+    if (mod == 10) {
+      ## all data, no covs ----
       
       # format data
       datalist <- list(PO = po_dat,
-                       count = count_dat1,
-                       count = count_dat2,
-                       DND = dnd_dat1,
-                       DND = dnd_dat2)
+                       count = count_dat1a,
+                       count = count_dat2a,
+                       DND = dnd_dat1a,
+                       DND = dnd_dat2a)
       sim_out <- format_sim(true = sp,
                             data = datalist)
       
@@ -223,11 +373,36 @@ for (s in 1) {
       
       file.info <- data.frame(file.label = c("simPO1", "simCount2", "simCount3", "simDND4", "simDND5"),
                               data.type = c("PO", "count", "count", "DND", "DND"),
-                              covar.mean = c("POcovA", "cov.siteA", "cov.visitA", "cov.siteA", "cov.visitA"),
+                              covar.mean = c("POcovA", "", "", "", ""),
                               covar.sum = c(NA, NA, NA, NA, NA),
                               PO.extent = c("CONUS", NA, NA, NA, NA))
       
-      min.visits.incl <- 10
+      min.visits.incl <- 3
+    }
+    
+    if (mod == 11) {
+      ## all data ----
+      
+      # format data
+      datalist <- list(PO = po_dat,
+                       count = count_dat1b,
+                       count = count_dat2b,
+                       DND = dnd_dat1b,
+                       DND = dnd_dat2b)
+      sim_out <- format_sim(true = sp,
+                            data = datalist)
+      
+      region       <- sim_out$region
+      species.data <- sim_out$species.data
+      covar        <- sim_out$covar
+      
+      file.info <- data.frame(file.label = c("simPO1", "simCount2", "simCount3", "simDND4", "simDND5"),
+                              data.type = c("PO", "count", "count", "DND", "DND"),
+                              covar.mean = c("POcovA", "cov.siteA", "cov.siteA", "cov.siteA", "cov.siteA"),
+                              covar.sum = c(NA, NA, NA, NA, NA),
+                              PO.extent = c("CONUS", NA, NA, NA, NA))
+      
+      min.visits.incl <- 3
     }
     
     # Fit models ----
@@ -238,8 +413,10 @@ for (s in 1) {
     spatRegion <- NULL
     
     # set up covariates
-    covs.lin  <- c("covA", "covB")   # linear terms 
-    covs.quad <- c("covC")               # quadratic term
+    covs.linear <- which(covForm == "linear")
+    covs.quadratic <- which(covForm == "quadratic")
+    covs.lin  <- colnames(sp$covar)[covs.linear + 1]   # linear terms 
+    covs.quad <- colnames(sp$covar)[covs.quadratic + 1]
     covs.z    <- c(covs.lin, covs.quad)
     covs.z <- covs.z[!is.na(covs.z) & covs.z != ""]
     
@@ -278,7 +455,7 @@ for (s in 1) {
     tmp <- data_for_nimble(sp.data = sp.data,
                            covar = covar,
                            covs.z = covs.z,
-                           sp.auto = T,      
+                           sp.auto = spatial,      
                            coarse.grid = FALSE,
                            region = region,
                            gridkey = gridkey,
@@ -290,7 +467,7 @@ for (s in 1) {
     code <- nimble_code(data = data,
                         constants = constants,
                         path = tempdir(),
-                        sp.auto = T,
+                        sp.auto = spatial,
                         coarse.grid = FALSE,
                         Bprior = "dnorm(0,1)",
                         block.out = "none",
@@ -302,7 +479,7 @@ for (s in 1) {
     
     inits <- function(x) {nimble_inits(data = data,
                                        constants = constants,
-                                       sp.auto = T,
+                                       sp.auto = spatial,
                                        min.visits.incl = min.visits.incl,
                                        occ.mod = TRUE,
                                        nmix.mod = TRUE,
@@ -312,7 +489,7 @@ for (s in 1) {
                             constants = constants,
                             lambda = TRUE,
                             XB = TRUE,
-                            sp.auto = T,
+                            sp.auto = spatial,
                             effort = FALSE)
     
     # fit model
@@ -350,10 +527,25 @@ for (s in 1) {
     
     par <- sim_compare(out, true = sp, plot = "process")$dat %>%
       mutate(model = mod,
-             species = s)
-    
+             species = s,
+             type = "process")
     parall <- bind_rows(parall, par)
+    
+    par <- sim_compare(out, true = sp, plot = "alpha")$dat %>%
+      mutate(model = mod,
+             species = s,
+             type = "alpha")
+    parall <- bind_rows(parall, par)
+    
+    # par <- sim_compare(out, true = sp, plot = "obs")$dat %>%
+    #   mutate(model = mod,
+    #          species = s,
+    #          type = "obs")
+    # parall <- bind_rows(parall, par)
+    
+    
     # sim_compare(out, true = sp, plot = "process")$plot
+
   }
   
   
@@ -364,5 +556,33 @@ parall1 <- parall %>%
   mutate(recovered = case_when(true < hi & true > lo ~ 1,
                                T ~ 0),
          mixed = case_when(rhat < 1.05 ~ 1,
-                           T ~ 0))
+                           T ~ 0),
+         model.lab = case_when(model == 1 ~ "PO",
+                               model == 2 ~ "count, 1 visit",
+                               model == 3 ~ "count, 1 visit, covs",
+                               model == 4 ~ "count, 10 visits",
+                               model == 5 ~ "count, 10 visits, covs",
+                               model == 6 ~ "DND, 1 visit",
+                               model == 7 ~ "DND, 1 visit, covs",
+                               model == 8 ~ "DND, 10 visits",
+                               model == 9 ~ "DND, 10 visits, covs",
+                               model == 10 ~ "all", 
+                               model == 11 ~ "all, covs"))
 
+
+ggplot(filter(parall1, type == "process", mixed == 1)) +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(x = covariate, y = true), size = 3, shape = 9, stroke = 1) +
+  geom_pointrange(aes(x = covariate, y = mean, ymin = lo, ymax = hi, color = model.lab), position = position_dodge(width = 0.5)) +
+  facet_wrap(~ species) +
+  theme_bw() +
+  labs(x = "Covariate", y = "Estimate", color = "Model") +
+  coord_cartesian(ylim = c(-0.5, 0.5))
+
+
+cov.labs <- data.frame(covariate = c(covs.z, covs.PO, covs.inat),
+                       Label = c(covs.z, covs.PO, covs.inat))
+
+outplot <- plot_chains(samples, data = data, cov.labs = cov.labs,
+                       plot = "B", cutoff = 0)
+outplot$plot
