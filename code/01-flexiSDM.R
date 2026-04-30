@@ -163,7 +163,9 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
           filter((NAME %in% exclude) == F) %>%
           st_union()
   
-  gridstart <- rangelist$IUCN %>% st_transform(crs = 3857) %>% st_buffer(buffer)
+  gridstart <- rangelist %>% 
+    bind_rows() %>% summarize(geometry = st_union(geometry)) %>%
+    st_transform(crs = 3857) %>% st_buffer(buffer)
   
   # 25sqkm
   cellarea <- 10e6
@@ -288,7 +290,6 @@ species.data <- load_species_data(sp.code,
 
 
 
-## PLOTTING ISSUE HERE - LANE CHECK - STILL PLOTTING ISSUE
 
 ### Plot species data ----
 if (block == "none") {
@@ -410,7 +411,8 @@ if (sp.code == "DMAR") {
                                  T ~ 0)) %>%
       filter(genus %in% genera,
              include == 1,
-             is.na(coordinateUncertaintyInMeters) == F)
+             is.na(coordinateUncertaintyInMeters) == F,
+             source == "iNaturalist")
     dat.grid <- clean_gbif(dat1) %>%
       st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326) %>%
       st_transform(crs = st_crs(region$sp.grid)) %>%
@@ -627,7 +629,7 @@ constants <- tmp$constants
 # Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
 # Add state indicator for multi-state PO to indicate which states have data
 if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
-if (sp.code == "DMAR") obsc.state <- NA
+if (sp.code == "DMAR") obsc.state <- c("GA", "ON", "SC")
 constants <- add_state_ind(species.data,
                            region,
                            gridkey,
