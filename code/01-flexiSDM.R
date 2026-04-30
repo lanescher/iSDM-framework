@@ -495,19 +495,16 @@ if (block.out == "none") {
   covlabs <- read.csv("data/covariate-labels.csv") %>%
               filter(covariate %in% covs.z)
   
-  # LANE - CHECK HERE
   pl <- plot_covar(covar,
                    region,
                    scaled = T,
-                   cov.names = covlabs$covariate,
-                   cov.labels = covlabs$Label)
+                   cov.labs = covlabs)
   
   ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-a_process-map.jpg"), 
          height = 15, width = 15)
   
-  pl <- cor_covar(covar, 
-                  cov.names = covlabs$covariate,
-                  cov.labels = covlabs$Label,
+  pl <- cor_covar(covar,
+                  cov.labs = covlabs,
                   color.threshold = 0.25)
   
   ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-a_process-correlations.jpg"), 
@@ -524,16 +521,14 @@ if (block.out == "none") {
     pl <- plot_covar(covar,
                      region,
                      scaled = T,
-                     cov.names = covlabs$covariate,
-                     cov.labels = covlabs$Label)
+                     cov.labs = covlabs)
     
     ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-b_iNat-map.jpg"), 
            height = 15, width = 15)
     
     if (length(covs.inat) > 1) {
-      pl <- cor_covar(covar, 
-                      cov.names = covlabs$covariate,
-                      cov.labels = covlabs$Label,
+      pl <- cor_covar(covar,
+                      cov.labs = covlabs,
                       color.threshold = 0.25)
       
       ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-b_iNat-correlations.jpg"), 
@@ -553,16 +548,14 @@ if (block.out == "none") {
   pl <- plot_covar(covar,
                    region,
                    scaled = T,
-                   cov.names = covlabs$covariate,
-                   cov.labels = covlabs$Label)
+                   cov.labs = covlabs)
   
   ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-c_PO-map.jpg"), 
          height = 15, width = 15)
   
   if (length(covs.PO) > 1) {
-    pl <- cor_covar(covar, 
-                    cov.names = covlabs$covariate,
-                    cov.labels = covlabs$Label,
+    pl <- cor_covar(covar,
+                    cov.labs = covlabs,
                     color.threshold = 0.25)
     
     ggsave(pl$plot, filename = paste0(out.dir, "1_covariates-c_PO-correlations.jpg"), 
