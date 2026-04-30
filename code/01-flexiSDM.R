@@ -166,7 +166,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   gridstart <- rangelist$IUCN %>% st_transform(crs = 3857) %>% st_buffer(buffer)
   
   # 25sqkm
-  cellarea <- 25e6
+  cellarea <- 10e6
   cellsize <- 2 * sqrt(cellarea/((3*sqrt(3)/2))) * sqrt(3)/2
   grid <- st_make_grid(gridstart, cellsize = cellsize, square = F) %>% st_as_sf() %>% rename(geometry = x) %>% mutate(conus.grid.id = 1:nrow(.))
   
@@ -175,7 +175,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         buffer = buffer,
                         sub = region.sub,
                         boundary = usa,
-                        grid = conus.grid,
+                        grid = grid,
                         rm.clumps = T,
                         clump.size = 50, 
                         continuous = F)
@@ -270,7 +270,7 @@ allfiles <- read.csv("data/00-data-summary-flexiSDM.csv") %>%
                    covar.mean = Covar.mean,
                    covar.sum = Covar.sum,
                    data.type = Type.true) %>%
-            select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent)
+            select(file.name, file.label, covar.mean, covar.sum, data.type, PO.extent, GPOR, DMAR)
 
 
 species.data <- load_species_data(sp.code,
@@ -317,58 +317,58 @@ pl <- map_species_data(region = region,
                        title = paste0(common, " (", sp.code, ")", title))
 ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"), height = 8, width = 10)
 
-
-if (block.out != "none") {
-  
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         blocks = spatblocks[which(spatblocks$folds == block),],
-                         plot.region = T,
-                         details = T,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
-  
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         blocks = spatblocks[which(spatblocks$folds == block),],
-                         plot.region = T,
-                         details = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
-  
-  
-} else {
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         blocks = spatblocks,
-                         plot.region = T,
-                         details = T,
-                         inat.agg = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
-  
-  pl <- map_species_data(region = region,
-                         species.data = species.data,
-                         year.start = year.start,
-                         year.end = year.end,
-                         plot = "samples",
-                         blocks = spatblocks,
-                         plot.region = T,
-                         details = F, 
-                         inat.agg = F,
-                         title = paste0(common, " (", sp.code, ")", title))
-  ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
-  
-}
+# 
+# if (block.out != "none") {
+#   
+#   pl <- map_species_data(region = region,
+#                          species.data = species.data,
+#                          year.start = year.start,
+#                          year.end = year.end,
+#                          plot = "samples",
+#                          blocks = spatblocks[which(spatblocks$folds == block),],
+#                          plot.region = T,
+#                          details = T,
+#                          title = paste0(common, " (", sp.code, ")", title))
+#   ggsave(pl, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+#   
+#   pl <- map_species_data(region = region,
+#                          species.data = species.data,
+#                          year.start = year.start,
+#                          year.end = year.end,
+#                          plot = "samples",
+#                          blocks = spatblocks[which(spatblocks$folds == block),],
+#                          plot.region = T,
+#                          details = F,
+#                          title = paste0(common, " (", sp.code, ")", title))
+#   ggsave(pl, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+#   
+#   
+# } else {
+#   pl <- map_species_data(region = region,
+#                          species.data = species.data,
+#                          year.start = year.start,
+#                          year.end = year.end,
+#                          plot = "samples",
+#                          blocks = spatblocks,
+#                          plot.region = T,
+#                          details = T,
+#                          inat.agg = F,
+#                          title = paste0(common, " (", sp.code, ")", title))
+#   ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-d_blocks-", blockname, "-details.jpg"), height = 8, width = 10)
+#   
+#   pl <- map_species_data(region = region,
+#                          species.data = species.data,
+#                          year.start = year.start,
+#                          year.end = year.end,
+#                          plot = "samples",
+#                          blocks = spatblocks,
+#                          plot.region = T,
+#                          details = F, 
+#                          inat.agg = F,
+#                          title = paste0(common, " (", sp.code, ")", title))
+#   ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-c_blocks-", blockname, ".jpg"), height = 8, width = 10)
+#   
+# }
 
 
 
@@ -376,40 +376,70 @@ if (block.out != "none") {
 
 # Covariate data ----
 
-if (sp.code == "RACA") {
+if (sp.code == "DMAR") {
   
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
     covar <- read_rds(paste0(data.dir, "covariates.rds"))
   } else {
     
-    # Note that elevation data must be downloaded before running get_elevation()
-    # See documentation for details.
-    tri <- get_elevation(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
-    waterbody <- get_waterbodies(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
+    # Note that elevation and flowlines data must be downloaded before running 
+    # get_elevation() and get_flowlines(). See documentation for details.
+    # tri <- get_elevation(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
+    stream <- get_flowlines(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
+    landcover <- get_landcover(locs = region$sp.grid, path = "../species-futures/data/USA/", id.label = "conus.grid.id")
     
-    footprint <- get_footprint(locs = region$sp.grid, id.label = "conus.grid.id")
     climate <- get_climate(locs = region$sp.grid, id.label = "conus.grid.id")
+    soil <- get_soil(locs = region$sp.grid, id.label = "conus.grid.id") %>%
+      rename(silt = `silt_0-5cm`)
     traveltime <- get_traveltime(locs = region$sp.grid, id.label = "conus.grid.id")
     
-    covar <- full_join(tri, footprint, by = "conus.grid.id") %>%
+    
+    # Get ORM for iNat data
+    dat <- read_rds("data/gbif-raw.rds")
+    genera <- c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+                "Cryptobranchus", "Desmognathus", "Dicamptodon", 
+                "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+                "Hydromantes", "Necturus", "Notophthalmus",
+                "Phaeognathus", "Plethodon", "Pseudobranchus",
+                "Pseudotriton", "Rhyacotriton", "Siren", 
+                "Stereochilus", "Taricha", "Urspelerpes")
+    
+    dat1 <- dat$dat %>%
+      mutate(include = case_when(coordinateUncertaintyInMeters < 25000 | 
+                                   species == "Desmognathus marmoratus" ~ 1,
+                                 T ~ 0)) %>%
+      filter(genus %in% genera,
+             include == 1,
+             is.na(coordinateUncertaintyInMeters) == F)
+    dat.grid <- clean_gbif(dat1) %>%
+      st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326) %>%
+      st_transform(crs = st_crs(region$sp.grid)) %>%
+      st_intersection(region$sp.grid) %>%
+      st_drop_geometry() %>%
+      group_by(conus.grid.id) %>%
+      summarize(ORM = n())
+    
+    
+    # Combine
+    covar <- full_join(soil, stream, by = "conus.grid.id") %>%
+      full_join(landcover, by = "conus.grid.id") %>%
       full_join(climate, by = "conus.grid.id") %>%
-      full_join(waterbody, by = "conus.grid.id") %>%
       full_join(traveltime, by = "conus.grid.id") %>%
-      mutate(sqrtarea_small = sqrt(area_small),
-             sqrtarea_medium = sqrt(area_medium)) %>%
-      select(conus.grid.id, sqrtarea_small, sqrtarea_medium, footprint, TRI, tmin, traveltime)
+      full_join(dat.grid, by = "conus.grid.id") %>%
+      select(conus.grid.id, streamLength.km, prec, forest, traveltime, ORM, silt)
+    covar$ORM[which(is.na(covar$ORM))] <- 0
     
     
     
     covar <- covar[order(match(covar$conus.grid.id, region$sp.grid$conus.grid.id)),]
     write_rds(covar, file = paste0(data.dir, "covariates.rds"))
     
+    
   }
-  
 }
 
 
-if (sp.code == "GPOR" | sp.code == "DMAR") {
+if (sp.code == "GPOR") {
   
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
     covar <- read_rds(paste0(data.dir, "covariates.rds"))
@@ -436,8 +466,12 @@ if (sp.code == "GPOR" | sp.code == "DMAR") {
                 "Stereochilus", "Taricha", "Urspelerpes")
     
     dat1 <- dat$dat %>%
+      mutate(include = case_when(coordinateUncertaintyInMeters < 25000 | 
+                                   species == "Desmognathus marmoratus" ~ 1,
+                                 T ~ 0)) %>%
       filter(genus %in% genera,
-             coordinateUncertaintyInMeters < 25000)
+             include == 1,
+             is.na(coordinateUncertaintyInMeters) == F)
     dat.grid <- clean_gbif(dat1) %>%
       st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326) %>%
       st_transform(crs = st_crs(region$sp.grid)) %>%
@@ -569,9 +603,11 @@ if (block.out == "none") {
 
 # NIMBLE ----
 
+file.info <- filter(allfiles, DMAR == 1)
+
 sp.data <- sppdata_for_nimble(species.data,
                               region,
-                              file.info = allfiles,
+                              file.info = file.info,
                               covar = covar,
                               covs.inat = covs.inat,
                               covs.PO = covs.PO,
@@ -582,7 +618,6 @@ sp.data <- sppdata_for_nimble(species.data,
 ### Data/constants ----
 tmp <- data_for_nimble(sp.data, covar = covar, covs.z,
                        sp.auto = sp.auto, coarse.grid = coarse.grid, region = region,
-                       process.intercept = F,
                        gridkey = gridkey, spatRegion= spatRegion)
 
 data <- tmp$data
@@ -592,6 +627,7 @@ constants <- tmp$constants
 # Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
 # Add state indicator for multi-state PO to indicate which states have data
 if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
+if (sp.code == "DMAR") obsc.state <- NA
 constants <- add_state_ind(species.data,
                            region,
                            gridkey,
