@@ -25,7 +25,7 @@ if (file.exists("data/gbif-raw.rds")) {
   dat <- read_rds("data/gbif-raw.rds")
 } else {
   dat <- download_gbif(scientificName = "Amphibia", taxonrank = "kingdom",
-                       startYear = 1994, country = "US", source = "iNaturalist",
+                       startYear = 1994, country = "US",
                        user = user, pwd = pwd, email = email)
   write_rds(dat, file = "data/gbif-raw.rds")
 }

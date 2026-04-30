@@ -12,3 +12,4 @@ outputs/*/setup_*.Rdata
 outputs/RACA-spatial-model-tests
 outputs/old/*
 data/inat-raw.rds
+data/gbif-raw.rds
