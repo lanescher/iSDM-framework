@@ -630,7 +630,7 @@ constants <- tmp$constants
 # Add state indicator variable for iNat data to indicate which states have taxon geoprivacy
 # Add state indicator for multi-state PO to indicate which states have data
 if (sp.code == "GPOR") obsc.state <- c("CT", "MS", "NJ", "RI")
-if (sp.code == "DMAR") obsc.state <- c("GA", "ON", "SC")
+if (sp.code == "DMAR") obsc.state <- c("GA", "SC")
 constants <- add_state_ind(species.data,
                            region,
                            gridkey,
