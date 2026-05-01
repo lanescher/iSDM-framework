@@ -50,7 +50,7 @@ library(sf)
 library(nimble)
 library(SpFut.flexiSDM)
 library(SpFut.covariates)
-# library(SpFut.processGBIF)
+library(SpFut.processGBIF)
 
 
 # Set up model variables ----
@@ -412,7 +412,7 @@ if (sp.code == "DMAR") {
       filter(genus %in% genera,
              include == 1,
              is.na(coordinateUncertaintyInMeters) == F,
-             source == "iNaturalist")
+             datasetKey == "50c9509d-22c7-4a22-a47d-8c48425ef4a7") # According to John Waller on 12/3/2025, this is more accurate than institutionCode == "iNaturalist"
     dat.grid <- clean_gbif(dat1) %>%
       st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326) %>%
       st_transform(crs = st_crs(region$sp.grid)) %>%
@@ -473,7 +473,8 @@ if (sp.code == "GPOR") {
                                  T ~ 0)) %>%
       filter(genus %in% genera,
              include == 1,
-             is.na(coordinateUncertaintyInMeters) == F)
+             is.na(coordinateUncertaintyInMeters) == F,
+             datasetKey == "50c9509d-22c7-4a22-a47d-8c48425ef4a7") # According to John Waller on 12/3/2025, this is more accurate than institutionCode == "iNaturalist"
     dat.grid <- clean_gbif(dat1) %>%
       st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326) %>%
       st_transform(crs = st_crs(region$sp.grid)) %>%
