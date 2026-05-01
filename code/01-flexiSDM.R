@@ -20,7 +20,7 @@ print(paste0('Beginning 01-flexiSDM script at ', start1))
 
 
 # EDIT THIS SECTION ----
-nums.do <- 1
+nums.do <- 2
 block <- "none"
 # block <- c("none", 1, 2, 3)
 local <- 1
@@ -168,7 +168,8 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
     st_transform(crs = 3857) %>% st_buffer(buffer)
   
   # 25sqkm
-  cellarea <- 10e6
+  if (sp.code == "DMAR") cellarea <- 10e6
+  if (sp.code == "GPOR") cellarea <- 25e6
   cellsize <- 2 * sqrt(cellarea/((3*sqrt(3)/2))) * sqrt(3)/2
   grid <- st_make_grid(gridstart, cellsize = cellsize, square = F) %>% st_as_sf() %>% rename(geometry = x) %>% mutate(conus.grid.id = 1:nrow(.))
   
@@ -181,6 +182,22 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
                         rm.clumps = T,
                         clump.size = 50, 
                         continuous = F)
+  
+  # identify cells that overlap multiple states
+  statemap <- ne_states(country = c("Canada", "Mexico", "United States of America"),
+                        returnclass = "sf")
+  stategrid <- get_state_grid(region, statemap)
+  
+  xstate <- stategrid %>% 
+    group_by(conus.grid.id) %>% 
+    summarize(nstate = n()) %>% 
+    filter(nstate > 1) %>% 
+    pull(conus.grid.id)
+  
+  region$sp.grid <- region$sp.grid %>%
+    mutate(nstate = case_when(conus.grid.id %in% xstate ~ "multi",
+                              T ~ "single"))
+  
   
   write_rds(region, file = paste0(data.dir, "region.rds"))
 }
