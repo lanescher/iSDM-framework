@@ -173,7 +173,7 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   cellsize <- 2 * sqrt(cellarea/((3*sqrt(3)/2))) * sqrt(3)/2
   grid <- st_make_grid(gridstart, cellsize = cellsize, square = F) %>% st_as_sf() %>% rename(geometry = x) %>% mutate(conus.grid.id = 1:nrow(.))
   
-  # Region - LANE CHECK 
+  # Region
   region <- make_region(rangelist,
                         buffer = buffer,
                         sub = region.sub,
@@ -186,9 +186,9 @@ if (file.exists(paste0(data.dir, "region.rds"))) {
   # identify cells that overlap multiple states
   statemap <- ne_states(country = c("Canada", "Mexico", "United States of America"),
                         returnclass = "sf")
-  stategrid <- get_state_grid(region, statemap)
+  region$state_grid <- get_state_grid(region)
   
-  xstate <- stategrid %>% 
+  xstate <- region$state_grid %>% 
     group_by(conus.grid.id) %>% 
     summarize(nstate = n()) %>% 
     filter(nstate > 1) %>% 
@@ -623,12 +623,14 @@ if (block.out == "none") {
 
 # NIMBLE ----
 
-file.info <- filter(allfiles, DMAR == 1)
+if (sp.code == "DMAR") file.info <- filter(allfiles, DMAR == 1)
+if (sp.code == "GPOR") file.info <- filter(allfiles, GPOR == 1)
 
 sp.data <- sppdata_for_nimble(species.data,
                               region,
                               file.info = file.info,
                               covar = covar,
+                              stategrid = region$state_grid,
                               covs.inat = covs.inat,
                               covs.PO = covs.PO,
                               DND.maybe = 1,
@@ -652,7 +654,7 @@ constants <- add_state_ind(species.data,
                            region,
                            gridkey,
                            constants,
-                           stategrid,
+                           stategrid = region$state_grid,
                            obsc.state = obsc.state,
                            keep.conus.grid.id = gridkey$conus.grid.id[which(gridkey$group == "train")])
 
