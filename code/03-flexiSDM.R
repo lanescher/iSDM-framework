@@ -22,7 +22,7 @@ library(SpFut.flexiSDM)
 
 
 # EDIT THIS SECTION ----
-num <- 3
+num <- 1
 block <- "none"
 maxchain <- 3
 local <- 1
@@ -426,7 +426,7 @@ species.data <- load_species_data(sp.code = sp.code,
                                   year.end = year.end,
                                   coordunc = coordunc,
                                   coordunc_na.rm = coordunc_na.rm,
-                                  spat.thin = spat.bal,
+                                  spat.thin = spat.thin,
                                   keep.conus.grid.id = gridkey$conus.grid.id)
 
 
