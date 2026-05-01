@@ -516,8 +516,12 @@ if (sp.code == "GPOR") {
 
 rm <- which(complete.cases(covar[,covs.z]) == F)
 if (length(rm) > 0) {
+  cat(paste0("\nRemoving ", length(rm), " grid cells with missing covariates\n"))
   covar <- covar[-rm,]
   region$sp.grid <- region$sp.grid[-rm,]
+  gridkey <- gridkey[-rm,]
+} else {
+  cat("\nNo missing covariates found. All grid cells retained.\n")
 }
 
 # Scale covariates 
