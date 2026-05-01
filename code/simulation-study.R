@@ -577,7 +577,9 @@ ggplot(filter(parall1, type == "process", mixed == 1)) +
   facet_wrap(~ species) +
   theme_bw() +
   labs(x = "Covariate", y = "Estimate", color = "Model") +
-  coord_cartesian(ylim = c(-0.5, 0.5))
+  coord_cartesian(ylim = c(-1, 1))
+
+table(parall1$recovered[which(parall1$type == "process")])/nrow(parall1[which(parall1$type == "process"),])
 
 
 cov.labs <- data.frame(covariate = c(covs.z, covs.PO, covs.inat),
