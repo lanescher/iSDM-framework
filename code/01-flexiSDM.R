@@ -394,6 +394,14 @@ ggsave(pl$plot, file = paste0(out.dir, "2_inputmap-a_data-", blockname, ".jpg"),
 
 # Covariate data ----
 
+genera <- c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
+            "Cryptobranchus", "Desmognathus", "Dicamptodon", 
+            "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
+            "Hydromantes", "Necturus", "Notophthalmus",
+            "Phaeognathus", "Plethodon", "Pseudobranchus",
+            "Pseudotriton", "Rhyacotriton", "Siren", 
+            "Stereochilus", "Taricha", "Urspelerpes")
+
 if (sp.code == "DMAR") {
   
   if (file.exists(paste0(data.dir, "covariates.rds"))) {
@@ -414,13 +422,7 @@ if (sp.code == "DMAR") {
     
     # Get ORM for iNat data
     dat <- read_rds("data/gbif-raw.rds")
-    genera <- c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
-                "Cryptobranchus", "Desmognathus", "Dicamptodon", 
-                "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
-                "Hydromantes", "Necturus", "Notophthalmus",
-                "Phaeognathus", "Plethodon", "Pseudobranchus",
-                "Pseudotriton", "Rhyacotriton", "Siren", 
-                "Stereochilus", "Taricha", "Urspelerpes")
+    
     
     dat1 <- dat$dat %>%
       mutate(include = case_when(coordinateUncertaintyInMeters < 25000 | 
@@ -476,13 +478,6 @@ if (sp.code == "GPOR") {
     
     # Get ORM for iNat data
     dat <- read_rds("data/gbif-raw.rds")
-    genera <- c("Ambystoma", "Amphiuma", "Aneides", "Batrachoseps",
-                "Cryptobranchus", "Desmognathus", "Dicamptodon", 
-                "Ensatina", "Eurycea", "Gyrinophilus", "Hemidactylium",
-                "Hydromantes", "Necturus", "Notophthalmus",
-                "Phaeognathus", "Plethodon", "Pseudobranchus",
-                "Pseudotriton", "Rhyacotriton", "Siren", 
-                "Stereochilus", "Taricha", "Urspelerpes")
     
     dat1 <- dat$dat %>%
       mutate(include = case_when(coordinateUncertaintyInMeters < 25000 | 
