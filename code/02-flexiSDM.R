@@ -1,9 +1,9 @@
 ## ---------------------------
 ## Objective: 
-##    - Fit NIMBLE model using setup_BLOCK.rdata file
+##    - Fit NIMBLE model using setup_BLOCK.RData file
 ## 
 ## Input:
-##    - setup_BLOCK.rdata
+##    - setup_BLOCK.RData
 ##
 ## Output: 
 ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds
@@ -50,7 +50,7 @@ model <- mods$model[1]
 
 # Set output directory and load setup file
 out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
-load(paste0(out.dir,'setup_',block,'.Rdata'))
+load(paste0(out.dir,'setup_',block,'.RData'))
 
 
 # Fit NIMBLE model ----

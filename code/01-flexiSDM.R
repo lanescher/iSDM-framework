@@ -9,7 +9,7 @@
 ##    - code/03-species-models/MVPv1.csv
 ##
 ## Output: 
-##    - setup_BLOCK.rdata (saves environment for import to fit model)
+##    - setup_BLOCK.RData (saves environment for import to fit model)
 ##
 ## ---------------------------
 
@@ -697,12 +697,12 @@ end1 <- Sys.time() - start1
 
 
 # Remove local and block in case the setup is run locally but the model is fit on the HPC.
-# Remove other unnecessary files to reduce the size of setup_BLOCK.Rdata
+# Remove other unnecessary files to reduce the size of setup_BLOCK.RData
 rm(list=c('block','args','pl','a','c','rm','tmp'))
 
 
 # Save environment and full set up
-save.image(paste0(out.dir, "setup_",block.out,".Rdata"))
+save.image(paste0(out.dir, "setup_",block.out,".RData"))
 
 
 # End script - proceed to 02-flexiSDM.R

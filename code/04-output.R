@@ -35,11 +35,11 @@ library(SpFut.flexiSDM)
 
 
 ## Figure 2: RACA- range (a), intensity (b), suitable habitat (c), uncertainty (d) ----
-# load(paste0(out.dir, "datafull.rdata"))
+# load(paste0(out.dir, "datafull.RData"))
 out.dir <- "outputs/1_RACA_iSDM/"
-load(paste0(out.dir, "datafull-info.rdata"))
-load(paste0(out.dir, "datafull.rdata"))
-load(paste0(out.dir, "region.rdata"))
+load(paste0(out.dir, "datafull-info.RData"))
+load(paste0(out.dir, "datafull.RData"))
+load(paste0(out.dir, "region.RData"))
 
 
 na <- rnaturalearth::ne_countries(continent = "North America", 
@@ -187,8 +187,8 @@ ggsave(racamap, file = "outputs/figures/Fig2-racamap.jpg",
 
 
 ## Figure 3: RACA- parameters ----
-load("outputs/1_RACA_iSDM/datafull-info.rdata")
-load("outputs/1_RACA_iSDM/datafull.rdata")
+load("outputs/1_RACA_iSDM/datafull-info.RData")
+load("outputs/1_RACA_iSDM/datafull.RData")
 cov.labs <- read.csv("data/covariate-labels.csv")
 
 dat <- out$process.coef %>%
@@ -347,9 +347,9 @@ ggsave(covs, file = "outputs/figures/Fig3-racaparameters.jpg",
 
 # Figure 4: GPOR- Process model ----
 
-load("outputs/2_GPOR_iSDM/datafull-info.rdata")
-load("outputs/2_GPOR_iSDM/datafull.rdata")
-load("outputs/2_GPOR_iSDM/region.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.RData")
+load("outputs/2_GPOR_iSDM/datafull.RData")
+load("outputs/2_GPOR_iSDM/region.RData")
 
 na <- rnaturalearth::ne_countries(continent = "North America", 
                                   returnclass = "sf", 
@@ -515,9 +515,9 @@ ggsave(pl, file = "outputs/figures/Fig4-gporprocess.jpg",
 
 ## Figure 5: GPOR- PO data and effort ----
 
-load("outputs/2_GPOR_iSDM/datafull-info.rdata")
-load("outputs/2_GPOR_iSDM/datafull.rdata")
-load("outputs/2_GPOR_iSDM/region.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.RData")
+load("outputs/2_GPOR_iSDM/datafull.RData")
+load("outputs/2_GPOR_iSDM/region.RData")
 
 
 
@@ -817,8 +817,8 @@ base <- ggplot() +
 
 
 # RACA
-load("outputs/1_RACA_iSDM/datafull-info.rdata")
-load("outputs/1_RACA_iSDM/region.rdata")
+load("outputs/1_RACA_iSDM/datafull-info.RData")
+load("outputs/1_RACA_iSDM/region.RData")
 
 spatblocks <- make_CV_blocks(region, rows = 5, cols = 5, k = 3)
 
@@ -846,8 +846,8 @@ raca <- base +
 
 
 # GPOR
-load("outputs/2_GPOR_iSDM/datafull-info.rdata")
-load("outputs/2_GPOR_iSDM/region.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.RData")
+load("outputs/2_GPOR_iSDM/region.RData")
 
 spatblocks <- make_CV_blocks(region, rows = 5, cols = 5, k = 3)
 
@@ -890,7 +890,7 @@ ggsave(pl, file = "outputs/figures/FigS2-CV.jpg", height = 9, width = 12)
 
 
 # Figure S4: coarse spatial effect ----
-load("outputs/2_GPOR_iSDM/region.rdata")
+load("outputs/2_GPOR_iSDM/region.RData")
 spatRegion <- suppressWarnings(make_spatkey(region$sp.grid))
 
 
@@ -932,23 +932,23 @@ auc <- c()
 out.dir <- "outputs/1_RACA_iSDM/"
 # Load data from all model runs
 for (i in 1:3) {
-  load(paste0(out.dir, "data", i, "-info.rdata"))
+  load(paste0(out.dir, "data", i, "-info.RData"))
   all.auc$block <- as.character(all.auc$block)
   auc <- bind_rows(auc, all.auc)
 }
 # now add full model
-load(paste0(out.dir, "datafull-info.rdata"))
+load(paste0(out.dir, "datafull-info.RData"))
 auc <- bind_rows(auc, all.auc)
 
 out.dir <- "outputs/2_GPOR_iSDM/"
 # Load data from all model runs
 for (i in 1:3) {
-  load(paste0(out.dir, "data", i, "-info.rdata"))
+  load(paste0(out.dir, "data", i, "-info.RData"))
   all.auc$block <- as.character(all.auc$block)
   auc <- bind_rows(auc, all.auc)
 }
 # now add full model
-load(paste0(out.dir, "datafull-info.rdata"))
+load(paste0(out.dir, "datafull-info.RData"))
 auc <- bind_rows(auc, all.auc)
 
 
@@ -1034,7 +1034,7 @@ ggsave(pl, file = "outputs/figures/FigS6-AUC.jpg", height = 4, width = 7)
 # Figure S6: Dataset intercepts ----
 
 
-load("outputs/1_RACA_iSDM/datafull.rdata")
+load("outputs/1_RACA_iSDM/datafull.RData")
 
 dp <- out$alpha %>%
   arrange(mean)
@@ -1057,7 +1057,7 @@ a <- ggplot(dp) +
 
 
 
-load("outputs/2_GPOR_iSDM/datafull.rdata")
+load("outputs/2_GPOR_iSDM/datafull.RData")
 
 dp <- out$alpha %>%
   arrange(mean)
@@ -1093,8 +1093,8 @@ ggsave(pl, file = "outputs/figures/FigS7-datasetintercepts.jpg", height = 5, wid
 
 # Figure S7: GPOR marginal effects ----
 
-load("outputs/2_GPOR_iSDM/datafull-info.rdata")
-load("outputs/2_GPOR_iSDM/datafull.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.RData")
+load("outputs/2_GPOR_iSDM/datafull.RData")
 cov.labs <- read.csv("data/covariate-labels.csv")
 
 dat <- out$process.coef %>%
@@ -1234,13 +1234,13 @@ ggsave(effects, file = "outputs/figures/FigS8-GPORmarginaleffects.jpg",
 
 dat <- c()
 
-load("outputs/1_RACA_iSDM/datafull-info.rdata")
+load("outputs/1_RACA_iSDM/datafull-info.RData")
 dat1 <- species.data$locs$disc %>%
   mutate(species = "Cascades Frog",
          sp.code = "RACA")
 dat <- bind_rows(dat, dat1)
 
-load("outputs/2_GPOR_iSDM/datafull-info.rdata")
+load("outputs/2_GPOR_iSDM/datafull-info.RData")
 dat1 <- species.data$locs$disc %>%
   mutate(species = "Spring Salamander",
          sp.code = "GPOR")

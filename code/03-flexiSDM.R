@@ -1,9 +1,9 @@
 ## ---------------------------
 ## Objective: 
-##    - Fit NIMBLE model using setup_BLOCK.rdata file
+##    - Fit NIMBLE model using setup_BLOCK.RData file
 ## 
 ## Input:
-##    - setup_BLOCK.rdata
+##    - setup_BLOCK.RData
 ##    - samples_BLOCK_CHAIN.rds OR samples_BLOCK.rds
 ##
 ## Output: 
@@ -53,7 +53,7 @@ model <- mods$model[1]
 
 # load output directory, setup, and functions
 out.dir = paste0('outputs/',num,'_',sp.code,'_',model,'/')
-load(paste0(out.dir,'setup_',block,'.Rdata'))
+load(paste0(out.dir,'setup_',block,'.RData'))
 
 
 project <- 0
@@ -92,7 +92,7 @@ out <- summarize_samples(samples,
                          effort = T,
                          SLURM = ifelse(local == 1, F, T))
 
-save(out, file = paste0(out.dir, "data", blockname, ".rdata"))
+save(out, file = paste0(out.dir, "data", blockname, ".RData"))
 
 
 
@@ -412,8 +412,8 @@ if (block.out == "none") {
 
 # Validate ----
 
-load(paste0(out.dir, 'setup_', block, ".Rdata"))
-load(paste0(out.dir, "data", blockname, ".rdata"))
+load(paste0(out.dir, 'setup_', block, ".RData"))
+load(paste0(out.dir, "data", blockname, ".RData"))
 
 # Get all data
 species.data <- load_species_data(sp.code = sp.code,
@@ -438,12 +438,12 @@ all.auc <- get_AUC(species.data, out)
 # Save everything ----
 if (block.out == "none") {
   blockname <- "full"
-  save(region, file = paste0(out.dir, "region.rdata"))
+  save(region, file = paste0(out.dir, "region.RData"))
 } else {blockname <- block.out}
 
 
 save(species.data, covar, covar_unscaled, data, constants, gridkey, all.auc, block.out,
-     file = paste0(out.dir, "data", blockname, "-info.rdata"))
+     file = paste0(out.dir, "data", blockname, "-info.RData"))
 
 
 
@@ -456,7 +456,7 @@ done <- list.files(path = out.dir)
 mod.name <- c('data1','data2','data3','datafull')
 
 
-if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done)) {
+if (all(c(paste0(mod.name, '.RData'), paste0(mod.name, '-info.RData')) %in% done)) {
   
   
   # Load data from all model runs
@@ -465,8 +465,8 @@ if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done
   obs <- c()
   alpha <- c()
   for (i in 1:3) {
-    load(paste0(out.dir, "data", i, "-info.rdata"))
-    load(paste0(out.dir, "data", i, ".rdata"))
+    load(paste0(out.dir, "data", i, "-info.RData"))
+    load(paste0(out.dir, "data", i, ".RData"))
     
     
     out$process.coef$block.out <- as.character(out$process.coef$block.out)
@@ -484,7 +484,7 @@ if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done
   }
   
   # now add full model
-  load(paste0(out.dir, "datafull.rdata"))
+  load(paste0(out.dir, "datafull.RData"))
   
   out$process.coef$block.out <- as.character(out$process.coef$block.out)
   out$obs.coef$block.out <- as.character(out$obs.coef$block.out)
@@ -495,7 +495,7 @@ if (all(c(paste0(mod.name, '.rdata'), paste0(mod.name, '-info.rdata')) %in% done
   alpha <- bind_rows(alpha, out$alpha)
   
   
-  load(paste0(out.dir, "datafull-info.rdata"))
+  load(paste0(out.dir, "datafull-info.RData"))
   auc$block <- as.character(auc$block)
   auc <- bind_rows(auc, all.auc)
   

@@ -297,9 +297,9 @@ path = 'outputs/proj08-model-framework/figures/'
 # Reference model -----
 test <- '31_RACA_test'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
@@ -327,9 +327,9 @@ ref.dat <- pull_pars(out) %>%
 ### Tau = 0.1 -----
 test <- '33_RACA_tau0.1'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 # Lambda
@@ -352,9 +352,9 @@ pull_pars(out) %>%
 ### Tau = 10 -----
 test <- '34_RACA_tau10'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
@@ -451,9 +451,9 @@ ggsave('FigA1S4-coef.jpg',
 ### Tau = 1 ----
 test <- '44_RACA_tau1zmF'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
@@ -478,9 +478,9 @@ pull_pars(out) %>%
 ### Tau = 0.1 ----
 test <- '45_RACA_tau0.1zmF'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 # Lambda
@@ -505,9 +505,9 @@ pull_pars(out) %>%
 ### Tau = 10 ----
 test <- '46_RACA_tau10zmF'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
@@ -603,9 +603,9 @@ ggsave('FigA1S8-coef.jpg',
 ### ~ dgamma(5,5) ----
 test <- '37_RACA_tauGam5-5'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 # Lambda
@@ -633,9 +633,9 @@ pull_pars(out) %>%
 ### ~ dnorm(1,0.1) ----
 test <- '38_RACA_tauNorm1-0.1'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
@@ -664,9 +664,9 @@ pull_pars(out) %>%
 ### ~ dgamma(0.01, 0.01) ----
 test <- '39_RACA_tauGam0.01-0.01'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
@@ -778,9 +778,9 @@ ggsave('FigA1S13-coef.jpg',
 ### ~ dgamma(5,5) ----
 test <- '40_RACA_tau37zmF'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 # Lambda
@@ -806,9 +806,9 @@ pull_pars(out) %>%
 ### ~ dnorm(1,0.1) ----
 test <- '41_RACA_tau38zmF'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 # Lambda
@@ -834,9 +834,9 @@ pull_pars(out) %>%
 ### ~ dgamma(0.01, 0.01) ----
 test <- '42_RACA_tau39zmF'
 
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.rdata"))
-load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.rdata"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull-info.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/datafull.RData"))
+load(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/region.RData"))
 samples <- readRDS(paste0("~/GitHub/species-futures/outputs/03-species-models/MVPv1/RACA-spatial-model-tests/",test,"/samples_none.rds"))
 
 
